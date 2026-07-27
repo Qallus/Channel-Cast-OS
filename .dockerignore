@@ -1,0 +1,13 @@
+node_modules
+.next
+.data
+_reference
+.git
+.devserver.log
+*.log
+docs
+mockups
+npm-debug.log*
+.env
+.env*.local
+.DS_Store

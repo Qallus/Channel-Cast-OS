@@ -1,0 +1,43 @@
+# Environment Variables
+
+Use environment variables for all secrets and service URLs.
+
+```env
+NEXT_PUBLIC_APP_URL=
+NEXT_PUBLIC_SITE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+
+AUDIO_STORAGE_BUCKET=
+STORAGE_ACCESS_KEY_ID=
+STORAGE_SECRET_ACCESS_KEY=
+STORAGE_REGION=
+STORAGE_ENDPOINT=
+
+DEVICE_API_SECRET=
+DEVICE_TOKEN_SALT=
+
+HERMES_API_URL=
+HERMES_API_KEY=
+PAPERCLIP_API_URL=
+PAPERCLIP_API_KEY=
+OPENROUTER_API_KEY=
+
+RESEND_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+```
+
+## Rules
+
+- Never commit `.env` files.
+- Never expose service role keys to the browser.
+- Device tokens must be hashed or stored securely.
+- Use separate dev/staging/prod credentials.

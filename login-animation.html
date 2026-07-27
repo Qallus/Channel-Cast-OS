@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Channel Cast — orbital rings</title>
+<style>
+  :root {
+    --cc-bg: #050705;
+    --cc-lime: #ccff00;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--cc-bg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #e6ebe6;
+    display: grid;
+    place-items: center;
+  }
+  .stage {
+    position: relative;
+    width: min(92vw, 92vh);
+    aspect-ratio: 1;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .caption {
+    position: absolute;
+    left: 0; bottom: -3.5rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4c554c;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="rings"></canvas>
+    <div class="caption">Orbital rings — background layer</div>
+  </div>
+
+<script>
+const canvas = document.getElementById("rings");
+const ctx = canvas.getContext("2d");
+
+// --- tuning -------------------------------------------------
+const FOCAL = 1000;          // perspective strength (lower = more dramatic)
+const TICK = 26;             // tick length in world units
+const LIME = [204, 255, 0];
+const PALE = [200, 214, 200];
+
+// each ring: radius, tilt on X, tilt on Y, spin speed (rad/sec), tick count
+const RINGS = [
+  { r: 120, tx: 1.15, ty: 0.20, spin:  0.26, n: 24 },
+  { r: 190, tx: 0.55, ty: -0.75, spin: -0.19, n: 34 },
+  { r: 260, tx: 1.35, ty: 0.60, spin:  0.14, n: 44 },
+  { r: 330, tx: 0.25, ty: 1.10, spin: -0.11, n: 56 },
+  { r: 400, tx: 1.00, ty: -0.35, spin:  0.08, n: 68 },
+];
+// ------------------------------------------------------------
+
+let w, h, cx, cy, scale;
+
+// the product is drawn once into an offscreen buffer, then blitted blurred
+const puck = document.createElement("canvas");
+const pctx = puck.getContext("2d");
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  w = rect.width; h = rect.height;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = w / 2; cy = h / 2;
+  scale = Math.min(w, h) / 900;   // world units -> px
+  renderPuck();
+}
+
+// --- the device: low disc, banded side wall, flared base, lens dome on top ---
+function renderPuck() {
+  puck.width = w; puck.height = h;
+  pctx.clearRect(0, 0, w, h);
+
+  const R  = 205 * scale;         // top radius
+  const RY = R * 0.30;            // ellipse squash (viewing angle)
+  const H  = 78 * scale;          // body height
+  const ty = cy - H / 2;          // top face center
+  const by = cy + H / 2;          // bottom face center
+  const line = "rgba(226,236,226,0.42)";
+
+  // side wall
+  const wall = pctx.createLinearGradient(cx - R, 0, cx + R, 0);
+  wall.addColorStop(0.00, "#0a0d0a");
+  wall.addColorStop(0.18, "#151a15");
+  wall.addColorStop(0.50, "#080b08");
+  wall.addColorStop(0.85, "#161c16");
+  wall.addColorStop(1.00, "#0a0d0a");
+  pctx.fillStyle = wall;
+  pctx.beginPath();
+  pctx.ellipse(cx, ty, R, RY, 0, Math.PI, 0);      // top edge
+  pctx.lineTo(cx + R, by);
+  pctx.ellipse(cx, by, R, RY, 0, 0, Math.PI);      // bottom edge
+  pctx.closePath();
+  pctx.fill();
+
+  pctx.lineWidth = Math.max(1, 1.1 * scale);
+  pctx.strokeStyle = line;
+
+  // top face
+  pctx.fillStyle = "#070a07";
+  pctx.beginPath();
+  pctx.ellipse(cx, ty, R, RY, 0, 0, Math.PI * 2);
+  pctx.fill();
+  pctx.stroke();
+
+  // inset ring on the top face
+  pctx.beginPath();
+  pctx.ellipse(cx, ty + 4 * scale, R * 0.88, RY * 0.88, 0, 0, Math.PI * 2);
+  pctx.stroke();
+
+  // banding on the side wall
+  for (const f of [0.34, 0.68]) {
+    pctx.beginPath();
+    pctx.ellipse(cx, ty + H * f, R, RY, 0, 0, Math.PI);
+    pctx.stroke();
+  }
+
+  // flared base
+  pctx.beginPath();
+  pctx.ellipse(cx, by, R * 1.03, RY * 1.05, 0, 0, Math.PI);
+  pctx.stroke();
+
+  // lens dome, sitting on the top face
+  const lx = cx, ly = ty - 6 * scale;
+  const lr = 40 * scale;
+  pctx.fillStyle = "#0b0f0b";
+  pctx.beginPath();
+  pctx.ellipse(lx, ly, lr, lr * 0.34, 0, 0, Math.PI * 2);
+  pctx.fill();
+  pctx.stroke();
+  pctx.beginPath();                                  // the little bump
+  pctx.moveTo(lx - lr * 0.55, ly - lr * 0.06);
+  pctx.quadraticCurveTo(lx, ly - lr * 0.85, lx + lr * 0.55, ly - lr * 0.06);
+  pctx.stroke();
+}
+
+// rotate a point: spin about the ring's own axis, then tilt X, then tilt Y
+function transform(x, y, z, tx, ty) {
+  let y1 = y * Math.cos(tx) - z * Math.sin(tx);
+  let z1 = y * Math.sin(tx) + z * Math.cos(tx);
+  let x2 = x * Math.cos(ty) + z1 * Math.sin(ty);
+  let z2 = -x * Math.sin(ty) + z1 * Math.cos(ty);
+  return [x2, y1, z2];
+}
+
+function project(x, y, z) {
+  const s = FOCAL / (FOCAL - z);
+  return [cx + x * s * scale, cy + y * s * scale, s];
+}
+
+function drawCore(t) {
+  const pulse = 1 + Math.sin(t * 0.55) * 0.08;
+  const ly = cy - 45 * scale;            // the lens, not the geometric center
+
+  // ambient bloom the product sits inside
+  const amb = ctx.createRadialGradient(cx, ly, 0, cx, ly, 260 * scale * pulse);
+  amb.addColorStop(0.00, "rgba(204,255,0,0.18)");
+  amb.addColorStop(0.40, "rgba(150,200,0,0.07)");
+  amb.addColorStop(1.00, "rgba(204,255,0,0)");
+  ctx.fillStyle = amb;
+  ctx.fillRect(0, 0, w, h);
+
+  // the product, thrown out of focus
+  ctx.save();
+  ctx.filter = `blur(${Math.max(6, 16 * scale)}px)`;
+  ctx.globalAlpha = 0.9;
+  ctx.drawImage(puck, 0, 0);
+  ctx.restore();
+
+  // the lens itself, glowing through the blur
+  const lens = ctx.createRadialGradient(cx, ly, 0, cx, ly, 90 * scale * pulse);
+  lens.addColorStop(0.00, "rgba(226,255,120,0.55)");
+  lens.addColorStop(0.30, "rgba(204,255,0,0.28)");
+  lens.addColorStop(1.00, "rgba(204,255,0,0)");
+  ctx.fillStyle = lens;
+  ctx.beginPath();
+  ctx.arc(cx, ly, 90 * scale * pulse, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function frame(now) {
+  const t = now / 1000;
+  ctx.clearRect(0, 0, w, h);
+  drawCore(t);
+
+  const segs = [];
+
+  for (const ring of RINGS) {
+    // slow tumble so the whole armillary drifts, not just spins
+    const tx = ring.tx + Math.sin(t * 0.07 + ring.r) * 0.10;
+    const ty = ring.ty + Math.cos(t * 0.05 + ring.r) * 0.10;
+
+    for (let i = 0; i < ring.n; i++) {
+      const a = (i / ring.n) * Math.PI * 2 + t * ring.spin;
+      const ca = Math.cos(a), sa = Math.sin(a);
+
+      const inner = transform(ring.r * ca, ring.r * sa, 0, tx, ty);
+      const outer = transform((ring.r + TICK) * ca, (ring.r + TICK) * sa, 0, tx, ty);
+
+      const pi = project(inner[0], inner[1], inner[2]);
+      const po = project(outer[0], outer[1], outer[2]);
+
+      const z = (inner[2] + outer[2]) / 2;
+      segs.push({ pi, po, z, s: (pi[2] + po[2]) / 2 });
+    }
+  }
+
+  // painter's algorithm: far ticks first
+  segs.sort((a, b) => a.z - b.z);
+
+  ctx.lineCap = "round";
+  for (const s of segs) {
+    const d = Math.max(0, Math.min(1, (s.z + 420) / 840)); // 0 = far, 1 = near
+    const alpha = 0.06 + Math.pow(d, 2.2) * 0.85;
+    const mix = Math.pow(d, 3.5);                            // lime only on the nearest arc
+    const c = PALE.map((p, i) => Math.round(p + (LIME[i] - p) * mix));
+
+    ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+    ctx.lineWidth = (0.6 + d * 1.7) * s.s;
+    ctx.beginPath();
+    ctx.moveTo(s.pi[0], s.pi[1]);
+    ctx.lineTo(s.po[0], s.po[1]);
+    ctx.stroke();
+  }
+
+  raf = requestAnimationFrame(frame);
+}
+
+let raf;
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+resize();
+window.addEventListener("resize", () => { resize(); if (reduced) frame(0); });
+if (reduced) frame(0); else raf = requestAnimationFrame(frame);
+</script>
+</body>
+</html>

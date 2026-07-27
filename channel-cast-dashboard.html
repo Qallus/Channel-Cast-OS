@@ -1,0 +1,1470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Channel Cast Dashboard UI</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-2: #0a1424;
+      --panel: rgba(255, 255, 255, 0.065);
+      --panel-strong: rgba(255, 255, 255, 0.095);
+      --panel-soft: rgba(255, 255, 255, 0.045);
+      --border: rgba(255, 255, 255, 0.12);
+      --border-strong: rgba(255, 255, 255, 0.2);
+      --text: #f5f8ff;
+      --muted: #95a3b9;
+      --muted-2: #c3ccda;
+      --cyan: #67e8f9;
+      --blue: #60a5fa;
+      --green: #52e2a7;
+      --yellow: #f7d774;
+      --orange: #fb923c;
+      --red: #fb7185;
+      --purple: #c084fc;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --sidebar: 286px;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.23), transparent 32rem),
+        radial-gradient(circle at 85% 10%, rgba(103, 232, 249, 0.15), transparent 34rem),
+        radial-gradient(circle at 45% 100%, rgba(251, 146, 60, 0.11), transparent 30rem),
+        linear-gradient(135deg, var(--bg), var(--bg-2));
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 22px;
+      border-right: 1px solid var(--border);
+      background: rgba(7, 17, 31, 0.72);
+      backdrop-filter: blur(24px);
+      overflow: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 10px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      letter-spacing: -0.08em;
+      color: #07111f;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      box-shadow: 0 14px 35px rgba(103, 232, 249, 0.24);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-group-label {
+      margin: 24px 10px 9px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav button {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 16px;
+      color: var(--muted-2);
+      background: transparent;
+      padding: 12px 12px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      text-align: left;
+      transition: 160ms ease;
+    }
+
+    .nav button:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    .nav button.active {
+      background: linear-gradient(135deg, rgba(103, 232, 249, 0.16), rgba(96, 165, 250, 0.12));
+      border-color: rgba(103, 232, 249, 0.28);
+      color: var(--text);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .nav-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.075);
+      color: var(--cyan);
+      flex: 0 0 auto;
+    }
+
+    .sidebar-card {
+      margin-top: 24px;
+      padding: 16px;
+      border: 1px solid rgba(103, 232, 249, 0.24);
+      border-radius: 22px;
+      background: linear-gradient(135deg, rgba(103, 232, 249, 0.12), rgba(251, 146, 60, 0.07));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-card strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .sidebar-card p {
+      margin: 0 0 12px;
+      color: var(--muted-2);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .app {
+      min-width: 0;
+      padding: 26px 28px 46px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-weight: 800;
+    }
+
+    .page-title h2 {
+      margin: 5px 0 6px;
+      font-size: clamp(26px, 3.3vw, 46px);
+      letter-spacing: -0.055em;
+      line-height: 0.98;
+    }
+
+    .page-title p {
+      margin: 0;
+      max-width: 860px;
+      color: var(--muted-2);
+      line-height: 1.55;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip, .btn, .ghost-btn, .danger-btn {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .chip {
+      color: var(--muted-2);
+      font-size: 13px;
+    }
+
+    .btn {
+      border-color: rgba(103, 232, 249, 0.35);
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      color: #07111f;
+      font-weight: 900;
+      box-shadow: 0 16px 42px rgba(96, 165, 250, 0.22);
+    }
+
+    .ghost-btn:hover, .chip:hover {
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .danger-btn {
+      border-color: rgba(251, 113, 133, 0.35);
+      color: #ffd8de;
+      background: rgba(251, 113, 133, 0.08);
+    }
+
+    .page { display: none; }
+    .page.active { display: block; animation: pageIn 280ms ease both; }
+
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .stats-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      margin-bottom: 18px;
+    }
+
+    .stat-card, .panel, .mini-panel, .listing-card, .table-wrap, .metric-card {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel-soft));
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .stat-card {
+      padding: 16px;
+      min-height: 124px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -30px -45px auto;
+      width: 98px;
+      height: 98px;
+      background: rgba(103, 232, 249, 0.12);
+      border-radius: 999px;
+      filter: blur(6px);
+    }
+
+    .stat-card span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-card strong {
+      display: block;
+      margin-top: 12px;
+      font-size: 27px;
+      letter-spacing: -0.045em;
+    }
+
+    .stat-card p {
+      margin: 8px 0 0;
+      color: var(--muted-2);
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(82, 226, 167, 0.12);
+    }
+
+    .dot-yellow { background: var(--yellow); box-shadow: 0 0 0 5px rgba(247, 215, 116, 0.12); }
+    .dot-red { background: var(--red); box-shadow: 0 0 0 5px rgba(251, 113, 133, 0.12); }
+    .dot-blue { background: var(--blue); box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.12); }
+
+    .dashboard-layout {
+      grid-template-columns: minmax(0, 1.6fr) minmax(340px, 0.9fr);
+      align-items: start;
+    }
+
+    .panel {
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel-header h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.025em;
+    }
+
+    .panel-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .hero-panel {
+      min-height: 356px;
+      position: relative;
+      background:
+        radial-gradient(circle at 80% 12%, rgba(103, 232, 249, 0.18), transparent 22rem),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.042));
+    }
+
+    .hero-panel h3 {
+      font-size: clamp(24px, 3vw, 38px);
+      letter-spacing: -0.055em;
+      margin: 0 0 10px;
+      max-width: 660px;
+    }
+
+    .hero-panel > p {
+      max-width: 720px;
+      color: var(--muted-2);
+      line-height: 1.62;
+      margin-bottom: 20px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    .pulse-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .mini-panel {
+      padding: 14px;
+      box-shadow: none;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .mini-panel span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .mini-panel strong {
+      font-size: 20px;
+      letter-spacing: -0.035em;
+    }
+
+    .map-panel {
+      min-height: 430px;
+    }
+
+    .map-visual {
+      position: relative;
+      height: 296px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px),
+        radial-gradient(circle at 30% 20%, rgba(103, 232, 249, 0.12), transparent 16rem),
+        rgba(255, 255, 255, 0.04);
+      background-size: 44px 44px, 44px 44px, auto, auto;
+      overflow: hidden;
+    }
+
+    .map-region {
+      position: absolute;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 28px;
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.23);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+    }
+
+    .region-west { left: 6%; top: 26%; width: 24%; height: 46%; }
+    .region-central { left: 34%; top: 18%; width: 26%; height: 56%; }
+    .region-east { right: 7%; top: 24%; width: 26%; height: 48%; }
+
+    .pin {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 0 8px rgba(103, 232, 249, 0.14), 0 0 30px rgba(103, 232, 249, 0.75);
+      animation: pinPulse 2.3s infinite;
+    }
+
+    @keyframes pinPulse {
+      0%, 100% { transform: scale(1); opacity: 0.96; }
+      50% { transform: scale(1.24); opacity: 0.72; }
+    }
+
+    .pin.orange { background: var(--orange); box-shadow: 0 0 0 8px rgba(251,146,60,0.14), 0 0 30px rgba(251,146,60,0.75); }
+    .pin.green { background: var(--green); box-shadow: 0 0 0 8px rgba(82,226,167,0.14), 0 0 30px rgba(82,226,167,0.75); }
+    .pin.red { background: var(--red); box-shadow: 0 0 0 8px rgba(251,113,133,0.14), 0 0 30px rgba(251,113,133,0.75); }
+
+    .queue-list, .activity-list, .stack-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .queue-item, .activity-item, .stack-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .queue-icon, .avatar, .small-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      background: rgba(103, 232, 249, 0.13);
+      color: var(--cyan);
+      font-weight: 900;
+    }
+
+    .queue-item strong, .activity-item strong, .stack-item strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .queue-item span, .activity-item span, .stack-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted-2);
+      background: rgba(255, 255, 255, 0.055);
+      white-space: nowrap;
+    }
+
+    .pill.live { color: #c9ffe7; border-color: rgba(82,226,167,.3); background: rgba(82,226,167,.08); }
+    .pill.review { color: #fff0c4; border-color: rgba(247,215,116,.32); background: rgba(247,215,116,.08); }
+    .pill.offline { color: #ffd8de; border-color: rgba(251,113,133,.32); background: rgba(251,113,133,.08); }
+    .pill.ai { color: #dbfaff; border-color: rgba(103,232,249,.34); background: rgba(103,232,249,.08); }
+
+    canvas {
+      width: 100%;
+      height: 270px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .two-col {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .three-col {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .four-col {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .filter-bar {
+      display: grid;
+      grid-template-columns: 1.2fr repeat(4, minmax(150px, 0.55fr));
+      gap: 10px;
+      margin-bottom: 18px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .field {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 11px 12px;
+      color: var(--text);
+      background: rgba(7, 17, 31, 0.7);
+      outline: none;
+    }
+
+    .field:focus {
+      border-color: rgba(103, 232, 249, 0.58);
+      box-shadow: 0 0 0 4px rgba(103, 232, 249, 0.1);
+    }
+
+    .listing-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .listing-card {
+      overflow: hidden;
+      transition: 180ms ease;
+    }
+
+    .listing-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(103, 232, 249, 0.25);
+    }
+
+    .listing-media {
+      height: 148px;
+      position: relative;
+      background:
+        radial-gradient(circle at 22% 35%, rgba(103, 232, 249, 0.3), transparent 8rem),
+        radial-gradient(circle at 90% 10%, rgba(251, 146, 60, 0.24), transparent 9rem),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+    }
+
+    .listing-media::before,
+    .listing-media::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.13);
+    }
+
+    .listing-media::before { width: 170px; height: 170px; right: -48px; bottom: -82px; }
+    .listing-media::after { width: 88px; height: 88px; left: 24px; top: 22px; }
+
+    .listing-body {
+      padding: 16px;
+    }
+
+    .listing-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .listing-card h3 {
+      margin: 0 0 4px;
+      font-size: 17px;
+      letter-spacing: -0.025em;
+    }
+
+    .listing-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .listing-meta {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+
+    .price {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .card-actions .btn, .card-actions .ghost-btn {
+      flex: 1;
+      border-radius: 14px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 820px;
+    }
+
+    th, td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 900;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    td {
+      color: var(--muted-2);
+      font-size: 14px;
+    }
+
+    td strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .device-type {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .type-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(103,232,249,0.11);
+      color: var(--cyan);
+      font-weight: 900;
+    }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .kanban-col {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 14px;
+      background: rgba(255,255,255,0.035);
+      min-height: 520px;
+    }
+
+    .kanban-col h3 {
+      margin: 0 0 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+    }
+
+    .campaign-card {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      margin-bottom: 12px;
+    }
+
+    .campaign-card h4 {
+      margin: 0 0 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .campaign-card p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .progress {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--blue));
+    }
+
+    .studio-layout {
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    }
+
+    .recording-pad {
+      padding: 22px;
+      border-radius: 28px;
+      border: 1px solid rgba(103,232,249,.22);
+      background:
+        radial-gradient(circle at 50% 20%, rgba(103, 232, 249, 0.18), transparent 16rem),
+        rgba(255,255,255,.045);
+      text-align: center;
+    }
+
+    .mic-circle {
+      width: 126px;
+      height: 126px;
+      margin: 20px auto;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(103,232,249,.28), rgba(96,165,250,.18));
+      border: 1px solid rgba(103,232,249,.32);
+      box-shadow: 0 28px 75px rgba(103,232,249,.14);
+      font-size: 46px;
+    }
+
+    .waveform {
+      height: 96px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(0,0,0,.12);
+      margin: 16px 0;
+    }
+
+    .waveform i {
+      display: block;
+      width: 6px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--cyan), var(--blue));
+      opacity: .86;
+      animation: wave 1.3s ease-in-out infinite;
+    }
+
+    .waveform i:nth-child(2n) { animation-delay: .13s; }
+    .waveform i:nth-child(3n) { animation-delay: .22s; }
+    .waveform i:nth-child(4n) { animation-delay: .31s; }
+
+    @keyframes wave {
+      0%, 100% { height: 18px; }
+      50% { height: 72px; }
+    }
+
+    .textarea {
+      width: 100%;
+      min-height: 148px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(7, 17, 31, 0.7);
+      color: var(--text);
+      outline: none;
+      resize: vertical;
+    }
+
+    .role-card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: rgba(255,255,255,.045);
+    }
+
+    .role-card h3 {
+      margin: 0 0 8px;
+      letter-spacing: -0.025em;
+    }
+
+    .role-card p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 13px;
+    }
+
+    .metric-card {
+      padding: 20px;
+    }
+
+    .metric-card span {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      font-weight: 900;
+    }
+
+    .metric-card strong {
+      display: block;
+      font-size: 34px;
+      letter-spacing: -.055em;
+      margin: 10px 0 4px;
+    }
+
+    .metric-card p {
+      margin: 0;
+      color: var(--muted-2);
+      font-size: 13px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 100;
+      min-width: 260px;
+      max-width: 380px;
+      padding: 14px 16px;
+      border: 1px solid rgba(103,232,249,.32);
+      border-radius: 18px;
+      background: rgba(7,17,31,.9);
+      box-shadow: var(--shadow);
+      transform: translateY(24px);
+      opacity: 0;
+      pointer-events: none;
+      transition: 180ms ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .empty-state {
+      display: none;
+      border: 1px dashed var(--border-strong);
+      border-radius: 22px;
+      padding: 28px;
+      text-align: center;
+      color: var(--muted-2);
+      background: rgba(255,255,255,.035);
+    }
+
+    @media (max-width: 1280px) {
+      .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .dashboard-layout, .studio-layout { grid-template-columns: 1fr; }
+      .listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .kanban { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 920px) {
+      :root { --sidebar: 1fr; }
+      .shell { display: block; }
+      .sidebar { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+      .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .top-actions { justify-content: flex-start; }
+      .pulse-row, .three-col, .four-col, .two-col { grid-template-columns: 1fr; }
+      .app { padding: 22px 16px 40px; }
+    }
+
+    @media (max-width: 680px) {
+      .stats-grid, .listing-grid, .kanban, .filter-bar { grid-template-columns: 1fr; }
+      .nav { grid-template-columns: 1fr; }
+      .hero-actions, .card-actions { flex-direction: column; }
+      .btn, .ghost-btn, .danger-btn { width: 100%; }
+      .queue-item, .activity-item, .stack-item { grid-template-columns: auto 1fr; }
+      .queue-item .pill, .activity-item .pill, .stack-item .pill { grid-column: 1 / -1; justify-self: start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CC</div>
+        <div>
+          <h1>Channel Cast</h1>
+          <span>Audio Ad Network OS</span>
+        </div>
+      </div>
+
+      <div class="nav-group-label">Command Center</div>
+      <nav class="nav" aria-label="Dashboard sections">
+        <button class="active" data-page="overview" data-title="Network Command Center" data-subtitle="Manage devices, ad spaces, advertisers, campaigns, bookings, partners, and delivery stats across the Channel Cast network."><span class="nav-icon">⌁</span> Overview</button>
+        <button data-page="marketplace" data-title="Ad Space Marketplace" data-subtitle="Searchable archive and single-listing style inventory for advertisers to discover, book, and pay for ad space."><span class="nav-icon">⌖</span> Marketplace</button>
+        <button data-page="devices" data-title="Device Fleet" data-subtitle="Monitor AI computer vision players, PIR motion players, deployment status, health, firmware, and playback logs."><span class="nav-icon">◉</span> Devices</button>
+        <button data-page="campaigns" data-title="Campaign Manager" data-subtitle="Approve audio spots, schedule playback, track pacing, and manage campaign delivery across booked ad spaces."><span class="nav-icon">▶</span> Campaigns</button>
+        <button data-page="studio" data-title="Recording Studio + AI Agent" data-subtitle="Create audio content through upload, direct record, voice talent, radio partners, effects, and AI script generation."><span class="nav-icon">♬</span> Audio Studio</button>
+        <button data-page="partners" data-title="Partners + Resellers" data-subtitle="Manage radio stations, ad production partners, voice talent, installers, billing partners, and reseller accounts."><span class="nav-icon">◌</span> Partners</button>
+        <button data-page="billing" data-title="Billing + Revenue" data-subtitle="Track campaign revenue, SaaS subscriptions, device sales, partner commissions, reseller commissions, and location payouts."><span class="nav-icon">$</span> Billing</button>
+        <button data-page="users" data-title="Users + Permissions" data-subtitle="Invite users, assign roles, manage companies, approve accounts, and control dashboard permissions."><span class="nav-icon">◎</span> Users</button>
+      </nav>
+
+      <div class="sidebar-card">
+        <strong>Marketplace-first growth</strong>
+        <p>Advertisers can search locations, book play-times, pay online, then create or request audio inside their dashboard.</p>
+        <button class="ghost-btn" onclick="showToast('Demo flow: create listing → book campaign → upload audio → approve → sync devices.')">View Demo Flow</button>
+      </div>
+    </aside>
+
+    <main class="app">
+      <header class="topbar">
+        <div class="page-title">
+          <div class="eyebrow">Super Admin Dashboard</div>
+          <h2 id="pageTitle">Network Command Center</h2>
+          <p id="pageSubtitle">Manage devices, ad spaces, advertisers, campaigns, bookings, partners, and delivery stats across the Channel Cast network.</p>
+        </div>
+        <div class="top-actions">
+          <span class="chip"><span class="status-dot"></span> Network Live</span>
+          <span class="chip" id="todayChip">Today</span>
+          <button class="ghost-btn" onclick="showToast('Opening system notifications panel...')">Notifications</button>
+          <button class="btn" onclick="showToast('New campaign wizard opened.')">+ New Campaign</button>
+        </div>
+      </header>
+
+      <section id="overview" class="page active">
+        <div class="grid stats-grid">
+          <article class="stat-card"><span><i class="status-dot"></i> Active Devices</span><strong>1,284</strong><p>AI Vision: 412 · PIR: 872</p></article>
+          <article class="stat-card"><span><i class="status-dot dot-blue"></i> Live Ad Spaces</span><strong>368</strong><p>74 new listings this quarter</p></article>
+          <article class="stat-card"><span><i class="status-dot dot-yellow"></i> Campaigns</span><strong>942</strong><p>126 pending approval</p></article>
+          <article class="stat-card"><span><i class="status-dot"></i> Plays Today</span><strong>48,920</strong><p>+18.4% vs. yesterday</p></article>
+          <article class="stat-card"><span><i class="status-dot dot-blue"></i> Revenue MTD</span><strong>$184.5k</strong><p>Bookings, SaaS, hardware</p></article>
+          <article class="stat-card"><span><i class="status-dot dot-red"></i> Offline</span><strong>17</strong><p>11 network · 6 maintenance</p></article>
+        </div>
+
+        <div class="grid dashboard-layout">
+          <div class="grid">
+            <article class="panel hero-panel">
+              <div class="eyebrow">Channel Cast Operating System</div>
+              <h3>One dashboard for the entire motion-based audio advertising network.</h3>
+              <p>Control deployed players, manage marketplace listings, approve audio ads, sync campaigns to devices, track visitor-triggered playback, and support advertisers, ad space owners, resellers, radio stations, and voice talent partners.</p>
+              <div class="hero-actions">
+                <button class="btn" onclick="showToast('Create Ad Space listing wizard opened.')">+ Create Ad Space</button>
+                <button class="ghost-btn" onclick="showToast('Device onboarding wizard opened.')">Register Device</button>
+                <button class="ghost-btn" onclick="showToast('AI campaign assistant opened.')">Launch AI Agent</button>
+              </div>
+              <div class="pulse-row">
+                <div class="mini-panel"><span>AI Vision Triggers</span><strong>18,304</strong></div>
+                <div class="mini-panel"><span>PIR Motion Triggers</span><strong>74,818</strong></div>
+                <div class="mini-panel"><span>Avg. Dwell</span><strong>00:42</strong></div>
+                <div class="mini-panel"><span>Booked Inventory</span><strong>71%</strong></div>
+              </div>
+            </article>
+
+            <article class="panel map-panel">
+              <div class="panel-header">
+                <div><h3>Nationwide Device Pulse</h3><p>Mock deployment view showing active ad spaces, warning locations, and high-volume cities.</p></div>
+                <span class="pill live">Live sync</span>
+              </div>
+              <div class="map-visual" aria-label="Network map visualization">
+                <div class="map-region region-west">WEST</div>
+                <div class="map-region region-central">CENTRAL</div>
+                <div class="map-region region-east">EAST</div>
+                <i class="pin green" style="left:18%;top:56%"></i>
+                <i class="pin" style="left:24%;top:41%"></i>
+                <i class="pin orange" style="left:43%;top:49%"></i>
+                <i class="pin green" style="left:51%;top:30%"></i>
+                <i class="pin" style="left:63%;top:58%"></i>
+                <i class="pin red" style="left:72%;top:36%"></i>
+                <i class="pin green" style="left:80%;top:54%"></i>
+                <i class="pin" style="left:87%;top:31%"></i>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div><h3>Audio Plays + Visitor Triggers</h3><p>Daily playback delivery, motion triggers, and advertiser impression estimates.</p></div>
+                <span class="pill ai">AI + PIR blended</span>
+              </div>
+              <canvas id="playsChart" width="1100" height="360"></canvas>
+            </article>
+          </div>
+
+          <aside class="grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div><h3>Booking Queue</h3><p>Marketplace requests and paid bookings needing action.</p></div>
+                <span class="pill review">12 open</span>
+              </div>
+              <div class="queue-list">
+                <div class="queue-item"><div class="queue-icon">A</div><div><strong>AZ Fitness Chain</strong><span>Booked 14 gyms · morning play-times</span></div><span class="pill live">Paid</span></div>
+                <div class="queue-item"><div class="queue-icon">R</div><div><strong>Restaurant Week</strong><span>Requested downtown Phoenix ad spaces</span></div><span class="pill review">Review</span></div>
+                <div class="queue-item"><div class="queue-icon">V</div><div><strong>Valley Auto Group</strong><span>Needs radio partner audio production</span></div><span class="pill ai">Partner</span></div>
+                <div class="queue-item"><div class="queue-icon">M</div><div><strong>Medical Office Network</strong><span>New ad space host application</span></div><span class="pill review">Approve</span></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div><h3>Operations Stack</h3><p>Core business modules connected to the dashboard.</p></div>
+              </div>
+              <div class="stack-list">
+                <div class="stack-item"><div class="small-icon">1</div><div><strong>Listings + Booking</strong><span>Archive, filters, single page, checkout</span></div><span class="pill live">Ready</span></div>
+                <div class="stack-item"><div class="small-icon">2</div><div><strong>Audio Content</strong><span>Upload, direct record, AI, effects</span></div><span class="pill ai">Studio</span></div>
+                <div class="stack-item"><div class="small-icon">3</div><div><strong>Device Sync</strong><span>Campaign cache, health, firmware</span></div><span class="pill live">Online</span></div>
+                <div class="stack-item"><div class="small-icon">4</div><div><strong>Partners</strong><span>Radio, voice talent, billing, resellers</span></div><span class="pill review">Active</span></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div><h3>Recent Activity</h3><p>Latest network actions and system events.</p></div>
+              </div>
+              <div class="activity-list">
+                <div class="activity-item"><div class="avatar">CC</div><div><strong>Campaign synced</strong><span>872 PIR devices received new breakfast ad</span></div></div>
+                <div class="activity-item"><div class="avatar">AI</div><div><strong>Vision model trigger spike</strong><span>Scottsdale mall corridor increased 31%</span></div></div>
+                <div class="activity-item"><div class="avatar">RS</div><div><strong>Radio partner uploaded audio</strong><span>2 spots awaiting advertiser approval</span></div></div>
+              </div>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+      <section id="marketplace" class="page">
+        <div class="filter-bar">
+          <input id="marketSearch" class="field" placeholder="Search ad spaces, cities, business types..." />
+          <select id="typeFilter" class="field">
+            <option value="all">All business types</option>
+            <option value="fitness">Fitness</option>
+            <option value="retail">Retail</option>
+            <option value="restaurant">Restaurant</option>
+            <option value="medical">Medical</option>
+            <option value="apartment">Apartment</option>
+            <option value="event">Event Venue</option>
+          </select>
+          <select id="regionFilter" class="field">
+            <option value="all">All geographies</option>
+            <option value="arizona">Arizona</option>
+            <option value="california">California</option>
+            <option value="texas">Texas</option>
+            <option value="florida">Florida</option>
+          </select>
+          <select id="budgetFilter" class="field">
+            <option value="99999">Any budget</option>
+            <option value="500">Under $500/mo</option>
+            <option value="1000">Under $1,000/mo</option>
+            <option value="2500">Under $2,500/mo</option>
+            <option value="5000">Under $5,000/mo</option>
+          </select>
+          <select id="timeFilter" class="field">
+            <option value="all">Any play-time</option>
+            <option value="morning">Morning</option>
+            <option value="midday">Midday</option>
+            <option value="evening">Evening</option>
+            <option value="weekend">Weekend</option>
+          </select>
+        </div>
+
+        <div id="marketplaceGrid" class="grid listing-grid">
+          <article class="listing-card" data-type="fitness" data-region="arizona" data-budget="1200" data-times="morning evening" data-keywords="fitness gym chandler arizona health wellness">
+            <div class="listing-media"></div>
+            <div class="listing-body">
+              <div class="listing-top"><div><h3>Chandler Fitness Corridor</h3><p>12 gyms · Chandler, AZ · AI Vision + PIR mix</p></div><span class="pill live">Available</span></div>
+              <p>High-intent morning and evening fitness traffic with strong repeat visitor exposure.</p>
+              <div class="listing-meta"><span class="pill">48k/mo visitors</span><span class="pill">Morning</span><span class="pill ai">AI Vision</span></div>
+              <div class="price">$1,200/mo</div>
+              <div class="card-actions"><button class="btn" onclick="showToast('Booking Chandler Fitness Corridor...')">Book</button><button class="ghost-btn" onclick="showToast('Opening single listing detail page...')">Details</button></div>
+            </div>
+          </article>
+
+          <article class="listing-card" data-type="restaurant" data-region="arizona" data-budget="850" data-times="midday evening weekend" data-keywords="restaurant food phoenix arizona lunch dinner">
+            <div class="listing-media"></div>
+            <div class="listing-body">
+              <div class="listing-top"><div><h3>Phoenix Restaurant Row</h3><p>18 restaurants · Phoenix, AZ · PIR motion</p></div><span class="pill live">Instant book</span></div>
+              <p>Lunch, happy hour, and weekend dining traffic for local offers and event promotions.</p>
+              <div class="listing-meta"><span class="pill">62k/mo visitors</span><span class="pill">Evening</span><span class="pill">PIR</span></div>
+              <div class="price">$850/mo</div>
+              <div class="card-actions"><button class="btn" onclick="showToast('Checkout flow started.')">Book + Pay</button><button class="ghost-btn" onclick="showToast('Opening restaurant listing detail page...')">Details</button></div>
+            </div>
+          </article>
+
+          <article class="listing-card" data-type="apartment" data-region="texas" data-budget="2400" data-times="morning evening weekend" data-keywords="apartment community dallas texas residential leasing">
+            <div class="listing-media"></div>
+            <div class="listing-body">
+              <div class="listing-top"><div><h3>Dallas Apartment Network</h3><p>22 communities · Dallas, TX · AI Vision</p></div><span class="pill review">Request</span></div>
+              <p>Resident lobby and leasing-office traffic ideal for local services and home brands.</p>
+              <div class="listing-meta"><span class="pill">104k/mo visitors</span><span class="pill">Weekend</span><span class="pill ai">AI Vision</span></div>
+              <div class="price">$2,400/mo</div>
+              <div class="card-actions"><button class="btn" onclick="showToast('Request-to-book submitted.')">Request</button><button class="ghost-btn" onclick="showToast('Opening Dallas listing detail page...')">Details</button></div>
+            </div>
+          </article>
+
+          <article class="listing-card" data-type="retail" data-region="california" data-budget="4200" data-times="midday evening weekend" data-keywords="retail shopping los angeles california mall">
+            <div class="listing-media"></div>
+            <div class="listing-body">
+              <div class="listing-top"><div><h3>LA Retail Walkway</h3><p>8 premium placements · Los Angeles, CA</p></div><span class="pill live">Available</span></div>
+              <p>Outdoor retail foot traffic with high-volume weekend exposure and premium pricing.</p>
+              <div class="listing-meta"><span class="pill">180k/mo visitors</span><span class="pill">Weekend</span><span class="pill ai">AI Vision</span></div>
+              <div class="price">$4,200/mo</div>
+              <div class="card-actions"><button class="btn" onclick="showToast('Premium booking inquiry opened.')">Book</button><button class="ghost-btn" onclick="showToast('Opening LA retail listing detail page...')">Details</button></div>
+            </div>
+          </article>
+
+          <article class="listing-card" data-type="medical" data-region="florida" data-budget="675" data-times="morning midday" data-keywords="medical office tampa florida waiting room healthcare">
+            <div class="listing-media"></div>
+            <div class="listing-body">
+              <div class="listing-top"><div><h3>Tampa Medical Offices</h3><p>15 waiting rooms · Tampa, FL · PIR motion</p></div><span class="pill live">Available</span></div>
+              <p>Appointment-based visitor traffic for healthcare, insurance, wellness, and local services.</p>
+              <div class="listing-meta"><span class="pill">29k/mo visitors</span><span class="pill">Midday</span><span class="pill">PIR</span></div>
+              <div class="price">$675/mo</div>
+              <div class="card-actions"><button class="btn" onclick="showToast('Booking Tampa Medical Offices...')">Book</button><button class="ghost-btn" onclick="showToast('Opening medical listing detail page...')">Details</button></div>
+            </div>
+          </article>
+
+          <article class="listing-card" data-type="event" data-region="arizona" data-budget="500" data-times="evening weekend" data-keywords="event venue scottsdale arizona trade show expo">
+            <div class="listing-media"></div>
+            <div class="listing-body">
+              <div class="listing-top"><div><h3>Scottsdale Event Venues</h3><p>Pop-up inventory · Scottsdale, AZ</p></div><span class="pill review">Limited</span></div>
+              <p>Short-run event placements for sponsor messages, launches, and local promotions.</p>
+              <div class="listing-meta"><span class="pill">Event-based</span><span class="pill">Weekend</span><span class="pill">PIR</span></div>
+              <div class="price">From $500</div>
+              <div class="card-actions"><button class="btn" onclick="showToast('Event booking calendar opened.')">Book</button><button class="ghost-btn" onclick="showToast('Opening event listing detail page...')">Details</button></div>
+            </div>
+          </article>
+        </div>
+        <div id="emptyMarketplace" class="empty-state">No ad spaces match these filters. Try another geography, budget, or play-time.</div>
+      </section>
+
+      <section id="devices" class="page">
+        <div class="grid four-col" style="margin-bottom:18px;">
+          <div class="metric-card"><span>AI Vision Players</span><strong>412</strong><p>Computer vision, visitor count, dwell time</p></div>
+          <div class="metric-card"><span>PIR Players</span><strong>872</strong><p>Simple motion-triggered playback</p></div>
+          <div class="metric-card"><span>Firmware Current</span><strong>94%</strong><p>76 devices need scheduled update</p></div>
+          <div class="metric-card"><span>Health Warnings</span><strong>23</strong><p>Offline, low storage, sensor errors</p></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Device</th><th>Type</th><th>Location</th><th>Status</th><th>Current Campaign</th><th>Triggers Today</th><th>Last Check-In</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><strong>CC-AI-00418</strong>Serial AI-9218</td><td><div class="device-type"><span class="type-badge">AI</span>Vision Player</div></td><td>Chandler Fitness Corridor</td><td><span class="pill live">Online</span></td><td>Summer Gym Offer</td><td>1,284</td><td>38 seconds ago</td><td><button class="ghost-btn" onclick="showToast('Opening device CC-AI-00418...')">View</button></td></tr>
+              <tr><td><strong>CC-PIR-00872</strong>Serial PIR-4472</td><td><div class="device-type"><span class="type-badge">P</span>PIR Player</div></td><td>Phoenix Restaurant Row</td><td><span class="pill live">Online</span></td><td>Restaurant Week</td><td>822</td><td>1 minute ago</td><td><button class="ghost-btn" onclick="showToast('Opening device CC-PIR-00872...')">View</button></td></tr>
+              <tr><td><strong>CC-AI-00113</strong>Serial AI-3813</td><td><div class="device-type"><span class="type-badge">AI</span>Vision Player</div></td><td>LA Retail Walkway</td><td><span class="pill review">Warning</span></td><td>Premium Retail Spot</td><td>2,118</td><td>8 minutes ago</td><td><button class="ghost-btn" onclick="showToast('Diagnostics opened.')">Diagnose</button></td></tr>
+              <tr><td><strong>CC-PIR-00251</strong>Serial PIR-1151</td><td><div class="device-type"><span class="type-badge">P</span>PIR Player</div></td><td>Tampa Medical Offices</td><td><span class="pill offline">Offline</span></td><td>Wellness Reminder</td><td>0</td><td>3 hours ago</td><td><button class="danger-btn" onclick="showToast('Support ticket created for offline device.')">Ticket</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="campaigns" class="page">
+        <div class="kanban">
+          <div class="kanban-col"><h3>Draft <span class="pill">3</span></h3>
+            <div class="campaign-card"><h4>Grand Opening Push</h4><p>Advertiser is using AI Agent to write three 15-second versions.</p><span class="pill ai">AI script</span><div class="progress"><span style="width:28%"></span></div></div>
+            <div class="campaign-card"><h4>Weekend Auto Offer</h4><p>Needs voice talent quote and CTA confirmation.</p><span class="pill review">Voice talent</span><div class="progress"><span style="width:18%"></span></div></div>
+          </div>
+          <div class="kanban-col"><h3>Review <span class="pill review">5</span></h3>
+            <div class="campaign-card"><h4>Restaurant Week</h4><p>Audio uploaded by radio station partner. Awaiting admin approval.</p><span class="pill review">Approval</span><div class="progress"><span style="width:52%"></span></div></div>
+            <div class="campaign-card"><h4>Apartment Move-In</h4><p>Compliance review for residential community placements.</p><span class="pill review">Content review</span><div class="progress"><span style="width:44%"></span></div></div>
+          </div>
+          <div class="kanban-col"><h3>Scheduled <span class="pill ai">8</span></h3>
+            <div class="campaign-card"><h4>Summer Gym Offer</h4><p>Scheduled weekdays 5–9 AM and 4–8 PM across 12 gyms.</p><span class="pill live">Synced</span><div class="progress"><span style="width:84%"></span></div></div>
+            <div class="campaign-card"><h4>Medical Wellness Spot</h4><p>Midday playback in waiting rooms with 90-second cooldown.</p><span class="pill ai">PIR rules</span><div class="progress"><span style="width:68%"></span></div></div>
+          </div>
+          <div class="kanban-col"><h3>Live <span class="pill live">14</span></h3>
+            <div class="campaign-card"><h4>Premium Retail Spot</h4><p>AI Vision campaign with visitor count and dwell-time reporting.</p><span class="pill live">Live</span><div class="progress"><span style="width:91%"></span></div></div>
+            <div class="campaign-card"><h4>Local Home Services</h4><p>Running in apartment community lobbies on weekends.</p><span class="pill live">Live</span><div class="progress"><span style="width:76%"></span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="studio" class="page">
+        <div class="grid studio-layout">
+          <article class="panel">
+            <div class="panel-header"><div><h3>Channel Cast Recording Studio</h3><p>Advertisers can upload, direct record, apply effects, use the AI Agent, or request production help.</p></div><span class="pill ai">Creator tools</span></div>
+            <div class="recording-pad">
+              <div class="eyebrow">Direct Record Feature</div>
+              <div class="mic-circle">🎙</div>
+              <h3 style="margin:0 0 6px;">Record a 15-second audio spot</h3>
+              <p style="margin:0;color:var(--muted-2);">Read from your script, trim the take, add a music bed, then submit for approval.</p>
+              <div class="waveform" aria-label="Audio waveform"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="hero-actions" style="justify-content:center;margin:0;"><button class="btn" onclick="showToast('Recording started...')">Start Recording</button><button class="ghost-btn" onclick="showToast('Upload audio modal opened.')">Upload Audio</button><button class="ghost-btn" onclick="showToast('Effects library opened.')">Effects Library</button></div>
+            </div>
+          </article>
+          <aside class="grid">
+            <article class="panel"><div class="panel-header"><div><h3>AI Agent Script Builder</h3><p>Generate localized ad copy based on business type, offer, audience, location, and play-times.</p></div></div><textarea class="textarea">Create a 15-second audio ad for a local restaurant promoting lunch specials to visitors walking by between 11 AM and 2 PM...</textarea><div class="card-actions"><button class="btn" onclick="showToast('AI Agent generated three script versions.')">Generate Scripts</button><button class="ghost-btn" onclick="showToast('Campaign brief saved.')">Save Brief</button></div></article>
+            <article class="panel"><div class="panel-header"><div><h3>Production Requests</h3><p>Route audio needs to radio station partners, ad production teams, and voice talent.</p></div></div><div class="queue-list"><div class="queue-item"><div class="queue-icon">VO</div><div><strong>Voice Talent</strong><span>Request professional read</span></div><span class="pill">Quote</span></div><div class="queue-item"><div class="queue-icon">RS</div><div><strong>Radio Partner</strong><span>Full ad production request</span></div><span class="pill ai">Route</span></div></div></article>
+          </aside>
+        </div>
+      </section>
+
+      <section id="partners" class="page">
+        <div class="grid three-col">
+          <div class="role-card"><h3>Radio Station Partners</h3><p>Sell local campaigns, produce audio spots, manage advertiser requests, and participate in revenue share.</p><span class="pill live">42 partners</span></div>
+          <div class="role-card"><h3>Voice Talent</h3><p>Receive requests from advertisers who need professional reads, multiple versions, or brand-specific voice styles.</p><span class="pill ai">87 talent profiles</span></div>
+          <div class="role-card"><h3>Resellers</h3><p>Sell hardware and SaaS subscriptions, onboard customers, track commissions, and manage deployments.</p><span class="pill review">19 resellers</span></div>
+          <div class="role-card"><h3>Ad Production Teams</h3><p>Handle scriptwriting, editing, sound design, music beds, approvals, and campaign-ready exports.</p><span class="pill">31 teams</span></div>
+          <div class="role-card"><h3>Installation Partners</h3><p>Install devices, upload site photos, verify power/network, and complete deployment checklists.</p><span class="pill live">64 installers</span></div>
+          <div class="role-card"><h3>Billing Partners</h3><p>Support invoicing, payouts, revenue share, partner commissions, reseller commissions, and contract reporting.</p><span class="pill">8 partners</span></div>
+        </div>
+      </section>
+
+      <section id="billing" class="page">
+        <div class="grid four-col" style="margin-bottom:18px;">
+          <div class="metric-card"><span>Campaign Revenue</span><strong>$128.2k</strong><p>Booked and active ad placements</p></div>
+          <div class="metric-card"><span>SaaS Revenue</span><strong>$31.6k</strong><p>Resellers, advertisers, partners</p></div>
+          <div class="metric-card"><span>Hardware Revenue</span><strong>$44.7k</strong><p>Device sales and rentals</p></div>
+          <div class="metric-card"><span>Payouts Due</span><strong>$28.9k</strong><p>Location owners and partners</p></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Account</th><th>Type</th><th>Revenue</th><th>Commission / Share</th><th>Status</th><th>Next Action</th></tr></thead>
+            <tbody>
+              <tr><td><strong>AZ Fitness Chain</strong>Advertiser</td><td>Campaign booking</td><td>$14,400</td><td>$0</td><td><span class="pill live">Paid</span></td><td><button class="ghost-btn" onclick="showToast('Invoice opened.')">Invoice</button></td></tr>
+              <tr><td><strong>Phoenix Radio Group</strong>Partner</td><td>Production + sales</td><td>$8,200</td><td>$2,050</td><td><span class="pill review">Pending payout</span></td><td><button class="ghost-btn" onclick="showToast('Payout review opened.')">Review</button></td></tr>
+              <tr><td><strong>Southwest Media Reseller</strong>Reseller</td><td>Hardware + SaaS</td><td>$21,900</td><td>$4,380</td><td><span class="pill live">Current</span></td><td><button class="ghost-btn" onclick="showToast('Commission report opened.')">Report</button></td></tr>
+              <tr><td><strong>Dallas Apartment Network</strong>Ad Space Owner</td><td>Location share</td><td>$19,600</td><td>$5,880</td><td><span class="pill review">Due Friday</span></td><td><button class="ghost-btn" onclick="showToast('Location payout detail opened.')">Open</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="users" class="page">
+        <div class="grid three-col" style="margin-bottom:18px;">
+          <div class="metric-card"><span>Total Users</span><strong>4,812</strong><p>Admins, advertisers, ad space owners, partners</p></div>
+          <div class="metric-card"><span>Pending Approval</span><strong>126</strong><p>New advertisers and ad space hosts</p></div>
+          <div class="metric-card"><span>Roles</span><strong>14</strong><p>Permission groups across the business stack</p></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Company</th><th>Role</th><th>Access</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Jeremy Waters</strong>jwaters@channelcast.local</td><td>Channel Cast</td><td>Super Admin</td><td>All modules</td><td><span class="pill live">Active</span></td><td><button class="ghost-btn" onclick="showToast('User profile opened.')">Manage</button></td></tr>
+              <tr><td><strong>Mia Roberts</strong>mia@azfitness.example</td><td>AZ Fitness Chain</td><td>Advertiser</td><td>Campaigns, billing, studio</td><td><span class="pill live">Active</span></td><td><button class="ghost-btn" onclick="showToast('Advertiser permissions opened.')">Manage</button></td></tr>
+              <tr><td><strong>David Park</strong>david@phoenixradio.example</td><td>Phoenix Radio Group</td><td>Radio Partner</td><td>Production requests, campaigns</td><td><span class="pill review">Pending</span></td><td><button class="ghost-btn" onclick="showToast('Approval panel opened.')">Approve</button></td></tr>
+              <tr><td><strong>Lisa Chen</strong>lisa@swmedia.example</td><td>Southwest Media Reseller</td><td>Reseller</td><td>Customers, commissions, devices</td><td><span class="pill live">Active</span></td><td><button class="ghost-btn" onclick="showToast('Reseller account opened.')">Manage</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">Action opened.</div>
+
+  <script>
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    const navButtons = Array.from(document.querySelectorAll('.nav button'));
+    const pages = Array.from(document.querySelectorAll('.page'));
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    document.getElementById('todayChip').textContent = new Intl.DateTimeFormat(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric'
+    }).format(new Date());
+
+    navButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        navButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        pages.forEach(page => page.classList.remove('active'));
+        document.getElementById(button.dataset.page).classList.add('active');
+        pageTitle.textContent = button.dataset.title;
+        pageSubtitle.textContent = button.dataset.subtitle;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (button.dataset.page === 'overview') setTimeout(drawCharts, 80);
+      });
+    });
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    function drawLineChart(canvas, values, labels) {
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      const w = rect.width;
+      const h = rect.height;
+      const pad = 34;
+      const max = Math.max(...values) * 1.18;
+      const min = Math.min(...values) * 0.78;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,.08)';
+      ctx.fillStyle = 'rgba(255,255,255,.45)';
+      ctx.font = '12px Inter, system-ui, sans-serif';
+
+      for (let i = 0; i < 5; i++) {
+        const y = pad + ((h - pad * 2) / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(pad, y);
+        ctx.lineTo(w - pad, y);
+        ctx.stroke();
+      }
+
+      const points = values.map((v, i) => {
+        const x = pad + ((w - pad * 2) / (values.length - 1)) * i;
+        const y = h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+        return { x, y, v };
+      });
+
+      const gradient = ctx.createLinearGradient(0, pad, 0, h - pad);
+      gradient.addColorStop(0, 'rgba(103,232,249,.32)');
+      gradient.addColorStop(1, 'rgba(96,165,250,0)');
+
+      ctx.beginPath();
+      points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+      ctx.lineTo(points[points.length - 1].x, h - pad);
+      ctx.lineTo(points[0].x, h - pad);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      ctx.beginPath();
+      points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#67e8f9';
+      ctx.shadowColor = 'rgba(103,232,249,.65)';
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      points.forEach((p, i) => {
+        ctx.beginPath();
+        ctx.fillStyle = i === points.length - 1 ? '#52e2a7' : '#07111f';
+        ctx.strokeStyle = '#67e8f9';
+        ctx.lineWidth = 2;
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      labels.forEach((label, i) => {
+        const x = pad + ((w - pad * 2) / (labels.length - 1)) * i;
+        ctx.fillStyle = 'rgba(255,255,255,.5)';
+        ctx.fillText(label, x - 10, h - 12);
+      });
+    }
+
+    function drawCharts() {
+      drawLineChart(
+        document.getElementById('playsChart'),
+        [28400, 31800, 30400, 36200, 41100, 38900, 48920],
+        ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed']
+      );
+    }
+
+    drawCharts();
+    window.addEventListener('resize', drawCharts);
+
+    const marketSearch = document.getElementById('marketSearch');
+    const typeFilter = document.getElementById('typeFilter');
+    const regionFilter = document.getElementById('regionFilter');
+    const budgetFilter = document.getElementById('budgetFilter');
+    const timeFilter = document.getElementById('timeFilter');
+    const cards = Array.from(document.querySelectorAll('.listing-card'));
+    const emptyMarketplace = document.getElementById('emptyMarketplace');
+
+    function filterMarketplace() {
+      const q = marketSearch.value.trim().toLowerCase();
+      const type = typeFilter.value;
+      const region = regionFilter.value;
+      const budget = Number(budgetFilter.value);
+      const time = timeFilter.value;
+      let visible = 0;
+
+      cards.forEach(card => {
+        const matchesSearch = !q || card.dataset.keywords.includes(q) || card.textContent.toLowerCase().includes(q);
+        const matchesType = type === 'all' || card.dataset.type === type;
+        const matchesRegion = region === 'all' || card.dataset.region === region;
+        const matchesBudget = Number(card.dataset.budget) <= budget;
+        const matchesTime = time === 'all' || card.dataset.times.includes(time);
+        const show = matchesSearch && matchesType && matchesRegion && matchesBudget && matchesTime;
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      emptyMarketplace.style.display = visible ? 'none' : 'block';
+    }
+
+    [marketSearch, typeFilter, regionFilter, budgetFilter, timeFilter].forEach(el => {
+      el.addEventListener('input', filterMarketplace);
+      el.addEventListener('change', filterMarketplace);
+    });
+  </script>
+</body>
+</html>

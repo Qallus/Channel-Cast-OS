@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Channel Cast — Light mode.
+       Brand accent (#c6ff00) stays lime for highlights; primary buttons use a
+       darker green so text stays readable on light surfaces. */
+    --background: 80 20% 98%;
+    --foreground: 150 16% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 150 16% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 16% 10%;
+
+    --brand: 74 100% 50%;            /* #c6ff00 */
+    --brand-foreground: 150 45% 9%;
+
+    --primary: 92 60% 26%;           /* darker green for buttons on light */
+    --primary-foreground: 80 60% 96%;
+
+    --secondary: 80 16% 94%;
+    --secondary-foreground: 150 16% 16%;
+    --muted: 80 14% 95%;
+    --muted-foreground: 150 6% 40%;
+    --accent: 78 78% 90%;            /* soft lime tint (active nav, hovers) */
+    --accent-foreground: 130 40% 16%;
+
+    --success: 142 58% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 46%;
+    --warning-foreground: 40 60% 10%;
+    --destructive: 0 74% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 80 12% 88%;
+    --input: 80 12% 88%;
+    --ring: 92 60% 30%;
+    --radius: 0.7rem;
+  }
+
+  .dark {
+    /* Channel Cast — Dark mode (primary surface for the dashboard).
+       Lime accent used at full strength on near-black green surfaces. */
+    --background: 140 30% 4%;
+    --foreground: 90 16% 92%;
+    --card: 140 20% 7%;
+    --card-foreground: 90 16% 92%;
+    --popover: 140 22% 8%;
+    --popover-foreground: 90 16% 92%;
+
+    --brand: 74 100% 50%;            /* #c6ff00 */
+    --brand-foreground: 140 45% 8%;
+
+    --primary: 74 100% 50%;          /* lime buttons on dark */
+    --primary-foreground: 140 45% 8%;
+
+    --secondary: 140 16% 13%;
+    --secondary-foreground: 90 14% 88%;
+    --muted: 140 14% 12%;
+    --muted-foreground: 90 8% 62%;
+    --accent: 90 55% 14%;            /* olive/dark-lime (active nav) */
+    --accent-foreground: 78 90% 74%;
+
+    --success: 142 55% 46%;
+    --success-foreground: 140 45% 6%;
+    --warning: 40 90% 55%;
+    --warning-foreground: 40 60% 8%;
+    --destructive: 0 68% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 140 12% 15%;
+    --input: 140 12% 15%;
+    --ring: 74 100% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: 14px;
+  }
+
+  /* Slim branded scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--brand) / 0.35) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--brand) / 0.35);
+    border-radius: 100px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--brand) / 0.7);
+  }
+}
+
+/* Auth showcase — rotating concentric device rings */
+@keyframes cc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cc-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-ring,
+  .cc-pulse {
+    animation: none !important;
+  }
+}

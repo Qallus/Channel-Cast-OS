@@ -1,0 +1,71 @@
+# Project Folder Structure
+
+Suggested Next.js structure:
+
+```txt
+/app
+  /(public)
+    page.tsx
+    marketplace/page.tsx
+    marketplace/[slug]/page.tsx
+    marketplace/[slug]/book/page.tsx
+    pricing/page.tsx
+    contact/page.tsx
+    request-demo/page.tsx
+  /(auth)
+    login/page.tsx
+    register/page.tsx
+    forgot-password/page.tsx
+  /app
+    layout.tsx
+    dashboard/page.tsx
+    advertiser/page.tsx
+    advertiser/campaigns/page.tsx
+    advertiser/audio/page.tsx
+    advertiser/studio/page.tsx
+    admin/page.tsx
+    admin/devices/page.tsx
+    admin/ad-spaces/page.tsx
+    admin/campaigns/page.tsx
+    admin/audio/page.tsx
+    admin/partners/page.tsx
+    admin/billing/page.tsx
+    admin/reports/page.tsx
+    owner/page.tsx
+    reseller/page.tsx
+    partner/page.tsx
+    radio/page.tsx
+    voice-talent/page.tsx
+    settings/page.tsx
+/api
+  devices/register/route.ts
+  devices/heartbeat/route.ts
+  devices/[hardwareId]/schedule/route.ts
+  devices/[hardwareId]/trigger/route.ts
+  devices/[hardwareId]/playback/start/route.ts
+  devices/[hardwareId]/playback/complete/route.ts
+  stripe/webhook/route.ts
+/components
+  ui/
+  layout/
+  marketplace/
+  dashboard/
+  devices/
+  campaigns/
+  audio/
+  billing/
+  agent/
+/lib
+  auth/
+  db/
+  permissions/
+  stripe/
+  storage/
+  devices/
+  analytics/
+  agent/
+/supabase
+  migrations/
+  seed.sql
+/docs
+```

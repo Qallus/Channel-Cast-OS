@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+build
+.env
+.env*.local
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+_reference
+.data
+.devserver.log
+agent/agent_state.json
+agent/cache
