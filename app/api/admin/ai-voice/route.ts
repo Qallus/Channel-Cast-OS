@@ -1,7 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
-
-import { AUDIO_DIRECTORY, genId, mutate, type StoredAudio } from "@/lib/server/store";
+import { createAudio } from "@/lib/server/db";
 import { TTS_PROVIDERS, listVoices, providerConfigured, synthesize, type TtsProvider } from "@/lib/server/tts";
 
 export const runtime = "nodejs";
@@ -47,21 +44,9 @@ export async function POST(req: Request) {
 
   if ("error" in result) return Response.json(result, { status: 502 });
 
-  const id = genId();
-  const filename = `${id}.${result.ext}`;
-  fs.writeFileSync(path.join(AUDIO_DIRECTORY, filename), result.buffer);
-
   const words = script.split(/\s+/);
   const label = words.slice(0, 6).join(" ") + (words.length > 6 ? "…" : "");
-  const record: StoredAudio = {
-    id,
-    name: `AI · ${label}`,
-    filename,
-    mime: result.mime,
-    sizeBytes: result.buffer.length,
-    createdAt: new Date().toISOString(),
-  };
-  mutate((db) => db.audio.push(record));
+  const record = await createAudio({ name: `AI · ${label}`, ext: result.ext, mime: result.mime, buffer: result.buffer });
 
   return Response.json({ configured: true, provider, audio: record });
 }

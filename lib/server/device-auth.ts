@@ -1,11 +1,11 @@
-import { read, type StoredDevice } from "@/lib/server/store";
+import { getDeviceByToken, type Device } from "@/lib/server/db";
 
 /** Resolve the device that owns the Bearer token on the request, if any. */
-export function authDevice(req: Request): StoredDevice | null {
+export async function authDevice(req: Request): Promise<Device | null> {
   const header = req.headers.get("authorization") || "";
   const tok = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!tok) return null;
-  return read((db) => db.devices.find((d) => d.deviceToken === tok) ?? null);
+  return getDeviceByToken(tok);
 }
 
 export function clientIp(req: Request): string | null {

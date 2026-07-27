@@ -1,7 +1,6 @@
-import fs from "node:fs";
 import path from "node:path";
 
-import { AUDIO_DIRECTORY, genId, mutate, read, type StoredAudio } from "@/lib/server/store";
+import { createAudio, listAudio } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
@@ -16,9 +15,9 @@ const EXT: Record<string, string> = {
   "audio/aac": "aac",
 };
 
-// GET /api/admin/audio  → list
+// GET /api/admin/audio → list
 export async function GET() {
-  return Response.json(read((db) => db.audio));
+  return Response.json(await listAudio());
 }
 
 // POST /api/admin/audio  (multipart: file) → uploaded audio record
@@ -28,21 +27,8 @@ export async function POST(req: Request) {
   if (!file || !(file instanceof File)) {
     return Response.json({ error: "file is required" }, { status: 400 });
   }
-
-  const id = genId();
   const ext = EXT[file.type] || path.extname(file.name).replace(".", "") || "mp3";
-  const filename = `${id}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  fs.writeFileSync(path.join(AUDIO_DIRECTORY, filename), buffer);
-
-  const record: StoredAudio = {
-    id,
-    name: file.name || filename,
-    filename,
-    mime: file.type || "audio/mpeg",
-    sizeBytes: buffer.length,
-    createdAt: new Date().toISOString(),
-  };
-  mutate((db) => db.audio.push(record));
+  const record = await createAudio({ name: file.name || `audio.${ext}`, ext, mime: file.type || "audio/mpeg", buffer });
   return Response.json(record);
 }

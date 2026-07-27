@@ -1,41 +1,20 @@
 import { authDevice, clientIp, unauthorized } from "@/lib/server/device-auth";
-import { mutate } from "@/lib/server/store";
+import { addHeartbeat, getDeployment, takeCommands, updateDevice } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
-// POST /api/devices/heartbeat  (Bearer deviceToken)
-// { status?, firmwareVersion?, volume? }
+// POST /api/devices/heartbeat  (Bearer deviceToken)  { status?, firmwareVersion?, volume? }
 export async function POST(req: Request) {
-  const device = authDevice(req);
+  const device = await authDevice(req);
   if (!device) return unauthorized();
   const body = await req.json().catch(() => ({}));
   const ip = clientIp(req);
+  const firmwareVersion = typeof body.firmwareVersion === "string" ? body.firmwareVersion : device.firmwareVersion;
+  const volume = typeof body.volume === "number" ? body.volume : device.volume;
 
-  const result = mutate((db) => {
-    const d = db.devices.find((x) => x.id === device.id)!;
-    d.status = "online";
-    d.lastHeartbeatAt = new Date().toISOString();
-    if (typeof body.firmwareVersion === "string") d.firmwareVersion = body.firmwareVersion;
-    if (typeof body.volume === "number") d.volume = body.volume;
-    d.ip = ip;
+  await updateDevice(device.id, { status: "online", lastHeartbeatAt: new Date().toISOString(), firmwareVersion, volume, ip });
+  await addHeartbeat({ deviceId: device.id, status: body.status || "online", firmwareVersion, ip, volume });
 
-    db.heartbeats.push({
-      deviceId: d.id,
-      ts: d.lastHeartbeatAt,
-      status: body.status || "online",
-      firmwareVersion: d.firmwareVersion,
-      ip,
-      volume: d.volume,
-    });
-    if (db.heartbeats.length > 500) db.heartbeats.splice(0, db.heartbeats.length - 500);
-
-    // Deliver + dequeue any pending commands for this device.
-    const commands = db.commands.filter((c) => c.deviceId === d.id);
-    db.commands = db.commands.filter((c) => c.deviceId !== d.id);
-
-    const dep = db.deployments.find((x) => x.deviceId === d.id);
-    return { version: dep?.version ?? 0, commands };
-  });
-
-  return Response.json({ ok: true, scheduleVersion: result.version, commands: result.commands });
+  const [dep, commands] = await Promise.all([getDeployment(device.id), takeCommands(device.id)]);
+  return Response.json({ ok: true, scheduleVersion: dep?.version ?? 0, commands });
 }

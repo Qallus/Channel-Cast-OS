@@ -1,7 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
-
-import { AUDIO_DIRECTORY, mutate, read } from "@/lib/server/store";
+import { deleteAudio, updateAudio } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
@@ -9,15 +6,11 @@ export const runtime = "nodejs";
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
+  const patch: { name?: string; archived?: boolean } = {};
+  if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
+  if (typeof body.archived === "boolean") patch.archived = body.archived;
 
-  const rec = mutate((db) => {
-    const a = db.audio.find((x) => x.id === id);
-    if (!a) return null;
-    if (typeof body.name === "string" && body.name.trim()) a.name = body.name.trim();
-    if (typeof body.archived === "boolean") a.archived = body.archived;
-    return a;
-  });
-
+  const rec = await updateAudio(id, patch);
   if (!rec) return Response.json({ error: "not found" }, { status: 404 });
   return Response.json(rec);
 }
@@ -25,16 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 // DELETE /api/admin/audio/:id — remove the record and its file.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const rec = read((db) => db.audio.find((x) => x.id === id) ?? null);
-  if (!rec) return Response.json({ error: "not found" }, { status: 404 });
-
-  try {
-    fs.unlinkSync(path.join(AUDIO_DIRECTORY, rec.filename));
-  } catch {
-    /* file already gone — ignore */
-  }
-  mutate((db) => {
-    db.audio = db.audio.filter((x) => x.id !== id);
-  });
+  const ok = await deleteAudio(id);
+  if (!ok) return Response.json({ error: "not found" }, { status: 404 });
   return Response.json({ ok: true });
 }
