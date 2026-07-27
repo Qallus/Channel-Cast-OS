@@ -87,7 +87,7 @@ const mapPlaylist = (r: Row): Playlist => ({ id: r.id as string, name: r.name as
 const mapDeployment = (r: Row): Deployment => ({
   deviceId: r.device_id as string,
   playlistId: r.playlist_id as string,
-  window: r.window as Deployment["window"],
+  window: r.play_window as Deployment["window"],
   cooldownSec: r.cooldown_sec as number,
   maxPerHour: r.max_per_hour as number,
   rotation: (r.rotation as Deployment["rotation"]) ?? "sequential",
@@ -244,7 +244,7 @@ export async function upsertDeployment(input: {
   const row = {
     device_id: input.deviceId,
     playlist_id: input.playlistId,
-    window: input.window ?? { start: "00:00", end: "23:59", days: [0, 1, 2, 3, 4, 5, 6] },
+    play_window: input.window ?? { start: "00:00", end: "23:59", days: [0, 1, 2, 3, 4, 5, 6] },
     cooldown_sec: input.cooldownSec ?? 15,
     max_per_hour: input.maxPerHour ?? 12,
     rotation: input.rotation === "shuffle" ? "shuffle" : "sequential",

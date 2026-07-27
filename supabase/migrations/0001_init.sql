@@ -49,7 +49,7 @@ create table if not exists public.playlists (
 create table if not exists public.deployments (
   device_id     uuid primary key references public.devices(id) on delete cascade,
   playlist_id   uuid references public.playlists(id) on delete set null,
-  window        jsonb not null default '{"start":"00:00","end":"23:59","days":[0,1,2,3,4,5,6]}',
+  play_window   jsonb not null default '{"start":"00:00","end":"23:59","days":[0,1,2,3,4,5,6]}',
   cooldown_sec  int  not null default 15,
   max_per_hour  int  not null default 12,
   rotation      text not null default 'sequential',
