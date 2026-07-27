@@ -8,10 +8,14 @@ let client: SupabaseClient | null = null;
 
 export function supabaseAdmin(): SupabaseClient {
   if (client) return client;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Accept either naming convention: SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL,
+  // and a server-side key that bypasses RLS (service_role or the newer secret key).
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
-    throw new Error("Supabase is not configured — set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+    throw new Error(
+      "Supabase is not configured — set SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY).",
+    );
   }
   client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   return client;
