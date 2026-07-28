@@ -12,3 +12,4 @@ _reference
 .devserver.log
 agent/agent_state.json
 agent/cache
+.mcp.json
