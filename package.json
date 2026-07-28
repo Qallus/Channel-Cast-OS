@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
+    "build:css": "tailwindcss -i ./app/globals.css -o ./public/tailwind.css --minify",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
