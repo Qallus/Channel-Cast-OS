@@ -1,7 +1,7 @@
-import { AdminSection } from "@/components/admin/admin-section";
+import { ProfilePanel } from "@/components/profile/profile-panel";
 
 export const metadata = { title: "Profile · Channel Cast" };
 
 export default function Page() {
-  return <AdminSection slug="profile" />;
+  return <ProfilePanel />;
 }
