@@ -1,5 +1,7 @@
 # Channel Cast — production image for Coolify (Next.js standalone).
-# Debian (glibc) base — Alpine/musl can silently drop the Tailwind CSS build.
+# The build MUST use Turbopack (see package.json "build" → `next build --turbopack`):
+# the legacy webpack build drops React 19's document preamble and all head CSS on
+# Linux, producing an unstyled site. Turbopack compiles the same source correctly.
 FROM node:22-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -10,7 +12,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Cache-bust: bump this value to force a full, no-skip rebuild in Coolify.
-ARG CACHE_BUST=2026-07-28-b
+ARG CACHE_BUST=2026-07-28-turbopack
 RUN echo "build $CACHE_BUST" && npm run build
 
 FROM node:22-slim AS runner

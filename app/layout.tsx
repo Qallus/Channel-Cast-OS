@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 
-// globals.css goes through Tailwind's PostCSS plugin — works in local dev, but
-// comes up EMPTY in our Docker build (Tailwind doesn't run there), so it emits
-// no stylesheet in production. tailwind.generated.css is the pre-compiled, plain
-// CSS output (run `npm run build:css` to refresh it). Imported as a normal module,
-// Next bundles it the same way it bundles Leaflet's CSS — a path that DOES work in
-// the container — and always emits the <link>. That's what actually styles prod.
+// Tailwind entry. This MUST be built with Turbopack (`next build --turbopack`).
+// The legacy webpack build path drops React 19's document preamble
+// (<!DOCTYPE html><html><head>) and every head-hoisted resource — including this
+// stylesheet — on Linux, which is why production rendered completely unstyled.
+// Turbopack compiles the same source correctly. See package.json "build".
 import "./globals.css";
-import "./tailwind.generated.css";
 
 export const metadata: Metadata = {
   title: "Channel Cast",
