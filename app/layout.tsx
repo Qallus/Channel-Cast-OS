@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
-// globals.css powers local dev (Tailwind JIT). Production also links the
-// pre-compiled /tailwind.css (public/) — the container's Tailwind step is
-// unreliable, so we ship the finished stylesheet. Regenerate with `npm run build:css`.
+// globals.css goes through Tailwind's PostCSS plugin — works in local dev, but
+// comes up EMPTY in our Docker build (Tailwind doesn't run there), so it emits
+// no stylesheet in production. tailwind.generated.css is the pre-compiled, plain
+// CSS output (run `npm run build:css` to refresh it). Imported as a normal module,
+// Next bundles it the same way it bundles Leaflet's CSS — a path that DOES work in
+// the container — and always emits the <link>. That's what actually styles prod.
 import "./globals.css";
+import "./tailwind.generated.css";
 
 export const metadata: Metadata = {
   title: "Channel Cast",
@@ -17,9 +21,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        <link rel="stylesheet" href="/tailwind.css" />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('cc-theme');if(t==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark');}catch(e){document.documentElement.classList.add('dark');}`,
