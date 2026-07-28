@@ -9,7 +9,9 @@ FROM node:22-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# Cache-bust: bump this value to force a full, no-skip rebuild in Coolify.
+ARG CACHE_BUST=2026-07-28-a
+RUN echo "build $CACHE_BUST" && npm run build
 
 FROM node:22-slim AS runner
 WORKDIR /app
