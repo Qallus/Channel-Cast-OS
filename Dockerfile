@@ -1,18 +1,17 @@
-# Channel Cast — production image for Coolify (Next.js standalone)
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+# Channel Cast — production image for Coolify (Next.js standalone).
+# Debian (glibc) base — Alpine/musl can silently drop the Tailwind CSS build.
+FROM node:20-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:20-alpine AS build
-RUN apk add --no-cache libc6-compat
+FROM node:20-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -25,7 +24,7 @@ COPY --from=build /app/public ./public
 # The /agent.py route reads this at runtime — must be present in the image
 COPY --from=build /app/agent ./agent
 
-# Device records + uploaded audio live here — mount a persistent volume at /app/.data
+# Device records + uploaded audio live here (mount a volume if you want it to persist)
 RUN mkdir -p /app/.data
 
 EXPOSE 3000
