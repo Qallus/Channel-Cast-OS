@@ -1,7 +1,7 @@
-import { AdminSection } from "@/components/admin/admin-section";
+import { CommunicationsPage } from "@/components/ops/communications-page";
 
 export const metadata = { title: "Communications · Channel Cast" };
 
 export default function Page() {
-  return <AdminSection slug="communications" />;
+  return <CommunicationsPage />;
 }
