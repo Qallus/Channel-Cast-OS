@@ -6,6 +6,7 @@
 export type Profile = {
   fullName: string;
   jobTitle: string;
+  avatar: string | null; // data URL; when null, initials are shown instead
   bio: string;
   email: string;
   phone: string;
@@ -29,6 +30,7 @@ export const STORAGE_KEY = "cc-profile";
 export const DEFAULT_PROFILE: Profile = {
   fullName: "Alex Rivera",
   jobTitle: "Super Admin",
+  avatar: null,
   bio: "Runs the Channel Cast network — devices, campaigns, and the deal desk.",
   email: "alex@channelcast.example",
   phone: "",
@@ -87,4 +89,33 @@ export function initials(fullName: string): string {
   if (parts.length === 0) return "CC";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Downscale + compress a chosen photo to a small square-ish JPEG data URL so it
+ * fits comfortably in localStorage and renders instantly. Max edge ~256px.
+ */
+export function avatarToDataUrl(file: File, maxEdge = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("no canvas context"));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }

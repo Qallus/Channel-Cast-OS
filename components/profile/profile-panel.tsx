@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   Building2,
   Check,
   Clock,
   Globe,
+  ImagePlus,
   KeyRound,
   Mail,
   MapPin,
@@ -15,6 +16,7 @@ import {
   Phone,
   ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -38,6 +40,7 @@ import {
   LANGUAGES,
   Profile,
   TIMEZONES,
+  avatarToDataUrl,
   initials,
   loadProfile,
   saveProfile,
@@ -153,6 +156,57 @@ function currentSession(): { browser: string; os: string } {
   return { browser, os };
 }
 
+/** Header avatar: shows the uploaded photo, or falls back to the person's initials.
+ *  In edit mode it exposes a "change photo" overlay and a remove control. */
+function ProfileAvatar({
+  avatar,
+  name,
+  editing,
+  onPick,
+  onRemove,
+}: {
+  avatar: string | null;
+  name: string;
+  editing: boolean;
+  onPick: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="relative shrink-0">
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatar} alt={name || "Profile photo"} className="h-16 w-16 rounded-2xl object-cover" />
+      ) : (
+        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand text-xl font-semibold text-brand-foreground">
+          {initials(name)}
+        </span>
+      )}
+      {editing ? (
+        <>
+          <button
+            type="button"
+            onClick={onPick}
+            aria-label={avatar ? "Change photo" : "Add photo"}
+            className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-accent hover:text-brand"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+          </button>
+          {avatar ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label="Remove photo"
+              className="absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-destructive shadow-sm transition-colors hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function ProfilePanel() {
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
   const [draft, setDraft] = useState<Profile>(DEFAULT_PROFILE);
@@ -170,6 +224,12 @@ export function ProfilePanel() {
 
   const set = <K extends keyof Profile>(key: K, value: Profile[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  async function pickAvatar(file: File | null) {
+    if (file) set("avatar", await avatarToDataUrl(file));
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  }
 
   function startEdit() {
     setDraft(profile);
@@ -198,9 +258,14 @@ export function ProfilePanel() {
       {/* Identity header */}
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand text-xl font-semibold text-brand-foreground">
-            {initials(profile.fullName)}
-          </span>
+          <ProfileAvatar
+            avatar={(editing ? draft : profile).avatar}
+            name={(editing ? draft : profile).fullName}
+            editing={editing}
+            onPick={() => avatarInputRef.current?.click()}
+            onRemove={() => set("avatar", null)}
+          />
+          <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={(e) => pickAvatar(e.target.files?.[0] ?? null)} />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               {profile.fullName || "Your name"}
@@ -253,6 +318,23 @@ export function ProfilePanel() {
             <CardContent>
               {editing ? (
                 <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <EditRow label="Photo" hint="Shown across the console. If none is set, your initials are used.">
+                      <div className="flex items-center gap-3">
+                        <ProfileAvatar avatar={draft.avatar} name={draft.fullName} editing={false} onPick={() => {}} onRemove={() => {}} />
+                        <div className="flex items-center gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => avatarInputRef.current?.click()}>
+                            <ImagePlus className="h-4 w-4" /> {draft.avatar ? "Change photo" : "Add photo"}
+                          </Button>
+                          {draft.avatar ? (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => set("avatar", null)}>
+                              <Trash2 className="h-4 w-4" /> Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </EditRow>
+                  </div>
                   <EditRow label="Full name">
                     <Input value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="Jane Doe" />
                   </EditRow>
