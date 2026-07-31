@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Music, Play, Sparkles, Square, Upload, Wand2 } from "lucide-react";
+import { ImagePlus, Mic, Music, Play, Sparkles, Square, Upload, Wand2, X } from "lucide-react";
 
 import { AudioPlayer } from "@/components/audio/audio-player";
 import { BackgroundMusic } from "@/components/audio/background-music";
+import { SpotThumb } from "@/components/audio/spot-thumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { imageToDataUrl, saveMeta } from "@/lib/audio/spot-meta";
 import { encodeWav } from "@/lib/audio/wav";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +66,16 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
   const [rendering, setRendering] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Spot details attached to the rendered mix when it's saved to the library.
+  const [spotName, setSpotName] = useState("");
+  const [spotDescription, setSpotDescription] = useState("");
+  const [spotImage, setSpotImage] = useState<string | null>(null);
+  const spotImageRef = useRef<HTMLInputElement>(null);
+  async function pickSpotImage(file: File | null) {
+    if (file) setSpotImage(await imageToDataUrl(file));
+    if (spotImageRef.current) spotImageRef.current.value = "";
+  }
 
   const loadLibrary = async () => setLibrary(await (await fetch("/api/admin/audio")).json());
   useEffect(() => {
@@ -234,11 +246,20 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
 
       const rendered = await offline.startRendering();
       const wav = encodeWav(rendered);
-      const name = `${voiceName || "Studio mix"}${musicBuffer ? " + music" : ""}.wav`;
+      const spot = spotName.trim() || voiceName || "Studio mix";
+      const name = `${spot}${musicBuffer ? " + music" : ""}.wav`;
       const fd = new FormData();
       fd.append("file", new File([wav], name, { type: "audio/wav" }));
-      await fetch("/api/admin/audio", { method: "POST", body: fd });
+      const res = await fetch("/api/admin/audio", { method: "POST", body: fd });
+      // Attach the spot's description/image to the new record (keyed by its id).
+      const created = await res.json().catch(() => null);
+      if (created?.id && (spotDescription.trim() || spotImage)) {
+        saveMeta(created.id, { description: spotDescription.trim(), image: spotImage });
+      }
       setSaveMsg(`Saved "${name}" to the audio library.`);
+      setSpotName("");
+      setSpotDescription("");
+      setSpotImage(null);
       await loadLibrary();
       onSaved?.();
     } catch (e) {
@@ -449,6 +470,32 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
             <input type="checkbox" checked={loopMusic} onChange={(e) => setLoopMusic(e.target.checked)} className="h-4 w-4 accent-[hsl(var(--brand))]" />
             Loop music to fill the voiceover
           </label>
+          {/* Spot details saved with the rendered mix */}
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Spot details</p>
+            <div className="flex items-center gap-3">
+              <SpotThumb image={spotImage} size="lg" />
+              <div className="flex items-center gap-2">
+                <input ref={spotImageRef} type="file" accept="image/*" hidden onChange={(e) => pickSpotImage(e.target.files?.[0] ?? null)} />
+                <Button type="button" variant="outline" size="sm" onClick={() => spotImageRef.current?.click()}>
+                  <ImagePlus className="h-4 w-4" /> {spotImage ? "Replace image" : "Add image"}
+                </Button>
+                {spotImage && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setSpotImage(null)}>
+                    <X className="h-4 w-4" /> Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+            <label className="block space-y-1.5">
+              <span className="text-xs text-muted-foreground">Spot name</span>
+              <Input value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder={voiceName || "Name this spot"} />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs text-muted-foreground">Description</span>
+              <Textarea rows={2} value={spotDescription} onChange={(e) => setSpotDescription(e.target.value)} placeholder="What this spot is, who it's for, key message…" />
+            </label>
+          </div>
           <div className="flex flex-wrap gap-2">
             {playing ? (
               <Button variant="destructive" onClick={stopPreview}><Square className="h-4 w-4" /> Stop</Button>

@@ -13,6 +13,7 @@ export type AudioSpot = {
   lat: number;
   lng: number;
   plays: number;
+  image?: string | null; // optional cover; falls back to a waveform tile
 };
 
 export const SPOT_STATUS_META: Record<SpotStatus, { label: string; tone: string }> = {

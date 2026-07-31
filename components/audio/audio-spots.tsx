@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { CalendarDays, LayoutGrid, List, Map as MapIcon, SquareKanban, Table as TableIcon } from "lucide-react";
 
+import { SpotThumb } from "@/components/audio/spot-thumb";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -81,6 +82,7 @@ function ListView({ spots }: { spots: AudioSpot[] }) {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{s.name}</span>
+                <SpotThumb image={s.image} alt={s.name} size="sm" />
                 <StatusBadge status={s.status} />
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">{s.advertiser} · {s.durationSec}s · {s.city}, {s.state}</p>
@@ -115,7 +117,12 @@ function TableView({ spots }: { spots: AudioSpot[] }) {
           <TableBody>
             {spots.map((s) => (
               <TableRow key={s.id}>
-                <TableCell className="font-medium text-foreground">{s.name}</TableCell>
+                <TableCell className="font-medium text-foreground">
+                  <div className="flex items-center gap-2">
+                    <span>{s.name}</span>
+                    <SpotThumb image={s.image} alt={s.name} size="sm" />
+                  </div>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{s.advertiser}</TableCell>
                 <TableCell><StatusBadge status={s.status} /></TableCell>
                 <TableCell className="text-muted-foreground">{s.durationSec}s</TableCell>
@@ -138,7 +145,10 @@ function CardView({ spots }: { spots: AudioSpot[] }) {
         <Card key={s.id}>
           <CardContent className="space-y-3 p-4">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-semibold text-foreground">{s.name}</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-semibold text-foreground">{s.name}</span>
+                <SpotThumb image={s.image} alt={s.name} size="sm" />
+              </div>
               <StatusBadge status={s.status} />
             </div>
             <p className="text-xs text-muted-foreground">{s.advertiser}</p>
@@ -171,7 +181,10 @@ function KanbanView({ spots }: { spots: AudioSpot[] }) {
             <div className="space-y-2">
               {items.map((s) => (
                 <div key={s.id} className="rounded-md border border-border bg-background p-2.5">
-                  <p className="text-sm font-medium text-foreground">{s.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 truncate text-sm font-medium text-foreground">{s.name}</p>
+                    <SpotThumb image={s.image} alt={s.name} size="sm" />
+                  </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{s.advertiser}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">{s.durationSec}s · {s.city}</p>
                 </div>
