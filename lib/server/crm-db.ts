@@ -13,6 +13,11 @@ export const CRM_COLLECTIONS = [
   "campaigns",
   "quotes",
   "revenue_models",
+  "invoices",
+  "documents",
+  "projects",
+  "radio_stations",
+  "team_members",
 ] as const;
 export type CrmCollection = (typeof CRM_COLLECTIONS)[number];
 

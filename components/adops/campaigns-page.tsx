@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, ExternalLink, LayoutGrid, Pencil, Plus, Send, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CalendarDays, ExternalLink, LayoutGrid, List, Map as MapIcon, Pencil, Plus, Send, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
 
 import {
   DetailField,
@@ -34,13 +35,20 @@ import {
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "table" | "cards" | "kanban" | "calendar";
+type View = "list" | "table" | "cards" | "kanban" | "calendar" | "map";
 const VIEWS = [
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
   { id: "cards" as const, label: "Cards", icon: LayoutGrid },
   { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
   { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
+  { id: "map" as const, label: "Map", icon: MapIcon },
 ];
+
+const CampaignsMap = dynamic(() => import("@/components/crm/records-map"), {
+  ssr: false,
+  loading: () => <div className="flex h-[520px] items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">Loading map…</div>,
+});
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const num = new Intl.NumberFormat("en-US");
@@ -75,6 +83,10 @@ function blank(): Campaign {
     endDate: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),
     spots: 1,
     plays: 0,
+    city: "",
+    state: "",
+    lat: null,
+    lng: null,
     owner: "Alex Rivera",
     notes: "",
     createdAt: new Date().toISOString(),
@@ -179,14 +191,18 @@ export function CampaignsPage() {
 
       {filtered.length === 0 ? (
         <EmptyState message={items.length === 0 ? "No campaigns yet. Create your first campaign." : "No campaigns match your filters."} />
+      ) : view === "list" ? (
+        <ListView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "table" ? (
         <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "cards" ? (
         <CardsView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "kanban" ? (
         <KanbanView rows={filtered} onOpen={setDrawerId} />
-      ) : (
+      ) : view === "calendar" ? (
         <CalendarView rows={filtered} onOpen={setDrawerId} />
+      ) : (
+        <MapView rows={filtered} onOpen={setDrawerId} />
       )}
 
       {/* Drawer */}
@@ -426,6 +442,49 @@ function CalendarView({ rows, onOpen }: { rows: Campaign[]; onOpen: (id: string)
   );
 }
 
+function ListView({ rows, onOpen, rowActions }: ViewProps) {
+  return (
+    <div className="space-y-2">
+      {rows.map((c) => (
+        <Card key={c.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(c.id)}>
+          <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 sm:w-64">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
+                <StatusBadge status={c.status} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.advertiser} · {[c.city, c.state].filter(Boolean).join(", ")}</p>
+            </div>
+            <div className="flex-1"><Pacing spent={c.spent} budget={c.budget} /></div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="whitespace-nowrap">{fmtDate(c.startDate)} – {fmtDate(c.endDate)}</span>
+              <span className="whitespace-nowrap">{num.format(c.plays)} plays</span>
+            </div>
+            <RowActions actions={rowActions(c)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function MapView({ rows, onOpen }: { rows: Campaign[]; onOpen: (id: string) => void }) {
+  const points = rows
+    .filter((c) => c.lat !== null && c.lng !== null)
+    .map((c) => ({ id: c.id, lat: c.lat as number, lng: c.lng as number, title: c.name, subtitle: `${c.advertiser} · ${CAMPAIGN_STATUS[c.status].label}` }));
+  if (points.length === 0) {
+    return <EmptyState message="No campaigns have a location yet. Edit a campaign and add a city or latitude/longitude to plot it here." />;
+  }
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <CampaignsMap points={points} onOpen={onOpen} />
+        <p className="mt-2 text-xs text-muted-foreground">{points.length} located campaign{points.length === 1 ? "" : "s"} plotted. Click a marker to open.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function CampaignForm({ draft, onChange }: { draft: Campaign; onChange: (d: Campaign) => void }) {
   const set = <K extends keyof Campaign>(key: K, value: Campaign[K]) => onChange({ ...draft, [key]: value });
   const n = (v: string) => (v.trim() === "" ? 0 : Math.max(0, Number(v) || 0));
@@ -471,7 +530,20 @@ function CampaignForm({ draft, onChange }: { draft: Campaign; onChange: (d: Camp
         <FormField label="Plays">
           <Input inputMode="numeric" value={String(draft.plays)} onChange={(e) => set("plays", n(e.target.value))} />
         </FormField>
+        <FormField label="City">
+          <Input value={draft.city} onChange={(e) => set("city", e.target.value)} placeholder="Austin" />
+        </FormField>
+        <FormField label="State">
+          <Input value={draft.state} onChange={(e) => set("state", e.target.value)} placeholder="TX" />
+        </FormField>
+        <FormField label="Latitude">
+          <Input inputMode="decimal" value={draft.lat === null ? "" : String(draft.lat)} onChange={(e) => set("lat", e.target.value.trim() === "" ? null : Number(e.target.value))} placeholder="30.27" />
+        </FormField>
+        <FormField label="Longitude">
+          <Input inputMode="decimal" value={draft.lng === null ? "" : String(draft.lng)} onChange={(e) => set("lng", e.target.value.trim() === "" ? null : Number(e.target.value))} placeholder="-97.74" />
+        </FormField>
       </div>
+      <p className="text-xs text-muted-foreground">City/coordinates place this campaign on the Map view.</p>
       <FormField label="Notes">
         <Textarea rows={3} value={draft.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Creative, pacing notes, targeting…" />
       </FormField>
