@@ -1,11 +1,11 @@
 "use client";
 
-// Generic client-side collection store for the CRM pages. Seeded with realistic
-// data so pages are immediately useful; persists edits to localStorage. This is
-// the single seam that swaps to Supabase tables when the schema lands — the page
-// components only ever call the returned CRUD helpers, never touch storage.
+// CRM collection store — Supabase-backed via /api/crm/:collection. Seeded on first
+// run (if the collection is empty server-side) so pages are immediately useful.
+// The page components only call the returned CRUD helpers; this is the single
+// place that talks to the server.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type WithId = { id: string };
 
@@ -14,41 +14,70 @@ export function genId(prefix = "id"): string {
   return `${prefix}_${rnd}`;
 }
 
-export function useCollection<T extends WithId>(key: string, seed: T[]) {
-  const storageKey = `cc-crm-${key}`;
+async function api(path: string, init?: RequestInit) {
+  return fetch(`/api/crm/${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+  });
+}
+
+export function useCollection<T extends WithId>(collection: string, seed: T[]) {
   const [items, setItems] = useState<T[]>(seed);
   const [loaded, setLoaded] = useState(false);
+  const itemsRef = useRef<T[]>(seed);
+  itemsRef.current = items;
 
-  // Hydrate from localStorage after mount (keeps SSR === first client render).
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) setItems(JSON.parse(raw) as T[]);
-    } catch {
-      /* ignore malformed */
-    }
-    setLoaded(true);
-  }, [storageKey]);
-
-  const persist = useCallback(
-    (next: T[]) => {
-      setItems(next);
+    let alive = true;
+    (async () => {
       try {
-        window.localStorage.setItem(storageKey, JSON.stringify(next));
+        const res = await api(collection);
+        if (res.ok) {
+          const rows = (await res.json()) as T[];
+          if (!alive) return;
+          if (Array.isArray(rows) && rows.length > 0) {
+            setItems(rows);
+          } else {
+            // First run: seed the server, then use the seed.
+            await api(collection, { method: "POST", body: JSON.stringify({ records: seed }) }).catch(() => {});
+            if (alive) setItems(seed);
+          }
+        }
       } catch {
-        /* quota / unavailable */
+        /* offline — fall back to seed already in state */
       }
+      if (alive) setLoaded(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [collection, seed]);
+
+  const create = useCallback(
+    (record: T) => {
+      setItems((prev) => [record, ...prev]);
+      api(collection, { method: "POST", body: JSON.stringify(record) }).catch(() => {});
     },
-    [storageKey],
+    [collection],
   );
 
-  const create = useCallback((record: T) => persist([record, ...items]), [items, persist]);
   const update = useCallback(
-    (id: string, patch: Partial<T>) => persist(items.map((it) => (it.id === id ? { ...it, ...patch } : it))),
-    [items, persist],
+    (id: string, patch: Partial<T>) => {
+      const next = itemsRef.current.map((it) => (it.id === id ? { ...it, ...patch } : it));
+      setItems(next);
+      const rec = next.find((it) => it.id === id);
+      if (rec) api(`${collection}/${id}`, { method: "PATCH", body: JSON.stringify(rec) }).catch(() => {});
+    },
+    [collection],
   );
-  const remove = useCallback((id: string) => persist(items.filter((it) => it.id !== id)), [items, persist]);
-  const reset = useCallback(() => persist(seed), [persist, seed]);
 
-  return { items, loaded, create, update, remove, reset };
+  const remove = useCallback(
+    (id: string) => {
+      setItems((prev) => prev.filter((it) => it.id !== id));
+      api(`${collection}/${id}`, { method: "DELETE" }).catch(() => {});
+    },
+    [collection],
+  );
+
+  return { items, loaded, create, update, remove };
 }
