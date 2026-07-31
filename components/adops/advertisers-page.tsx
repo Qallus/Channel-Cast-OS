@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, LayoutGrid, Megaphone, Pencil, Plus, Radio, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CalendarDays, ExternalLink, LayoutGrid, List, Map as MapIcon, Megaphone, Pencil, Plus, Radio, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
 
 import {
   Avatar,
@@ -9,6 +10,7 @@ import {
   EmptyState,
   FormField,
   PageHeader,
+  RecordCalendar,
   RowActions,
   SearchBox,
   StatRow,
@@ -35,12 +37,20 @@ import {
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "table" | "cards" | "kanban";
+type View = "list" | "table" | "cards" | "kanban" | "calendar" | "map";
 const VIEWS = [
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
   { id: "cards" as const, label: "Cards", icon: LayoutGrid },
   { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
+  { id: "map" as const, label: "Map", icon: MapIcon },
 ];
+
+const AdvertisersMap = dynamic(() => import("@/components/crm/records-map"), {
+  ssr: false,
+  loading: () => <div className="flex h-[520px] items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">Loading map…</div>,
+});
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
@@ -62,6 +72,8 @@ function blank(): Advertiser {
     phone: "",
     campaigns: 0,
     spend: 0,
+    lat: null,
+    lng: null,
     owner: "Alex Rivera",
     notes: "",
     createdAt: new Date().toISOString(),
@@ -165,12 +177,18 @@ export function AdvertisersPage() {
 
       {filtered.length === 0 ? (
         <EmptyState message={items.length === 0 ? "No advertisers yet. Add your first account." : "No advertisers match your filters."} />
+      ) : view === "list" ? (
+        <ListView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "table" ? (
         <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "cards" ? (
         <CardsView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
-      ) : (
+      ) : view === "kanban" ? (
         <KanbanView rows={filtered} onOpen={setDrawerId} />
+      ) : view === "calendar" ? (
+        <RecordCalendar items={filtered} getId={(a) => a.id} getDate={(a) => a.createdAt} getTitle={(a) => a.name} onOpen={setDrawerId} footer="Advertisers placed by date added. Click one to open." />
+      ) : (
+        <MapView rows={filtered} onOpen={setDrawerId} />
       )}
 
       {/* Drawer */}
@@ -253,6 +271,45 @@ type ViewProps = {
   onOpen: (id: string) => void;
   rowActions: (a: Advertiser) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
 };
+
+function ListView({ rows, onOpen, rowActions }: ViewProps) {
+  return (
+    <div className="space-y-2">
+      {rows.map((a) => (
+        <Card key={a.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(a.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <Avatar name={a.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{a.name}</p>
+                <StatusBadge status={a.status} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{a.industry} · {[a.city, a.state].filter(Boolean).join(", ")}</p>
+            </div>
+            <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:block">{a.campaigns} campaigns</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">{usd.format(a.spend)}</span>
+            <RowActions actions={rowActions(a)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function MapView({ rows, onOpen }: { rows: Advertiser[]; onOpen: (id: string) => void }) {
+  const points = rows
+    .filter((a) => a.lat !== null && a.lng !== null)
+    .map((a) => ({ id: a.id, lat: a.lat as number, lng: a.lng as number, title: a.name, subtitle: `${[a.city, a.state].filter(Boolean).join(", ")} · ${ADVERTISER_STATUS[a.status].label}` }));
+  if (points.length === 0) return <EmptyState message="No advertisers have a location yet. Edit an advertiser and add coordinates to plot it." />;
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <AdvertisersMap points={points} onOpen={onOpen} />
+        <p className="mt-2 text-xs text-muted-foreground">{points.length} located advertiser{points.length === 1 ? "" : "s"} plotted. Click a marker to open.</p>
+      </CardContent>
+    </Card>
+  );
+}
 
 function TableView({ rows, onOpen, rowActions }: ViewProps) {
   return (
@@ -396,6 +453,12 @@ function AdvertiserForm({ draft, onChange }: { draft: Advertiser; onChange: (d: 
         </FormField>
         <FormField label="State">
           <Input value={draft.state} onChange={(e) => set("state", e.target.value)} placeholder="TX" />
+        </FormField>
+        <FormField label="Latitude">
+          <Input inputMode="decimal" value={draft.lat === null ? "" : String(draft.lat)} onChange={(e) => set("lat", e.target.value.trim() === "" ? null : Number(e.target.value))} placeholder="30.27" />
+        </FormField>
+        <FormField label="Longitude">
+          <Input inputMode="decimal" value={draft.lng === null ? "" : String(draft.lng)} onChange={(e) => set("lng", e.target.value.trim() === "" ? null : Number(e.target.value))} placeholder="-97.74" />
         </FormField>
         <FormField label="Campaigns">
           <Input inputMode="numeric" value={String(draft.campaigns)} onChange={(e) => set("campaigns", num(e.target.value))} />

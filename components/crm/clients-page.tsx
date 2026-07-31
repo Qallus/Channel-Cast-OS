@@ -1,12 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Building2,
+  CalendarDays,
   Cpu,
   ExternalLink,
   LayoutGrid,
+  List,
   Mail,
+  Map as MapIcon,
   MapPin,
   Pencil,
   Phone,
@@ -22,6 +26,7 @@ import {
   EmptyState,
   FormField,
   PageHeader,
+  RecordCalendar,
   RowActions,
   SearchBox,
   StatRow,
@@ -50,12 +55,20 @@ import {
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "table" | "cards" | "kanban";
+type View = "list" | "table" | "cards" | "kanban" | "calendar" | "map";
 const VIEWS = [
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
   { id: "cards" as const, label: "Cards", icon: LayoutGrid },
   { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
+  { id: "map" as const, label: "Map", icon: MapIcon },
 ];
+
+const ClientsMap = dynamic(() => import("@/components/crm/records-map"), {
+  ssr: false,
+  loading: () => <div className="flex h-[520px] items-center justify-center rounded-lg border border-border text-sm text-muted-foreground">Loading map…</div>,
+});
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
@@ -82,6 +95,8 @@ function blankClient(): Client {
     locations: 0,
     devices: 0,
     mrr: 0,
+    lat: null,
+    lng: null,
     owner: "Alex Rivera",
     notes: "",
     createdAt: new Date().toISOString(),
@@ -197,12 +212,18 @@ export function ClientsPage() {
 
       {filtered.length === 0 ? (
         <EmptyState message={items.length === 0 ? "No clients yet. Add your first account." : "No clients match your filters."} />
+      ) : view === "list" ? (
+        <ListView clients={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "table" ? (
         <TableView clients={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "cards" ? (
         <CardsView clients={filtered} onOpen={setDrawerId} rowActions={rowActions} />
-      ) : (
+      ) : view === "kanban" ? (
         <KanbanView clients={filtered} onOpen={setDrawerId} />
+      ) : view === "calendar" ? (
+        <RecordCalendar items={filtered} getId={(c) => c.id} getDate={(c) => c.createdAt} getTitle={(c) => c.name} onOpen={setDrawerId} footer="Clients placed by date added. Click one to open." />
+      ) : (
+        <MapView clients={filtered} onOpen={setDrawerId} />
       )}
 
       {/* Detail drawer */}
@@ -320,6 +341,45 @@ type ViewProps = {
   onOpen: (id: string) => void;
   rowActions: (c: Client) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
 };
+
+function ListView({ clients, onOpen, rowActions }: ViewProps) {
+  return (
+    <div className="space-y-2">
+      {clients.map((c) => (
+        <Card key={c.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(c.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <Avatar name={c.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
+                <StatusBadge status={c.status} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.industry} · {[c.city, c.state].filter(Boolean).join(", ")}</p>
+            </div>
+            <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:block">{c.devices} devices</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">{usd.format(c.mrr)}/mo</span>
+            <RowActions actions={rowActions(c)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function MapView({ clients, onOpen }: { clients: Client[]; onOpen: (id: string) => void }) {
+  const points = clients
+    .filter((c) => c.lat !== null && c.lng !== null)
+    .map((c) => ({ id: c.id, lat: c.lat as number, lng: c.lng as number, title: c.name, subtitle: `${[c.city, c.state].filter(Boolean).join(", ")} · ${CLIENT_STATUS[c.status].label}` }));
+  if (points.length === 0) return <EmptyState message="No clients have a location yet. Edit a client and add coordinates to plot it." />;
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <ClientsMap points={points} onOpen={onOpen} />
+        <p className="mt-2 text-xs text-muted-foreground">{points.length} located client{points.length === 1 ? "" : "s"} plotted. Click a marker to open.</p>
+      </CardContent>
+    </Card>
+  );
+}
 
 function TableView({ clients, onOpen, rowActions }: ViewProps) {
   return (
@@ -487,6 +547,12 @@ function ClientForm({ draft, onChange }: { draft: Client; onChange: (d: Client) 
         </FormField>
         <FormField label="State">
           <Input value={draft.state} onChange={(e) => set("state", e.target.value)} placeholder="TX" />
+        </FormField>
+        <FormField label="Latitude">
+          <Input inputMode="decimal" value={draft.lat === null ? "" : String(draft.lat)} onChange={(e) => set("lat", e.target.value.trim() === "" ? null : Number(e.target.value))} placeholder="30.27" />
+        </FormField>
+        <FormField label="Longitude">
+          <Input inputMode="decimal" value={draft.lng === null ? "" : String(draft.lng)} onChange={(e) => set("lng", e.target.value.trim() === "" ? null : Number(e.target.value))} placeholder="-97.74" />
         </FormField>
         <FormField label="Locations">
           <Input inputMode="numeric" value={String(draft.locations)} onChange={(e) => set("locations", num(e.target.value))} />

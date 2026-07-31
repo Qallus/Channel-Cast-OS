@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, GitBranchPlus, Pencil, Plus, Table as TableIcon, Trash2, TrendingUp } from "lucide-react";
+import { CalendarDays, ExternalLink, GitBranchPlus, LayoutGrid, List, Pencil, Plus, Table as TableIcon, Trash2, TrendingUp } from "lucide-react";
 
 import {
-  Avatar,
   DetailField,
   EmptyState,
   FormField,
   PageHeader,
+  RecordCalendar,
   RowActions,
   SearchBox,
   StatRow,
@@ -28,10 +28,13 @@ import { DEAL_STAGE, DEAL_STAGE_ORDER, Deal, DealStage, OPEN_STAGES, seedDeals }
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "kanban" | "table";
+type View = "kanban" | "list" | "table" | "cards" | "calendar";
 const VIEWS = [
   { id: "kanban" as const, label: "Board", icon: GitBranchPlus },
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
+  { id: "cards" as const, label: "Cards", icon: LayoutGrid },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
 ];
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -162,8 +165,14 @@ export function PipelinePage() {
         <EmptyState message={items.length === 0 ? "No deals yet. Add your first opportunity." : "No deals match your filters."} />
       ) : view === "kanban" ? (
         <BoardView deals={filtered} onOpen={setDrawerId} onMove={move} />
-      ) : (
+      ) : view === "list" ? (
+        <ListView deals={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "table" ? (
         <TableView deals={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "cards" ? (
+        <CardsView deals={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : (
+        <RecordCalendar items={filtered} getId={(d) => d.id} getDate={(d) => d.closeDate} getTitle={(d) => d.name} onOpen={setDrawerId} footer="Deals placed by expected close date. Click one to open." />
       )}
 
       {/* Drawer */}
@@ -282,7 +291,57 @@ function BoardView({ deals, onOpen, onMove }: { deals: Deal[]; onOpen: (id: stri
   );
 }
 
-function TableView({ deals, onOpen, rowActions }: { deals: Deal[]; onOpen: (id: string) => void; rowActions: (d: Deal) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[] }) {
+type DealRowActions = (d: Deal) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
+
+function ListView({ deals, onOpen, rowActions }: { deals: Deal[]; onOpen: (id: string) => void; rowActions: DealRowActions }) {
+  return (
+    <div className="space-y-2">
+      {deals.map((d) => (
+        <Card key={d.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(d.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
+                <StageBadge stage={d.stage} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{d.client} · closes {dateFmt(d.closeDate)}</p>
+            </div>
+            <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:block">{d.probability}%</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">{usd.format(d.value)}</span>
+            <RowActions actions={rowActions(d)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function CardsView({ deals, onOpen, rowActions }: { deals: Deal[]; onOpen: (id: string) => void; rowActions: DealRowActions }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {deals.map((d) => (
+        <Card key={d.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(d.id)}>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-foreground">{d.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{d.client}</p>
+              </div>
+              <RowActions actions={rowActions(d)} />
+            </div>
+            <StageBadge stage={d.stage} />
+            <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">{d.probability}% · {dateFmt(d.closeDate)}</span>
+              <span className="font-semibold text-foreground">{usd.format(d.value)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function TableView({ deals, onOpen, rowActions }: { deals: Deal[]; onOpen: (id: string) => void; rowActions: DealRowActions }) {
   return (
     <Card>
       <CardContent className="pt-4">

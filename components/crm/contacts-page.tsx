@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Contact as ContactIcon, ExternalLink, LayoutGrid, Mail, Pencil, Phone, Plus, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
+import { CalendarDays, Contact as ContactIcon, ExternalLink, LayoutGrid, List, Mail, Pencil, Phone, Plus, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
 
 import {
   Avatar,
@@ -9,6 +9,7 @@ import {
   EmptyState,
   FormField,
   PageHeader,
+  RecordCalendar,
   RowActions,
   SearchBox,
   StatRow,
@@ -37,11 +38,13 @@ import {
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "table" | "cards" | "kanban";
+type View = "list" | "table" | "cards" | "kanban" | "calendar";
 const VIEWS = [
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
   { id: "cards" as const, label: "Cards", icon: LayoutGrid },
   { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
 ];
 
 const dateFmt = (iso: string) => (iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
@@ -169,12 +172,16 @@ export function ContactsPage() {
 
       {filtered.length === 0 ? (
         <EmptyState message={items.length === 0 ? "No contacts yet. Add your first person." : "No contacts match your filters."} />
+      ) : view === "list" ? (
+        <ListView contacts={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "table" ? (
         <TableView contacts={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "cards" ? (
         <CardsView contacts={filtered} onOpen={setDrawerId} rowActions={rowActions} />
-      ) : (
+      ) : view === "kanban" ? (
         <KanbanView contacts={filtered} onOpen={setDrawerId} />
+      ) : (
+        <RecordCalendar items={filtered} getId={(c) => c.id} getDate={(c) => c.lastContact} getTitle={(c) => c.name} onOpen={setDrawerId} footer="Contacts placed by last-contact date. Click one to open." />
       )}
 
       {/* Drawer */}
@@ -264,6 +271,29 @@ type ViewProps = {
   onOpen: (id: string) => void;
   rowActions: (c: Contact) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
 };
+
+function ListView({ contacts, onOpen, rowActions }: ViewProps) {
+  return (
+    <div className="space-y-2">
+      {contacts.map((c) => (
+        <Card key={c.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(c.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <Avatar name={c.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
+                <RoleBadge role={c.role} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.title} · {c.company}</p>
+            </div>
+            <span className="hidden truncate text-xs text-muted-foreground sm:block">{c.email}</span>
+            <RowActions actions={rowActions(c)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 function TableView({ contacts, onOpen, rowActions }: ViewProps) {
   return (

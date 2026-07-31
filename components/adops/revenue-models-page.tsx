@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, FileBarChart, LayoutGrid, Pencil, Plus, Table as TableIcon, Trash2 } from "lucide-react";
+import { ExternalLink, FileBarChart, LayoutGrid, List, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
 
 import {
   DetailField,
@@ -37,10 +37,12 @@ import {
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "cards" | "table";
+type View = "cards" | "list" | "table" | "kanban";
 const VIEWS = [
   { id: "cards" as const, label: "Cards", icon: LayoutGrid },
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
+  { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
 ];
 
 function TypeBadge({ type }: { type: ModelType }) {
@@ -164,8 +166,12 @@ export function RevenueModelsPage() {
         <EmptyState message={items.length === 0 ? "No revenue models yet. Add your first pricing model." : "No models match your filters."} />
       ) : view === "cards" ? (
         <CardsView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
-      ) : (
+      ) : view === "list" ? (
+        <ListView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "table" ? (
         <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : (
+        <KanbanView rows={filtered} onOpen={setDrawerId} />
       )}
 
       {/* Drawer */}
@@ -236,6 +242,56 @@ type ViewProps = {
   onOpen: (id: string) => void;
   rowActions: (m: RevenueModel) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
 };
+
+function ListView({ rows, onOpen, rowActions }: ViewProps) {
+  return (
+    <div className="space-y-2">
+      {rows.map((m) => (
+        <Card key={m.id} className={cn("cursor-pointer transition-colors hover:border-brand/40", m.status === "archived" && "opacity-70")} onClick={() => onOpen(m.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                <TypeBadge type={m.type} />
+                <StatusBadge status={m.status} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{m.appliesTo}</p>
+            </div>
+            <span className="whitespace-nowrap text-sm font-semibold text-brand">{formatRate(m)}</span>
+            <RowActions actions={rowActions(m)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function KanbanView({ rows, onOpen }: { rows: RevenueModel[]; onOpen: (id: string) => void }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {MODEL_TYPE_ORDER.map((type) => {
+        const col = rows.filter((m) => m.type === type);
+        return (
+          <div key={type} className="rounded-lg border border-border bg-card p-2">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <TypeBadge type={type} />
+              <span className="text-xs text-muted-foreground">{col.length}</span>
+            </div>
+            <div className="space-y-2">
+              {col.map((m) => (
+                <button key={m.id} onClick={() => onOpen(m.id)} className={cn("w-full rounded-md border border-border bg-background p-2.5 text-left transition-colors hover:border-brand/50", m.status === "archived" && "opacity-70")}>
+                  <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-brand">{formatRate(m)}</p>
+                </button>
+              ))}
+              {col.length === 0 && <p className="px-1 py-4 text-center text-xs text-muted-foreground/60">Empty</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function CardsView({ rows, onOpen, rowActions }: ViewProps) {
   return (

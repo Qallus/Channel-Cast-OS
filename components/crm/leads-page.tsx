@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2, UserPlus } from "lucide-react";
+import { CalendarDays, ExternalLink, LayoutGrid, List, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2, UserPlus } from "lucide-react";
 
 import {
   Avatar,
@@ -9,6 +9,7 @@ import {
   EmptyState,
   FormField,
   PageHeader,
+  RecordCalendar,
   RowActions,
   SearchBox,
   StatRow,
@@ -28,10 +29,13 @@ import { LEAD_SOURCES, LEAD_STAGE, LEAD_STAGE_ORDER, Lead, LeadStage, seedLeads 
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "kanban" | "table";
+type View = "kanban" | "list" | "table" | "cards" | "calendar";
 const VIEWS = [
   { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
+  { id: "cards" as const, label: "Cards", icon: LayoutGrid },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
 ];
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -157,8 +161,14 @@ export function LeadsPage() {
         <EmptyState message={items.length === 0 ? "No leads yet. Add your first prospect." : "No leads match your filters."} />
       ) : view === "kanban" ? (
         <KanbanView leads={filtered} onOpen={setDrawerId} onMove={move} />
-      ) : (
+      ) : view === "list" ? (
+        <ListView leads={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "table" ? (
         <TableView leads={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "cards" ? (
+        <CardsView leads={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : (
+        <RecordCalendar items={filtered} getId={(l) => l.id} getDate={(l) => l.createdAt} getTitle={(l) => `${l.name} · ${l.company}`} onOpen={setDrawerId} footer="Leads placed by date added. Click one to open." />
       )}
 
       {/* Drawer */}
@@ -285,7 +295,63 @@ function KanbanView({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (id: str
   );
 }
 
-function TableView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: (l: Lead) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[] }) {
+type LeadRowActions = (l: Lead) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
+
+function ListView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
+  return (
+    <div className="space-y-2">
+      {leads.map((l) => (
+        <Card key={l.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(l.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <Avatar name={l.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{l.name}</p>
+                <StageBadge stage={l.stage} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{l.company} · {l.source}</p>
+            </div>
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">{usd.format(l.value)}</span>
+            <RowActions actions={rowActions(l)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function CardsView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {leads.map((l) => (
+        <Card key={l.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(l.id)}>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Avatar name={l.name} />
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground">{l.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{l.title} · {l.company}</p>
+                </div>
+              </div>
+              <RowActions actions={rowActions(l)} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StageBadge stage={l.stage} />
+              <Badge variant="outline">{l.source}</Badge>
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">{l.owner}</span>
+              <span className="font-medium text-foreground">{usd.format(l.value)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function TableView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
   return (
     <Card>
       <CardContent className="pt-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ClipboardList, ExternalLink, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
+import { CalendarDays, ClipboardList, ExternalLink, LayoutGrid, List, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2 } from "lucide-react";
 
 import {
   Avatar,
@@ -9,6 +9,7 @@ import {
   EmptyState,
   FormField,
   PageHeader,
+  RecordCalendar,
   RowActions,
   SearchBox,
   StatRow,
@@ -28,10 +29,13 @@ import { QUOTE_STATUS, QUOTE_STATUS_ORDER, QUOTE_TYPES, QuoteRequest, QuoteStatu
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
-type View = "kanban" | "table";
+type View = "kanban" | "list" | "table" | "cards" | "calendar";
 const VIEWS = [
   { id: "kanban" as const, label: "Kanban", icon: SquareKanban },
+  { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
+  { id: "cards" as const, label: "Cards", icon: LayoutGrid },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
 ];
 
 const OPEN: QuoteStatus[] = ["new", "in_progress", "quoted"];
@@ -170,8 +174,14 @@ export function QuotesPage() {
         <EmptyState message={items.length === 0 ? "No quote requests yet." : "No requests match your filters."} />
       ) : view === "kanban" ? (
         <KanbanView rows={filtered} onOpen={setDrawerId} onMove={move} />
-      ) : (
+      ) : view === "list" ? (
+        <ListView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "table" ? (
         <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : view === "cards" ? (
+        <CardsView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+      ) : (
+        <RecordCalendar items={filtered} getId={(r) => r.id} getDate={(r) => r.dueDate} getTitle={(r) => `${r.company} · ${r.requestType}`} onOpen={setDrawerId} footer="Requests placed by SLA due date. Click one to open." />
       )}
 
       {/* Drawer */}
@@ -293,7 +303,64 @@ function KanbanView({ rows, onOpen, onMove }: { rows: QuoteRequest[]; onOpen: (i
   );
 }
 
-function TableView({ rows, onOpen, rowActions }: { rows: QuoteRequest[]; onOpen: (id: string) => void; rowActions: (r: QuoteRequest) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[] }) {
+type QuoteRowActions = (r: QuoteRequest) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
+
+function ListView({ rows, onOpen, rowActions }: { rows: QuoteRequest[]; onOpen: (id: string) => void; rowActions: QuoteRowActions }) {
+  return (
+    <div className="space-y-2">
+      {rows.map((r) => (
+        <Card key={r.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(r.id)}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <Avatar name={r.company} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">{r.company}</p>
+                <StatusBadge status={r.status} />
+                <SlaChip q={r} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{r.requestType} · {r.contact}</p>
+            </div>
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">{r.budgetRange}</span>
+            <RowActions actions={rowActions(r)} />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function CardsView({ rows, onOpen, rowActions }: { rows: QuoteRequest[]; onOpen: (id: string) => void; rowActions: QuoteRowActions }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {rows.map((r) => (
+        <Card key={r.id} className="cursor-pointer transition-colors hover:border-brand/40" onClick={() => onOpen(r.id)}>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Avatar name={r.company} />
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground">{r.company}</p>
+                  <p className="truncate text-xs text-muted-foreground">{r.requestType}</p>
+                </div>
+              </div>
+              <RowActions actions={rowActions(r)} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={r.status} />
+              <SlaChip q={r} />
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">{r.locations} locations</span>
+              <span className="font-medium text-foreground">{r.budgetRange}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function TableView({ rows, onOpen, rowActions }: { rows: QuoteRequest[]; onOpen: (id: string) => void; rowActions: QuoteRowActions }) {
   return (
     <Card>
       <CardContent className="pt-4">

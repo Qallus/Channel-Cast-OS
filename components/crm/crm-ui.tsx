@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MoreVertical, Search, type LucideIcon } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -214,5 +214,90 @@ export function FormField({ label, children, className }: { label: string; child
 export function EmptyState({ message }: { message: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">{message}</div>
+  );
+}
+
+/* ── Reusable month calendar ─────────────────────────────────────────── */
+
+const parseDay = (iso: string) => new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+
+// Generic month calendar: place any records on the day of `getDate`. Reused across
+// pages (clients, leads, pipeline, quotes, …).
+export function RecordCalendar<T>({
+  items,
+  getId,
+  getDate,
+  getTitle,
+  onOpen,
+  footer,
+}: {
+  items: T[];
+  getId: (t: T) => string;
+  getDate: (t: T) => string;
+  getTitle: (t: T) => string;
+  onOpen: (id: string) => void;
+  footer?: string;
+}) {
+  const initial = useMemo(() => {
+    const d = items[0] ? parseDay(getDate(items[0])) : new Date(2026, 6, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+  const [cursor, setCursor] = useState(initial);
+
+  const first = new Date(cursor.year, cursor.month, 1);
+  const startDay = first.getDay();
+  const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate();
+  const monthLabel = first.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const byDay = useMemo(() => {
+    const map = new Map<number, T[]>();
+    items.forEach((it) => {
+      const d = parseDay(getDate(it));
+      if (d.getFullYear() === cursor.year && d.getMonth() === cursor.month) {
+        const day = d.getDate();
+        map.set(day, [...(map.get(day) ?? []), it]);
+      }
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, cursor]);
+
+  const cells: (number | null)[] = [...Array(startDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const shift = (delta: number) => {
+    const d = new Date(cursor.year, cursor.month + delta, 1);
+    setCursor({ year: d.getFullYear(), month: d.getMonth() });
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <button onClick={() => shift(-1)} className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-foreground">‹</button>
+        <span className="text-sm font-semibold text-foreground">{monthLabel}</span>
+        <button onClick={() => shift(1)} className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-foreground">›</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] uppercase tracking-wide text-muted-foreground">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="py-1">{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, i) => (
+          <div key={i} className={cn("min-h-[76px] rounded-md border p-1", day ? "border-border" : "border-transparent")}>
+            {day && (
+              <>
+                <span className="text-xs text-muted-foreground">{day}</span>
+                <div className="mt-1 space-y-1">
+                  {(byDay.get(day) ?? []).map((it) => (
+                    <button key={getId(it)} onClick={() => onOpen(getId(it))} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand" title={getTitle(it)}>
+                      {getTitle(it)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+      {footer ? <p className="mt-2 text-xs text-muted-foreground">{footer}</p> : null}
+    </div>
   );
 }
