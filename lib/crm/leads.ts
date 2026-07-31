@@ -16,7 +16,7 @@ export type Lead = {
 };
 
 export const LEAD_STAGE: Record<LeadStage, { label: string; tone: string }> = {
-  new: { label: "New", tone: "bg-brand/15 text-brand" },
+  new: { label: "New", tone: "bg-brand/15 text-brand-strong" },
   contacted: { label: "Contacted", tone: "bg-accent text-accent-foreground" },
   qualified: { label: "Qualified", tone: "bg-success/15 text-success" },
   unqualified: { label: "Unqualified", tone: "bg-muted text-muted-foreground" },

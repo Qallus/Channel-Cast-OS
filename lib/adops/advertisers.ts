@@ -22,7 +22,7 @@ export type Advertiser = {
 
 export const ADVERTISER_STATUS: Record<AdvertiserStatus, { label: string; tone: string }> = {
   prospect: { label: "Prospect", tone: "bg-muted text-muted-foreground" },
-  onboarding: { label: "Onboarding", tone: "bg-brand/15 text-brand" },
+  onboarding: { label: "Onboarding", tone: "bg-brand/15 text-brand-strong" },
   active: { label: "Active", tone: "bg-success/15 text-success" },
   paused: { label: "Paused", tone: "bg-warning/15 text-warning" },
 };

@@ -14,7 +14,7 @@ export type Deal = {
 };
 
 export const DEAL_STAGE: Record<DealStage, { label: string; tone: string; defaultProb: number }> = {
-  qualified: { label: "Qualified", tone: "bg-brand/15 text-brand", defaultProb: 25 },
+  qualified: { label: "Qualified", tone: "bg-brand/15 text-brand-strong", defaultProb: 25 },
   proposal: { label: "Proposal", tone: "bg-accent text-accent-foreground", defaultProb: 50 },
   negotiation: { label: "Negotiation", tone: "bg-warning/15 text-warning", defaultProb: 75 },
   won: { label: "Won", tone: "bg-success/15 text-success", defaultProb: 100 },

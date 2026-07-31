@@ -184,7 +184,7 @@ export function CampaignsPage() {
               {CAMPAIGN_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{CAMPAIGN_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -426,7 +426,7 @@ function CalendarView({ rows, onOpen }: { rows: Campaign[]; onOpen: (id: string)
                   <span className="text-xs text-muted-foreground">{day}</span>
                   <div className="mt-1 space-y-1">
                     {(byDay.get(day) ?? []).map((c) => (
-                      <button key={c.id} onClick={() => onOpen(c.id)} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand" title={`${c.name} — ${c.advertiser}`}>
+                      <button key={c.id} onClick={() => onOpen(c.id)} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand-strong" title={`${c.name} — ${c.advertiser}`}>
                         {c.name}
                       </button>
                     ))}

@@ -20,13 +20,13 @@ export type Contact = {
 
 export const CONTACT_STATUS: Record<ContactStatus, { label: string; tone: string }> = {
   active: { label: "Active", tone: "bg-success/15 text-success" },
-  prospect: { label: "Prospect", tone: "bg-brand/15 text-brand" },
+  prospect: { label: "Prospect", tone: "bg-brand/15 text-brand-strong" },
   cold: { label: "Cold", tone: "bg-muted text-muted-foreground" },
 };
 export const CONTACT_STATUS_ORDER: ContactStatus[] = ["active", "prospect", "cold"];
 
 export const CONTACT_ROLE: Record<ContactRole, { label: string; tone: string }> = {
-  decision_maker: { label: "Decision maker", tone: "bg-brand/15 text-brand" },
+  decision_maker: { label: "Decision maker", tone: "bg-brand/15 text-brand-strong" },
   champion: { label: "Champion", tone: "bg-success/15 text-success" },
   influencer: { label: "Influencer", tone: "bg-accent text-accent-foreground" },
   technical: { label: "Technical", tone: "bg-secondary text-secondary-foreground" },

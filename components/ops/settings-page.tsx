@@ -77,7 +77,7 @@ export function SettingsPage() {
         description="Organization, branding, integrations, and preferences."
         action={
           <div className="flex items-center gap-2">
-            {saved ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand"><Check className="h-4 w-4" /> Saved</span> : null}
+            {saved ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong"><Check className="h-4 w-4" /> Saved</span> : null}
             <Button onClick={save}><Check className="h-4 w-4" /> Save changes</Button>
           </div>
         }
@@ -95,7 +95,7 @@ export function SettingsPage() {
                 tab === t.id ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className={cn("h-4 w-4", tab === t.id && "text-brand")} /> {t.label}
+              <Icon className={cn("h-4 w-4", tab === t.id && "text-brand-strong")} /> {t.label}
             </button>
           );
         })}

@@ -262,7 +262,7 @@ function LibraryTab() {
               Show archived ({archivedCount})
             </label>
           )}
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         {items.length > 0 && (
           <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">
@@ -278,7 +278,7 @@ function LibraryTab() {
                     active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                   )}
                 >
-                  <Icon className={cn("h-4 w-4", active && "text-brand")} /> {v.label}
+                  <Icon className={cn("h-4 w-4", active && "text-brand-strong")} /> {v.label}
                 </button>
               );
             })}
@@ -608,7 +608,7 @@ function CalendarView({ spots, onOpen }: { spots: Spot[]; onOpen: (a: Spot) => v
                       <button
                         key={s.id}
                         onClick={() => onOpen(s)}
-                        className="flex w-full items-center gap-1 truncate rounded bg-brand/15 px-1 py-0.5 text-left text-[10px] font-medium text-brand"
+                        className="flex w-full items-center gap-1 truncate rounded bg-brand/15 px-1 py-0.5 text-left text-[10px] font-medium text-brand-strong"
                         title={s.name}
                       >
                         <SpotThumb image={s.image} alt={s.name} size="sm" className="h-3.5 w-3.5 rounded-[3px]" />

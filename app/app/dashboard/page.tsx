@@ -19,7 +19,7 @@ export default function GeneralDashboardPage() {
 
       <Card>
         <CardHeader className="flex-row items-center gap-2 space-y-0">
-          <LayoutDashboard className="h-5 w-5 text-brand" />
+          <LayoutDashboard className="h-5 w-5 text-brand-strong" />
           <div>
             <CardTitle>Super Admin command center</CardTitle>
             <CardDescription>The network-wide operations view is ready to preview.</CardDescription>

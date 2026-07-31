@@ -133,7 +133,7 @@ export function DocumentsPage() {
               {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

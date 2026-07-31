@@ -154,7 +154,7 @@ function InstallCommand({ code }: { code: string }) {
             </button>
           ))}
         </div>
-        <button onClick={copy} className="flex items-center gap-1 text-[11px] text-brand hover:underline">
+        <button onClick={copy} className="flex items-center gap-1 text-[11px] text-brand-strong hover:underline">
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} Copy install command
         </button>
       </div>
@@ -180,15 +180,15 @@ function ClaimCode({ code }: { code: string }) {
       }}
       className="flex items-center gap-2 rounded-md border border-brand/40 bg-brand/10 px-2.5 py-1"
     >
-      <span className="font-mono text-sm font-semibold tracking-wider text-brand">{code}</span>
-      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5 text-brand" />}
+      <span className="font-mono text-sm font-semibold tracking-wider text-brand-strong">{code}</span>
+      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5 text-brand-strong" />}
     </button>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const tone =
-    status === "online" ? "bg-success/15 text-success" : status === "offline" ? "bg-muted text-muted-foreground" : "bg-brand/15 text-brand";
+    status === "online" ? "bg-success/15 text-success" : status === "offline" ? "bg-muted text-muted-foreground" : "bg-brand/15 text-brand-strong";
   return <Badge className={cn("border-transparent capitalize", tone)}>{status}</Badge>;
 }
 
@@ -332,7 +332,7 @@ function DeployCard({ devices, playlists, onChange }: { devices: Device[]; playl
         <Button onClick={deploy} disabled={!deviceId || !playlistId} className="w-full">
           <Rocket className="h-4 w-4" /> Deploy to device
         </Button>
-        {msg && <p className="text-sm text-brand">{msg}</p>}
+        {msg && <p className="text-sm text-brand-strong">{msg}</p>}
       </CardContent>
     </Card>
   );
@@ -377,7 +377,7 @@ function DeviceControls({
     <div className="space-y-2">
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Volume2 className="h-4 w-4 text-brand" />
+          <Volume2 className="h-4 w-4 text-brand-strong" />
           <input
             type="range"
             min={0}
@@ -395,7 +395,7 @@ function DeviceControls({
           <Play className="h-4 w-4" /> Test play
         </Button>
       </div>
-      {msg && <p className="text-xs text-brand">{msg}</p>}
+      {msg && <p className="text-xs text-brand-strong">{msg}</p>}
     </div>
   );
 }
@@ -424,7 +424,7 @@ function MonitorCard({ devices, playlists }: { devices: Device[]; playlists: Pla
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-2 space-y-0">
-        <Radio className="h-5 w-5 text-brand" />
+        <Radio className="h-5 w-5 text-brand-strong" />
         <div>
           <CardTitle>5 · Live monitor</CardTitle>
           <CardDescription>Heartbeats & playback from the device (polls every 4s).</CardDescription>

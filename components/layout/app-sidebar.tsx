@@ -61,7 +61,7 @@ export function AppSidebar({
                         item.action === "logout" && "text-muted-foreground hover:text-destructive",
                       )}
                     >
-                      <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-brand")} />
+                      <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-brand-strong")} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
                     </Link>
                   </li>

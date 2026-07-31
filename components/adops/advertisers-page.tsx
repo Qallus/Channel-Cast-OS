@@ -170,7 +170,7 @@ export function AdvertisersPage() {
               {ADVERTISER_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{ADVERTISER_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -218,9 +218,9 @@ export function AdvertisersPage() {
               </div>
               <div>
                 <DetailField label="Primary contact">{drawer.primaryContact}</DetailField>
-                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand hover:underline">{drawer.email}</a> : ""}</DetailField>
+                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand-strong hover:underline">{drawer.email}</a> : ""}</DetailField>
                 <DetailField label="Phone">{drawer.phone}</DetailField>
-                <DetailField label="Website">{drawer.website ? <a href={`https://${drawer.website}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">{drawer.website} <ExternalLink className="h-3 w-3" /></a> : ""}</DetailField>
+                <DetailField label="Website">{drawer.website ? <a href={`https://${drawer.website}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-strong hover:underline">{drawer.website} <ExternalLink className="h-3 w-3" /></a> : ""}</DetailField>
                 <DetailField label="Location">{[drawer.city, drawer.state].filter(Boolean).join(", ")}</DetailField>
                 <DetailField label="Owner">{drawer.owner}</DetailField>
               </div>

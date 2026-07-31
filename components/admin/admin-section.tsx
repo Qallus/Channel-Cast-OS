@@ -41,7 +41,7 @@ export function AdminSection({ slug }: { slug: string }) {
             <ul className="grid gap-3 sm:grid-cols-2">
               {section.features.map((feature) => (
                 <li key={feature} className="flex items-center gap-2.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground">
-                  <CircleCheck className="h-4 w-4 shrink-0 text-brand" />
+                  <CircleCheck className="h-4 w-4 shrink-0 text-brand-strong" />
                   {feature}
                 </li>
               ))}
@@ -59,7 +59,7 @@ export function AdminSection({ slug }: { slug: string }) {
               This module is scaffolded and navigable. The full build — live data, tables, and
               workflows — is queued for an upcoming phase.
             </p>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand-strong">
               Scaffolded
             </span>
           </CardContent>

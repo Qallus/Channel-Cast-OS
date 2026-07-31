@@ -51,7 +51,7 @@ export function StatTile({
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 text-2xl font-semibold", accent ? "text-brand" : "text-foreground")}>{value}</p>
+      <p className={cn("mt-1 text-2xl font-semibold", accent ? "text-brand-strong" : "text-foreground")}>{value}</p>
       {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
@@ -86,7 +86,7 @@ export function ViewSwitcher<T extends string>({
               active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
             )}
           >
-            <Icon className={cn("h-4 w-4", active && "text-brand")} /> {v.label}
+            <Icon className={cn("h-4 w-4", active && "text-brand-strong")} /> {v.label}
           </button>
         );
       })}
@@ -124,7 +124,7 @@ export function initialsOf(name: string): string {
 
 export function Avatar({ name, className }: { name: string; className?: string }) {
   return (
-    <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-xs font-semibold text-brand", className)}>
+    <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-xs font-semibold text-brand-strong", className)}>
       {initialsOf(name)}
     </span>
   );
@@ -287,7 +287,7 @@ export function RecordCalendar<T>({
                 <span className="text-xs text-muted-foreground">{day}</span>
                 <div className="mt-1 space-y-1">
                   {(byDay.get(day) ?? []).map((it) => (
-                    <button key={getId(it)} onClick={() => onOpen(getId(it))} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand" title={getTitle(it)}>
+                    <button key={getId(it)} onClick={() => onOpen(getId(it))} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand-strong" title={getTitle(it)}>
                       {getTitle(it)}
                     </button>
                   ))}

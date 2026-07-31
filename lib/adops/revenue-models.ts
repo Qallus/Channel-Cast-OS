@@ -15,7 +15,7 @@ export type RevenueModel = {
 };
 
 export const MODEL_TYPE: Record<ModelType, { label: string; tone: string }> = {
-  revenue_share: { label: "Revenue share", tone: "bg-brand/15 text-brand" },
+  revenue_share: { label: "Revenue share", tone: "bg-brand/15 text-brand-strong" },
   flat_monthly: { label: "Flat monthly", tone: "bg-success/15 text-success" },
   cpm: { label: "CPM", tone: "bg-accent text-accent-foreground" },
   per_play: { label: "Per play", tone: "bg-warning/15 text-warning" },

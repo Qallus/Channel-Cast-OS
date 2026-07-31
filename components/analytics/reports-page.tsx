@@ -99,7 +99,7 @@ export function ReportsPage() {
               {REPORT_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -122,8 +122,8 @@ export function ReportsPage() {
                 <div className="flex items-center justify-between border-t border-border pt-2 text-xs text-muted-foreground">
                   <span>Last run {fmtDate(r.lastRun)}</span>
                   <span className="flex items-center gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); runNow(r); }} className="inline-flex items-center gap-1 text-foreground hover:text-brand"><Play className="h-3 w-3" /> Run</button>
-                    <button onClick={(e) => { e.stopPropagation(); exportCsv(r); }} className="inline-flex items-center gap-1 text-foreground hover:text-brand"><Download className="h-3 w-3" /> CSV</button>
+                    <button onClick={(e) => { e.stopPropagation(); runNow(r); }} className="inline-flex items-center gap-1 text-foreground hover:text-brand-strong"><Play className="h-3 w-3" /> Run</button>
+                    <button onClick={(e) => { e.stopPropagation(); exportCsv(r); }} className="inline-flex items-center gap-1 text-foreground hover:text-brand-strong"><Download className="h-3 w-3" /> CSV</button>
                   </span>
                 </div>
               </CardContent>

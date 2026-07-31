@@ -32,7 +32,7 @@ import { mockDevices } from "@/lib/devices/mock-data";
 import { cn } from "@/lib/utils";
 
 const toneClasses: Record<StatusTone, string> = {
-  brand: "border-transparent bg-brand/15 text-brand",
+  brand: "border-transparent bg-brand/15 text-brand-strong",
   success: "border-transparent bg-success/15 text-success",
   warning: "border-transparent bg-warning/15 text-warning",
   destructive: "border-transparent bg-destructive/15 text-destructive",
@@ -335,7 +335,7 @@ function InstallPhotosTab() {
               <ImageIcon className="h-6 w-6" />
             </div>
           ))}
-          <button className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-muted-foreground transition-colors hover:border-brand hover:text-brand">
+          <button className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-muted-foreground transition-colors hover:border-brand hover:text-brand-strong">
             <ImageIcon className="h-6 w-6" />
             <span className="text-xs">Upload photo</span>
           </button>

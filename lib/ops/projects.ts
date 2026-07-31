@@ -15,7 +15,7 @@ export type Project = {
 
 export const PROJECT_STATUS: Record<ProjectStatus, { label: string; tone: string }> = {
   planning: { label: "Planning", tone: "bg-muted text-muted-foreground" },
-  active: { label: "Active", tone: "bg-brand/15 text-brand" },
+  active: { label: "Active", tone: "bg-brand/15 text-brand-strong" },
   on_hold: { label: "On hold", tone: "bg-warning/15 text-warning" },
   completed: { label: "Completed", tone: "bg-success/15 text-success" },
 };

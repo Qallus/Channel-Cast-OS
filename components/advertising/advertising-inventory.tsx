@@ -34,7 +34,7 @@ const moneyFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "
 
 const statusStyles: Record<InventoryLocation["status"], string> = {
   available: "border-transparent bg-success/15 text-success",
-  active: "border-transparent bg-brand/15 text-brand",
+  active: "border-transparent bg-brand/15 text-brand-strong",
   booked: "border-transparent bg-secondary text-secondary-foreground",
   maintenance: "border-transparent bg-warning/15 text-warning",
 };
@@ -114,7 +114,7 @@ export function AdvertisingInventory() {
                 active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               )}
             >
-              <Icon className={cn("h-4 w-4", active && "text-brand")} />
+              <Icon className={cn("h-4 w-4", active && "text-brand-strong")} />
               {t.label}
             </button>
           );
@@ -203,7 +203,7 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
     <Card>
       <CardContent className="p-4">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("mt-1 text-2xl font-semibold tracking-tight", accent ? "text-brand" : "text-foreground")}>
+        <p className={cn("mt-1 text-2xl font-semibold tracking-tight", accent ? "text-brand-strong" : "text-foreground")}>
           {value}
         </p>
       </CardContent>
@@ -252,7 +252,7 @@ function LocationRow({
             <Button variant="secondary" size="sm" className="h-7">
               <Link2 className="h-3.5 w-3.5" /> Link Device
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-brand">
+            <Button variant="ghost" size="sm" className="h-7 text-brand-strong">
               <Map className="h-3.5 w-3.5" /> Site Map
             </Button>
           </div>

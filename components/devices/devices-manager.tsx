@@ -23,7 +23,7 @@ import { mockDevices } from "@/lib/devices/mock-data";
 import { cn } from "@/lib/utils";
 
 const toneClasses: Record<StatusTone, string> = {
-  brand: "border-transparent bg-brand/15 text-brand",
+  brand: "border-transparent bg-brand/15 text-brand-strong",
   success: "border-transparent bg-success/15 text-success",
   warning: "border-transparent bg-warning/15 text-warning",
   destructive: "border-transparent bg-destructive/15 text-destructive",
@@ -186,7 +186,7 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
     <Card>
       <CardContent className="p-4">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("mt-1 text-2xl font-semibold tracking-tight", tone === "success" ? "text-success" : tone === "brand" ? "text-brand" : tone === "warning" ? "text-warning" : "text-foreground")}>
+        <p className={cn("mt-1 text-2xl font-semibold tracking-tight", tone === "success" ? "text-success" : tone === "brand" ? "text-brand-strong" : tone === "warning" ? "text-warning" : "text-foreground")}>
           {value}
         </p>
       </CardContent>
@@ -211,7 +211,7 @@ function DeviceRow({ device, onActivate }: { device: DeviceRecord; onActivate: (
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/app/admin/devices/${device.deviceCode}`}
-              className="truncate text-sm font-semibold text-foreground hover:text-brand hover:underline"
+              className="truncate text-sm font-semibold text-foreground hover:text-brand-strong hover:underline"
             >
               {device.name}
             </Link>

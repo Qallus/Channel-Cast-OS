@@ -312,13 +312,13 @@ function ActivateStep({ device, onSimulate }: { device: DeviceRecord; onSimulate
           <div className="space-y-3">
             <div>
               <p className="mb-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <QrIcon className="h-4 w-4 text-brand" /> Or enter the claim code on the device
+                <QrIcon className="h-4 w-4 text-brand-strong" /> Or enter the claim code on the device
               </p>
               <CopyRow label="Claim code" value={device.claimCode ?? ""} mono big expires={device.claimExpiresLabel} />
             </div>
             <div>
               <p className="mb-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <MapPin className="h-4 w-4 text-brand" /> Or match manually by device ID
+                <MapPin className="h-4 w-4 text-brand-strong" /> Or match manually by device ID
               </p>
               <CopyRow label="Device ID" value={device.deviceCode} mono />
             </div>

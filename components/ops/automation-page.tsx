@@ -63,7 +63,7 @@ function Flow({ trigger, action, target }: { trigger: TriggerType; action: Actio
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-muted-foreground"><Zap className="h-3 w-3" /> {TRIGGER[trigger].label}</span>
       <ArrowRight className="h-3 w-3 text-muted-foreground" />
-      <span className="inline-flex items-center gap-1 rounded bg-brand/10 px-2 py-1 font-medium text-brand">{ACTION[action].label}{target ? ` · ${target}` : ""}</span>
+      <span className="inline-flex items-center gap-1 rounded bg-brand/10 px-2 py-1 font-medium text-brand-strong">{ACTION[action].label}{target ? ` · ${target}` : ""}</span>
     </div>
   );
 }
@@ -158,7 +158,7 @@ export function AutomationPage() {
               {TRIGGER_ORDER.map((t) => <SelectItem key={t} value={t}>{TRIGGER[t].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

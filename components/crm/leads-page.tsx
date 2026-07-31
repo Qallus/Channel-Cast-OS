@@ -152,7 +152,7 @@ export function LeadsPage() {
               {LEAD_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -192,7 +192,7 @@ export function LeadsPage() {
               </div>
               <div>
                 <DetailField label="Company">{drawer.company}</DetailField>
-                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand hover:underline">{drawer.email}</a> : ""}</DetailField>
+                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand-strong hover:underline">{drawer.email}</a> : ""}</DetailField>
                 <DetailField label="Phone">{drawer.phone}</DetailField>
                 <DetailField label="Source">{drawer.source}</DetailField>
                 <DetailField label="Est. value">{usd.format(drawer.value)}</DetailField>

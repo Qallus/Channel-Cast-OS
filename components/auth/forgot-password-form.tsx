@@ -15,7 +15,7 @@ export function ForgotPasswordForm() {
     return (
       <div>
         <BrandMark />
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-brand">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-brand-strong">
           <MailCheck className="h-6 w-6" />
         </div>
         <h1 className="mt-4 text-xl font-semibold tracking-tight text-foreground">Check your email</h1>

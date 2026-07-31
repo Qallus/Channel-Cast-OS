@@ -14,8 +14,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 150 16% 10%;
 
-    --brand: 74 100% 50%;            /* #c6ff00 */
+    --brand: 74 100% 50%;            /* #c6ff00 — lime, for FILLS (bars, buttons) */
     --brand-foreground: 150 45% 9%;
+    --brand-strong: 92 59% 26%;      /* #406a1b — readable brand INK on light surfaces */
 
     --primary: 92 60% 26%;           /* darker green for buttons on light */
     --primary-foreground: 80 60% 96%;
@@ -52,6 +53,7 @@
 
     --brand: 74 100% 50%;            /* #c6ff00 */
     --brand-foreground: 140 45% 8%;
+    --brand-strong: 74 100% 50%;     /* lime already reads on dark surfaces */
 
     --primary: 74 100% 50%;          /* lime buttons on dark */
     --primary-foreground: 140 45% 8%;

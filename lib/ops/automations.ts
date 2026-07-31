@@ -25,7 +25,7 @@ export type Automation = {
 export const TRIGGER: Record<TriggerType, { label: string; tone: string }> = {
   device_offline: { label: "Device goes offline", tone: "bg-destructive/15 text-destructive" },
   playback_complete: { label: "Playback completes", tone: "bg-success/15 text-success" },
-  quote_received: { label: "Quote request received", tone: "bg-brand/15 text-brand" },
+  quote_received: { label: "Quote request received", tone: "bg-brand/15 text-brand-strong" },
   invoice_overdue: { label: "Invoice overdue", tone: "bg-warning/15 text-warning" },
   campaign_ends: { label: "Campaign ends", tone: "bg-accent text-accent-foreground" },
   schedule_daily: { label: "Daily schedule", tone: "bg-secondary text-secondary-foreground" },

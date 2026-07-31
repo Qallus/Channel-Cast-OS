@@ -37,7 +37,7 @@ export function OperatingSystem() {
                 isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               )}
             >
-              <Icon className={cn("h-4 w-4", isActive && "text-brand")} />
+              <Icon className={cn("h-4 w-4", isActive && "text-brand-strong")} />
               {o.label}
             </button>
           );
@@ -57,7 +57,7 @@ function OsPanel({ os }: { os: OsConfig }) {
       <Card className="border-brand/20 bg-gradient-to-r from-brand/10 via-card to-card">
         <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand-strong">
               <Icon className="h-6 w-6" />
             </span>
             <div>
@@ -92,7 +92,7 @@ function OsPanel({ os }: { os: OsConfig }) {
         {/* Trigger events */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <SlidersHorizontal className="h-5 w-5 text-brand" />
+            <SlidersHorizontal className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Trigger events</CardTitle>
               <CardDescription>Events this OS emits</CardDescription>
@@ -110,7 +110,7 @@ function OsPanel({ os }: { os: OsConfig }) {
         {/* Capabilities */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Cpu className="h-5 w-5 text-brand" />
+            <Cpu className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Capabilities</CardTitle>
               <CardDescription>What this runtime can do</CardDescription>
@@ -120,7 +120,7 @@ function OsPanel({ os }: { os: OsConfig }) {
             <ul className="space-y-2">
               {os.capabilities.map((c) => (
                 <li key={c} className="flex items-center gap-2.5 text-sm text-foreground">
-                  <CircleCheck className="h-4 w-4 shrink-0 text-brand" /> {c}
+                  <CircleCheck className="h-4 w-4 shrink-0 text-brand-strong" /> {c}
                 </li>
               ))}
             </ul>
@@ -130,7 +130,7 @@ function OsPanel({ os }: { os: OsConfig }) {
         {/* Runtime configuration */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Settings2 className="h-5 w-5 text-brand" />
+            <Settings2 className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Runtime configuration</CardTitle>
               <CardDescription>Default parameters</CardDescription>
@@ -149,7 +149,7 @@ function OsPanel({ os }: { os: OsConfig }) {
         {/* Hardware & sensors */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Wifi className="h-5 w-5 text-brand" />
+            <Wifi className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Hardware &amp; sensors</CardTitle>
               <CardDescription>Reference components</CardDescription>
@@ -191,7 +191,7 @@ function OsPanel({ os }: { os: OsConfig }) {
         {/* OS-specific note */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Shield className="h-5 w-5 text-brand" />
+            <Shield className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>{os.note.title}</CardTitle>
               <CardDescription>{os.note.body}</CardDescription>
@@ -221,7 +221,7 @@ function OsPanel({ os }: { os: OsConfig }) {
           <ul className="grid gap-2.5 sm:grid-cols-2">
             {EDGE_RUNTIME.map((r) => (
               <li key={r} className="flex items-start gap-2.5 text-sm text-foreground">
-                <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand" /> {r}
+                <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> {r}
               </li>
             ))}
           </ul>

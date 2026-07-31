@@ -15,7 +15,7 @@ export type TeamMember = {
 
 export const MEMBER_STATUS: Record<MemberStatus, { label: string; tone: string }> = {
   active: { label: "Active", tone: "bg-success/15 text-success" },
-  invited: { label: "Invited", tone: "bg-brand/15 text-brand" },
+  invited: { label: "Invited", tone: "bg-brand/15 text-brand-strong" },
   inactive: { label: "Inactive", tone: "bg-muted text-muted-foreground" },
 };
 export const MEMBER_STATUS_ORDER: MemberStatus[] = ["active", "invited", "inactive"];

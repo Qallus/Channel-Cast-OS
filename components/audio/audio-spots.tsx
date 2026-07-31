@@ -56,7 +56,7 @@ export function AudioSpots() {
                   active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                 )}
               >
-                <Icon className={cn("h-4 w-4", active && "text-brand")} /> {v.label}
+                <Icon className={cn("h-4 w-4", active && "text-brand-strong")} /> {v.label}
               </button>
             );
           })}
@@ -255,7 +255,7 @@ function CalendarView({ spots }: { spots: AudioSpot[] }) {
                   <span className="text-xs text-muted-foreground">{day}</span>
                   <div className="mt-1 space-y-1">
                     {(byDay.get(day) ?? []).map((s) => (
-                      <div key={s.id} className="truncate rounded bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand" title={`${s.name} — ${s.advertiser}`}>
+                      <div key={s.id} className="truncate rounded bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-strong" title={`${s.name} — ${s.advertiser}`}>
                         {s.name}
                       </div>
                     ))}

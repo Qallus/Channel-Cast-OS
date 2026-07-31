@@ -165,7 +165,7 @@ export function ContactsPage() {
               {CONTACT_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{CONTACT_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -215,7 +215,7 @@ export function ContactsPage() {
                 )}
               </div>
               <div>
-                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand hover:underline">{drawer.email}</a> : ""}</DetailField>
+                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand-strong hover:underline">{drawer.email}</a> : ""}</DetailField>
                 <DetailField label="Phone">{drawer.phone}</DetailField>
                 <DetailField label="Company">{drawer.company}</DetailField>
                 <DetailField label="Location">{[drawer.city, drawer.state].filter(Boolean).join(", ")}</DetailField>

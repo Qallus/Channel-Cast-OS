@@ -131,7 +131,7 @@ export function TeamPage() {
               {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -166,7 +166,7 @@ export function TeamPage() {
                 <Button asChild variant="outline" size="sm"><a href={`mailto:${drawer.email}`}><Mail className="h-4 w-4" /> Email</a></Button>
               )}
               <div>
-                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand hover:underline">{drawer.email}</a> : ""}</DetailField>
+                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand-strong hover:underline">{drawer.email}</a> : ""}</DetailField>
                 <DetailField label="Phone">{drawer.phone}</DetailField>
                 <DetailField label="Role">{drawer.role}</DetailField>
                 <DetailField label="Department">{drawer.department}</DetailField>

@@ -17,7 +17,7 @@ export type QuoteRequest = {
 };
 
 export const QUOTE_STATUS: Record<QuoteStatus, { label: string; tone: string }> = {
-  new: { label: "New", tone: "bg-brand/15 text-brand" },
+  new: { label: "New", tone: "bg-brand/15 text-brand-strong" },
   in_progress: { label: "In progress", tone: "bg-accent text-accent-foreground" },
   quoted: { label: "Quoted", tone: "bg-warning/15 text-warning" },
   won: { label: "Won", tone: "bg-success/15 text-success" },

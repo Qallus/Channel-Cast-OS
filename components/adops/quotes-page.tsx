@@ -165,7 +165,7 @@ export function QuotesPage() {
               {QUOTE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -205,7 +205,7 @@ export function QuotesPage() {
               </div>
               <div>
                 <DetailField label="Contact">{drawer.contact}</DetailField>
-                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand hover:underline">{drawer.email}</a> : ""}</DetailField>
+                <DetailField label="Email">{drawer.email ? <a href={`mailto:${drawer.email}`} className="text-brand-strong hover:underline">{drawer.email}</a> : ""}</DetailField>
                 <DetailField label="Phone">{drawer.phone}</DetailField>
                 <DetailField label="Request type">{drawer.requestType}</DetailField>
                 <DetailField label="Budget">{drawer.budgetRange}</DetailField>

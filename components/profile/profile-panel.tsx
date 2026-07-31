@@ -187,7 +187,7 @@ function ProfileAvatar({
             type="button"
             onClick={onPick}
             aria-label={avatar ? "Change photo" : "Add photo"}
-            className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-accent hover:text-brand"
+            className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-accent hover:text-brand-strong"
           >
             <ImagePlus className="h-3.5 w-3.5" />
           </button>
@@ -274,7 +274,7 @@ export function ProfilePanel() {
               {profile.jobTitle} · {profile.email}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge className="bg-brand/10 text-brand hover:bg-brand/10">{profile.jobTitle || "Member"}</Badge>
+              <Badge className="bg-brand/10 text-brand-strong hover:bg-brand/10">{profile.jobTitle || "Member"}</Badge>
               {profile.location ? (
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3" /> {profile.location}
@@ -285,7 +285,7 @@ export function ProfilePanel() {
         </div>
         <div className="flex items-center gap-2 self-start sm:self-center">
           {saved ? (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong">
               <Check className="h-4 w-4" /> Saved
             </span>
           ) : null}

@@ -304,7 +304,7 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
         {/* Voiceover source */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Mic className="h-5 w-5 text-brand" />
+            <Mic className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Voiceover</CardTitle>
               <CardDescription>Record, upload, or generate the voice track.</CardDescription>
@@ -423,7 +423,7 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
         {/* Background music */}
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Music className="h-5 w-5 text-brand" />
+            <Music className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Background music</CardTitle>
               <CardDescription>Overlay a bed under the voiceover.</CardDescription>
@@ -451,7 +451,7 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
       {/* Mixer + output */}
       <Card>
         <CardHeader className="flex-row items-center gap-2 space-y-0">
-          <Wand2 className="h-5 w-5 text-brand" />
+          <Wand2 className="h-5 w-5 text-brand-strong" />
           <div>
             <CardTitle>Mix &amp; export</CardTitle>
             <CardDescription>Balance the levels, preview, then render to the library.</CardDescription>
@@ -506,7 +506,7 @@ export function MediaStudio({ onSaved }: { onSaved?: () => void }) {
               <Sparkles className="h-4 w-4" /> {rendering ? "Rendering…" : "Render & save to library"}
             </Button>
           </div>
-          {saveMsg && <p className="text-sm text-brand">{saveMsg}</p>}
+          {saveMsg && <p className="text-sm text-brand-strong">{saveMsg}</p>}
         </CardContent>
       </Card>
     </div>

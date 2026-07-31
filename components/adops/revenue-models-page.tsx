@@ -157,7 +157,7 @@ export function RevenueModelsPage() {
               {MODEL_TYPE_ORDER.map((t) => <SelectItem key={t} value={t}>{MODEL_TYPE[t].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -181,7 +181,7 @@ export function RevenueModelsPage() {
             <div className="space-y-5">
               <SheetHeader>
                 <SheetTitle>{drawer.name}</SheetTitle>
-                <p className="text-2xl font-semibold text-brand">{formatRate(drawer)}</p>
+                <p className="text-2xl font-semibold text-brand-strong">{formatRate(drawer)}</p>
               </SheetHeader>
               <div className="flex flex-wrap gap-2">
                 <TypeBadge type={drawer.type} />
@@ -257,7 +257,7 @@ function ListView({ rows, onOpen, rowActions }: ViewProps) {
               </div>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{m.appliesTo}</p>
             </div>
-            <span className="whitespace-nowrap text-sm font-semibold text-brand">{formatRate(m)}</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-brand-strong">{formatRate(m)}</span>
             <RowActions actions={rowActions(m)} />
           </CardContent>
         </Card>
@@ -281,7 +281,7 @@ function KanbanView({ rows, onOpen }: { rows: RevenueModel[]; onOpen: (id: strin
               {col.map((m) => (
                 <button key={m.id} onClick={() => onOpen(m.id)} className={cn("w-full rounded-md border border-border bg-background p-2.5 text-left transition-colors hover:border-brand/50", m.status === "archived" && "opacity-70")}>
                   <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
-                  <p className="mt-0.5 truncate text-[11px] font-medium text-brand">{formatRate(m)}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-brand-strong">{formatRate(m)}</p>
                 </button>
               ))}
               {col.length === 0 && <p className="px-1 py-4 text-center text-xs text-muted-foreground/60">Empty</p>}
@@ -302,7 +302,7 @@ function CardsView({ rows, onOpen, rowActions }: ViewProps) {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate font-medium text-foreground">{m.name}</p>
-                <p className="mt-0.5 text-lg font-semibold text-brand">{formatRate(m)}</p>
+                <p className="mt-0.5 text-lg font-semibold text-brand-strong">{formatRate(m)}</p>
               </div>
               <RowActions actions={rowActions(m)} />
             </div>
@@ -388,7 +388,7 @@ function ModelForm({ draft, onChange }: { draft: RevenueModel; onChange: (d: Rev
       <FormField label="Notes">
         <Textarea rows={2} value={draft.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Internal notes…" />
       </FormField>
-      <p className="text-xs text-muted-foreground">Preview: <span className="font-medium text-brand">{formatRate(draft)}</span></p>
+      <p className="text-xs text-muted-foreground">Preview: <span className="font-medium text-brand-strong">{formatRate(draft)}</span></p>
     </div>
   );
 }

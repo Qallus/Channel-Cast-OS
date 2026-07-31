@@ -19,7 +19,7 @@ export type AudioSpot = {
 export const SPOT_STATUS_META: Record<SpotStatus, { label: string; tone: string }> = {
   draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },
   in_review: { label: "In Review", tone: "bg-warning/15 text-warning" },
-  approved: { label: "Approved", tone: "bg-brand/15 text-brand" },
+  approved: { label: "Approved", tone: "bg-brand/15 text-brand-strong" },
   live: { label: "Live", tone: "bg-success/15 text-success" },
   archived: { label: "Archived", tone: "bg-secondary text-secondary-foreground" },
 };

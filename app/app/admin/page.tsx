@@ -107,7 +107,7 @@ export default function SuperAdminDashboardPage() {
               <CardTitle>Device health overview</CardTitle>
               <CardDescription>Live posture across the footprint</CardDescription>
             </div>
-            <Cpu className="h-5 w-5 text-brand" />
+            <Cpu className="h-5 w-5 text-brand-strong" />
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -133,7 +133,7 @@ export default function SuperAdminDashboardPage() {
               <CardTitle>Campaign deployment status</CardTitle>
               <CardDescription>Pipelines queued for rollout</CardDescription>
             </div>
-            <MonitorCog className="h-5 w-5 text-brand" />
+            <MonitorCog className="h-5 w-5 text-brand-strong" />
           </CardHeader>
           <CardContent className="space-y-3">
             {deploymentQueues.map((queue) => (
@@ -169,7 +169,7 @@ export default function SuperAdminDashboardPage() {
             </div>
             <div className="rounded-lg bg-muted/40 p-4">
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Client payouts</p>
-              <p className="mt-1 text-xl font-semibold text-brand">{revenueSnapshot.clientPayouts}</p>
+              <p className="mt-1 text-xl font-semibold text-brand-strong">{revenueSnapshot.clientPayouts}</p>
             </div>
           </div>
         </CardContent>
@@ -272,7 +272,7 @@ export default function SuperAdminDashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Trophy className="h-5 w-5 text-brand" />
+            <Trophy className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Top performing devices</CardTitle>
               <CardDescription>Impression-weighted 7-day leaderboard</CardDescription>
@@ -296,7 +296,7 @@ export default function SuperAdminDashboardPage() {
 
         <Card>
           <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Volume2 className="h-5 w-5 text-brand" />
+            <Volume2 className="h-5 w-5 text-brand-strong" />
             <div>
               <CardTitle>Top performing ad spots</CardTitle>
               <CardDescription>Weighted delivery and completion</CardDescription>

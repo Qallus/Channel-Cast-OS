@@ -136,7 +136,7 @@ export function CommunicationsPage() {
               {CHANNEL_ORDER.map((c) => <SelectItem key={c} value={c}>{CHANNEL[c].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

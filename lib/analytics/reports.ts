@@ -14,7 +14,7 @@ export type Report = {
 export const REPORT_CATEGORIES: ReportCategory[] = ["Delivery", "Revenue", "Devices", "Campaigns", "Deal Desk"];
 
 export const CATEGORY_TONE: Record<ReportCategory, string> = {
-  Delivery: "bg-brand/15 text-brand",
+  Delivery: "bg-brand/15 text-brand-strong",
   Revenue: "bg-success/15 text-success",
   Devices: "bg-accent text-accent-foreground",
   Campaigns: "bg-warning/15 text-warning",

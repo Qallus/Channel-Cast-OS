@@ -97,7 +97,7 @@ export function LoginForm() {
 
       <p className="mt-6 text-sm text-muted-foreground">
         New to Channel Cast?{" "}
-        <Link href="/register" className="font-medium text-brand hover:underline">Create an account</Link>
+        <Link href="/register" className="font-medium text-brand-strong hover:underline">Create an account</Link>
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
         <Link href="/forgot-password" className="hover:text-foreground hover:underline">Forgot your password?</Link>

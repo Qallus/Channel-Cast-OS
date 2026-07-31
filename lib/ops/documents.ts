@@ -15,7 +15,7 @@ export type Document = {
 
 export const DOC_STATUS: Record<DocStatus, { label: string; tone: string }> = {
   draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },
-  sent: { label: "Sent", tone: "bg-brand/15 text-brand" },
+  sent: { label: "Sent", tone: "bg-brand/15 text-brand-strong" },
   signed: { label: "Signed", tone: "bg-success/15 text-success" },
   archived: { label: "Archived", tone: "bg-secondary text-secondary-foreground" },
 };

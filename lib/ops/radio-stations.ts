@@ -18,7 +18,7 @@ export type RadioStation = {
 
 export const STATION_STATUS: Record<StationStatus, { label: string; tone: string }> = {
   live: { label: "Live", tone: "bg-success/15 text-success" },
-  scheduled: { label: "Scheduled", tone: "bg-brand/15 text-brand" },
+  scheduled: { label: "Scheduled", tone: "bg-brand/15 text-brand-strong" },
   offline: { label: "Offline", tone: "bg-muted text-muted-foreground" },
 };
 export const STATION_STATUS_ORDER: StationStatus[] = ["live", "scheduled", "offline"];

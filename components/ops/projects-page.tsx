@@ -145,7 +145,7 @@ export function ProjectsPage() {
               {PROJECT_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{PROJECT_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -390,7 +390,7 @@ function CalendarView({ rows, onOpen }: { rows: Project[]; onOpen: (id: string) 
                   <span className="text-xs text-muted-foreground">{day}</span>
                   <div className="mt-1 space-y-1">
                     {(byDay.get(day) ?? []).map((p) => (
-                      <button key={p.id} onClick={() => onOpen(p.id)} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand" title={`${p.name} — ${p.client}`}>
+                      <button key={p.id} onClick={() => onOpen(p.id)} className="w-full truncate rounded bg-brand/15 px-1.5 py-0.5 text-left text-[10px] font-medium text-brand-strong" title={`${p.name} — ${p.client}`}>
                         {p.name}
                       </button>
                     ))}

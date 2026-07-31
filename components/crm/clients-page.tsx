@@ -205,7 +205,7 @@ export function ClientsPage() {
               ))}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>
@@ -252,12 +252,12 @@ export function ClientsPage() {
               <div>
                 <DetailField label="Primary contact">{drawerClient.primaryContact}</DetailField>
                 <DetailField label="Email">
-                  {drawerClient.email ? <a href={`mailto:${drawerClient.email}`} className="text-brand hover:underline">{drawerClient.email}</a> : ""}
+                  {drawerClient.email ? <a href={`mailto:${drawerClient.email}`} className="text-brand-strong hover:underline">{drawerClient.email}</a> : ""}
                 </DetailField>
                 <DetailField label="Phone">{drawerClient.phone}</DetailField>
                 <DetailField label="Website">
                   {drawerClient.website ? (
-                    <a href={`https://${drawerClient.website}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">
+                    <a href={`https://${drawerClient.website}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-strong hover:underline">
                       {drawerClient.website} <ExternalLink className="h-3 w-3" />
                     </a>
                   ) : ""}

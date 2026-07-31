@@ -23,7 +23,7 @@ export type Campaign = {
 
 export const CAMPAIGN_STATUS: Record<CampaignStatus, { label: string; tone: string }> = {
   draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },
-  scheduled: { label: "Scheduled", tone: "bg-brand/15 text-brand" },
+  scheduled: { label: "Scheduled", tone: "bg-brand/15 text-brand-strong" },
   live: { label: "Live", tone: "bg-success/15 text-success" },
   paused: { label: "Paused", tone: "bg-warning/15 text-warning" },
   completed: { label: "Completed", tone: "bg-secondary text-secondary-foreground" },

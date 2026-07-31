@@ -359,7 +359,7 @@ function StepAvailability({ form, set }: { form: FormData; set: (k: string, v: s
     <div>
       <SectionTitle>Availability Management</SectionTitle>
       <div className="mb-4 rounded-md border border-brand/30 bg-brand/5 px-3 py-2.5 text-sm text-muted-foreground">
-        <span className="font-medium text-brand">Booking integration:</span> connect campaign booking types for detailed calendar scheduling.
+        <span className="font-medium text-brand-strong">Booking integration:</span> connect campaign booking types for detailed calendar scheduling.
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Campaign Start Date">

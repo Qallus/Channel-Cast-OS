@@ -15,7 +15,7 @@ export type Invoice = {
 
 export const INVOICE_STATUS: Record<InvoiceStatus, { label: string; tone: string }> = {
   draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },
-  sent: { label: "Sent", tone: "bg-brand/15 text-brand" },
+  sent: { label: "Sent", tone: "bg-brand/15 text-brand-strong" },
   paid: { label: "Paid", tone: "bg-success/15 text-success" },
   overdue: { label: "Overdue", tone: "bg-destructive/15 text-destructive" },
   void: { label: "Void", tone: "bg-secondary text-secondary-foreground" },

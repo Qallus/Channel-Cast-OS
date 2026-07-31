@@ -148,7 +148,7 @@ export function BillingPage() {
               {INVOICE_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{INVOICE_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand">{toast}</span>}
+          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

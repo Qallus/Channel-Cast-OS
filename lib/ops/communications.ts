@@ -16,7 +16,7 @@ export type CommTemplate = {
 };
 
 export const CHANNEL: Record<Channel, { label: string; tone: string }> = {
-  email: { label: "Email", tone: "bg-brand/15 text-brand" },
+  email: { label: "Email", tone: "bg-brand/15 text-brand-strong" },
   sms: { label: "SMS", tone: "bg-success/15 text-success" },
   push: { label: "Push", tone: "bg-accent text-accent-foreground" },
   in_app: { label: "In-app", tone: "bg-secondary text-secondary-foreground" },

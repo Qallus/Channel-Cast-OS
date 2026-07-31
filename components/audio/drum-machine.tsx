@@ -157,7 +157,7 @@ export function DrumMachine({
         <div className="min-w-[760px]">
           {DRUMS.map(({ id, label }) => (
             <div key={id} className="flex items-center gap-2 border-b border-border px-2 py-1 last:border-0">
-              <button onClick={() => previewDrum(id)} className="w-20 shrink-0 text-left text-xs font-medium text-foreground hover:text-brand" title="Preview">{label}</button>
+              <button onClick={() => previewDrum(id)} className="w-20 shrink-0 text-left text-xs font-medium text-foreground hover:text-brand-strong" title="Preview">{label}</button>
               <button onClick={() => toggleDrumMute(id)} className={cn("w-7 shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold", pattern.drumMutes[id] ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground")}>{pattern.drumMutes[id] ? "M" : "on"}</button>
               <input type="range" min={0} max={1} step={0.05} value={pattern.drumGains[id]} onChange={(e) => setDrumGain(id, Number(e.target.value))} className="w-14 shrink-0 accent-[hsl(var(--brand))]" title="Level" />
               <div className="flex flex-1 gap-1">
@@ -184,7 +184,7 @@ export function DrumMachine({
             <span className="w-4 text-center font-medium text-foreground">{octave}</span>
             <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setOctave((o) => Math.min(6, o + 1))}>+</Button>
           </div>
-          <button onClick={() => previewMel(melInst)} className="text-xs font-medium text-foreground hover:text-brand">Preview</button>
+          <button onClick={() => previewMel(melInst)} className="text-xs font-medium text-foreground hover:text-brand-strong">Preview</button>
           <button onClick={toggleMelMute} className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", pattern.melodicMutes[melInst] ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground")}>{pattern.melodicMutes[melInst] ? "Muted" : "On"}</button>
           <label className="flex items-center gap-1 text-xs text-muted-foreground">
             Level
