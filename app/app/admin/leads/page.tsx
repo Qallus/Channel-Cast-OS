@@ -1,7 +1,7 @@
-import { AdminSection } from "@/components/admin/admin-section";
+import { LeadsPage } from "@/components/crm/leads-page";
 
 export const metadata = { title: "Leads · Channel Cast" };
 
 export default function Page() {
-  return <AdminSection slug="leads" />;
+  return <LeadsPage />;
 }

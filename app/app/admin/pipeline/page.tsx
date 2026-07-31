@@ -1,7 +1,7 @@
-import { AdminSection } from "@/components/admin/admin-section";
+import { PipelinePage } from "@/components/crm/pipeline-page";
 
 export const metadata = { title: "Pipeline · Channel Cast" };
 
 export default function Page() {
-  return <AdminSection slug="pipeline" />;
+  return <PipelinePage />;
 }
