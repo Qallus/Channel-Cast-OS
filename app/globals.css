@@ -39,6 +39,13 @@
     --input: 80 12% 88%;
     --ring: 92 60% 30%;
     --radius: 0.7rem;
+
+    /* Chart categorical palette (shadcn charts) — saturated for white surfaces */
+    --chart-1: 92 55% 34%;   /* brand green */
+    --chart-2: 180 48% 38%;  /* teal */
+    --chart-3: 212 72% 50%;  /* blue */
+    --chart-4: 35 92% 48%;   /* amber */
+    --chart-5: 275 52% 55%;  /* violet */
   }
 
   .dark {
@@ -75,6 +82,13 @@
     --border: 140 12% 15%;
     --input: 140 12% 15%;
     --ring: 74 100% 50%;
+
+    /* Chart categorical palette (shadcn charts) — brighter for dark surfaces */
+    --chart-1: 74 100% 50%;  /* lime */
+    --chart-2: 172 66% 50%;  /* teal */
+    --chart-3: 210 85% 62%;  /* blue */
+    --chart-4: 40 92% 58%;   /* amber */
+    --chart-5: 278 68% 68%;  /* violet */
   }
 
   * {

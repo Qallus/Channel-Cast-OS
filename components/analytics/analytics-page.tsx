@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { BarChart3 } from "lucide-react";
 
-import { AreaLine, ChartCard, Columns } from "@/components/charts/mini-charts";
+import { AreaInteractive, BarByCategory } from "@/components/charts/shadcn-charts";
 import { CHART_ITEM, ChartSlider, LinkStat, SectionHeading, StatSlider } from "@/components/analytics/analytics-ui";
 import { PageHeader } from "@/components/crm/crm-ui";
 import { PERIODS, Period, getAnalytics } from "@/lib/analytics/analytics-data";
@@ -17,6 +17,20 @@ export function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>("monthly");
   const a = useMemo(() => getAnalytics(period), [period]);
   const c = a.charts;
+
+  // Parallel arrays → row objects the shadcn charts consume.
+  const trend = useMemo(
+    () =>
+      c.labels.map((label, i) => ({
+        x: label,
+        revenue: c.revenue[i],
+        plays: c.plays[i],
+        activeClients: c.activeClients[i],
+        activeLocations: c.activeLocations[i],
+      })),
+    [c],
+  );
+  const industry = useMemo(() => c.revenueByIndustry.map((d) => ({ x: d.label, value: d.value })), [c]);
 
   return (
     <div className="space-y-6">
@@ -64,23 +78,13 @@ export function AnalyticsPage() {
 
       {/* Charts */}
       <section className="space-y-3">
-        <SectionHeading title="Charts" hint="Tap a card to scroll on smaller screens" />
+        <SectionHeading title="Charts" hint="Swipe / scroll for more" />
         <ChartSlider>
-          <ChartCard title="Revenue Trend" className={CHART_ITEM}>
-            <AreaLine data={c.revenue} labels={c.labels} height={150} formatY={usdK} />
-          </ChartCard>
-          <ChartCard title="Audio Plays" className={CHART_ITEM}>
-            <AreaLine data={c.plays} labels={c.labels} height={150} formatY={playsK} />
-          </ChartCard>
-          <ChartCard title="Revenue by Industry" className={CHART_ITEM}>
-            <Columns data={c.revenueByIndustry} height={150} formatY={usdK} />
-          </ChartCard>
-          <ChartCard title="Active Clients" className={CHART_ITEM}>
-            <AreaLine data={c.activeClients} labels={c.labels} height={150} formatY={(n) => num.format(n)} />
-          </ChartCard>
-          <ChartCard title="Active Locations / Adspace" className={CHART_ITEM}>
-            <AreaLine data={c.activeLocations} labels={c.labels} height={150} formatY={(n) => num.format(n)} />
-          </ChartCard>
+          <AreaInteractive className={CHART_ITEM} title="Revenue Trend" description="Gross billed" data={trend} xKey="x" series={[{ key: "revenue", label: "Revenue" }]} formatValue={usdK} />
+          <AreaInteractive className={CHART_ITEM} title="Audio Plays" description="Across the network" data={trend} xKey="x" series={[{ key: "plays", label: "Plays" }]} formatValue={playsK} />
+          <BarByCategory className={CHART_ITEM} title="Revenue by Industry" description="By vertical" data={industry} xKey="x" series={[{ key: "value", label: "Revenue" }]} formatValue={usdK} />
+          <AreaInteractive className={CHART_ITEM} title="Active Clients" description="Accounts live" data={trend} xKey="x" series={[{ key: "activeClients", label: "Clients" }]} formatValue={(n) => num.format(n)} />
+          <AreaInteractive className={CHART_ITEM} title="Active Locations / Adspace" description="Footprint" data={trend} xKey="x" series={[{ key: "activeLocations", label: "Locations" }]} formatValue={(n) => num.format(n)} />
         </ChartSlider>
       </section>
 

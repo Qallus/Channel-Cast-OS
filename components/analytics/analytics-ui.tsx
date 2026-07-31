@@ -57,16 +57,17 @@ export function LinkStat({ stat }: { stat: Stat }) {
   );
 }
 
-/** Slider wrapper for chart cards (same responsive behaviour, wider items). */
+/** Horizontal snap-slider for chart cards. The rich shadcn charts need room,
+ *  so this stays a scroller on every breakpoint (≈3 visible on desktop). */
 export function ChartSlider({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
+    <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
       {children}
     </div>
   );
 }
 
-export const CHART_ITEM = "snap-start shrink-0 min-w-[85%] sm:min-w-[46%] lg:min-w-0";
+export const CHART_ITEM = "snap-start shrink-0 min-w-[90%] sm:min-w-[55%] lg:min-w-[32%]";
 
 export function SectionHeading({ title, hint }: { title: string; hint?: string }) {
   return (
