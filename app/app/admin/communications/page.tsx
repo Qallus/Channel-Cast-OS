@@ -1,7 +1,7 @@
-import { CommunicationsPage } from "@/components/ops/communications-page";
+import { Communications } from "@/components/comm/communications";
 
 export const metadata = { title: "Communications · Channel Cast" };
 
 export default function Page() {
-  return <CommunicationsPage />;
+  return <Communications />;
 }
