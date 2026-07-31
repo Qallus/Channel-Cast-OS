@@ -1,7 +1,7 @@
-import { AdminSection } from "@/components/admin/admin-section";
+import { QuotesPage } from "@/components/adops/quotes-page";
 
 export const metadata = { title: "Quote Requests · Channel Cast" };
 
 export default function Page() {
-  return <AdminSection slug="quote-requests" />;
+  return <QuotesPage />;
 }

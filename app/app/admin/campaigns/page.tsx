@@ -1,7 +1,7 @@
-import { AdminSection } from "@/components/admin/admin-section";
+import { CampaignsPage } from "@/components/adops/campaigns-page";
 
 export const metadata = { title: "Campaigns · Channel Cast" };
 
 export default function Page() {
-  return <AdminSection slug="campaigns" />;
+  return <CampaignsPage />;
 }

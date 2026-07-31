@@ -3,7 +3,17 @@ import { supabaseAdmin } from "@/lib/server/supabase";
 // Generic JSONB-backed store for CRM entities (clients/contacts/leads/deals).
 // The whole record lives in `data`; `id` is the record's own id.
 
-export const CRM_COLLECTIONS = ["clients", "contacts", "leads", "deals"] as const;
+// Generic app-records collections (the table is one JSONB store shared by all).
+export const CRM_COLLECTIONS = [
+  "clients",
+  "contacts",
+  "leads",
+  "deals",
+  "advertisers",
+  "campaigns",
+  "quotes",
+  "revenue_models",
+] as const;
 export type CrmCollection = (typeof CRM_COLLECTIONS)[number];
 
 export function isCrmCollection(v: string): v is CrmCollection {
