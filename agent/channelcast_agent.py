@@ -52,7 +52,7 @@ CAMERA_INDEX = int(os.environ.get("CC_CAMERA_INDEX", "0") or 0)
 # Fraction of the frame that must change to count as motion (0–1). Lower = more sensitive.
 MOTION_SENSITIVITY = float(os.environ.get("CC_MOTION_SENSITIVITY", "0.012") or 0.012)
 MOTION_WARMUP_FRAMES = 12
-FIRMWARE = "agent-0.1.0"
+FIRMWARE = "agent-0.2.0"
 DEVICE_TYPE = "standard_audio"
 MODEL = f"{platform.system()} {platform.machine()}"
 
@@ -63,7 +63,7 @@ STATE_FILE = STATE_DIR / "agent_state.json"
 CACHE_DIR = STATE_DIR / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
-HEARTBEAT_EVERY = 15  # seconds
+HEARTBEAT_EVERY = 4  # seconds — also the control-command poll interval (stop/next/etc.)
 
 
 def log(msg: str) -> None:
@@ -214,53 +214,111 @@ def report_playback(state: dict, track: dict, event: str, trigger: str = "schedu
         log(f"playback report failed: {e}")
 
 
-def play(kind: str, base: list[str], path: Path, volume: int) -> None:
-    subprocess.run(build_play_cmd(kind, base, path, volume), check=False)
+class Player:
+    """Non-blocking audio playback that can be stopped / interrupted."""
+
+    def __init__(self, kind: str, base: list[str]):
+        self.kind = kind
+        self.base = base
+        self.proc: subprocess.Popen | None = None
+
+    def start(self, path: Path, volume: int) -> None:
+        self.stop()
+        self.proc = subprocess.Popen(
+            build_play_cmd(self.kind, self.base, path, volume),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def is_playing(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def stop(self) -> None:
+        if self.proc is not None and self.proc.poll() is None:
+            try:
+                self.proc.terminate()
+                try:
+                    self.proc.wait(timeout=2)
+                except Exception:
+                    self.proc.kill()
+            except Exception:
+                pass
+        self.proc = None
 
 
-def handle_command(cmd: dict, state: dict, kind: str, base: list[str]) -> None:
+def handle_command(cmd: dict, state: dict, ctl: dict, camera_on: "threading.Event") -> None:
     ctype = cmd.get("type")
     payload = cmd.get("payload") or {}
     if ctype == "set_volume":
         state["volume"] = max(0, min(100, int(payload.get("volume", state.get("volume", 80)))))
         save_state(state)
         log(f"command: volume -> {state['volume']}")
+    elif ctype == "stop":
+        ctl["stop"] = True
+        log("command: stop")
+    elif ctype == "next":
+        ctl["next"] = True
+        log("command: next")
+    elif ctype == "set_motion":
+        enabled = bool(payload.get("enabled", True))
+        if enabled:
+            camera_on.set()
+        else:
+            camera_on.clear()
+        state["motion_enabled"] = enabled
+        save_state(state)
+        log(f"command: sensor {'ON' if enabled else 'OFF'}")
     elif ctype == "test_play":
         url = payload.get("url")
         if not url:
             log("command: test_play with no url, skipping")
             return
-        track = {"id": payload.get("audioId") or "test", "name": payload.get("name") or "Test play", "url": url}
-        path = cache_track(track)
-        if path:
-            log(f"command: TEST PLAY '{track['name']}'")
-            report_playback(state, track, "start", "admin_test")
-            play(kind, base, path, state.get("volume", 80))
-            report_playback(state, track, "complete", "admin_test")
+        ctl["play_now"] = {"id": payload.get("audioId") or "test", "name": payload.get("name") or "Test play", "url": url}
+        log(f"command: play '{ctl['play_now']['name']}'")
 
 
-def start_motion_detector():
+def start_motion_detector(camera_on: "threading.Event"):
     """Watch the webcam on a daemon thread; set (and return) an Event on motion.
-    Returns None if OpenCV or a camera isn't available — the caller then falls back
-    to schedule playback so the device still works."""
+    Honors camera_on: when it's cleared, the camera is released (LED off / privacy)
+    and re-opened when set again. Returns None if OpenCV or a camera isn't available
+    — the caller then falls back to schedule playback so the device still works."""
     try:
         import cv2  # type: ignore
     except ImportError:
         log("CC_MOTION=webcam but OpenCV is missing. Install it:  pip install opencv-python-headless")
         return None
 
-    cap = cv2.VideoCapture(CAMERA_INDEX)
-    if not cap.isOpened():
+    probe = cv2.VideoCapture(CAMERA_INDEX)
+    if not probe.isOpened():
         log(f"CC_MOTION=webcam but camera index {CAMERA_INDEX} would not open (CC_CAMERA_INDEX to change).")
-        cap.release()
+        probe.release()
         return None
+    probe.release()
 
     flag = threading.Event()
 
     def loop() -> None:
+        cap = None
         prev = None
         frames = 0
         while True:
+            if not camera_on.is_set():
+                if cap is not None:
+                    cap.release()
+                    cap = None
+                    prev = None
+                    frames = 0
+                    log("camera released (sensor off).")
+                time.sleep(0.3)
+                continue
+            if cap is None:
+                cap = cv2.VideoCapture(CAMERA_INDEX)
+                if not cap.isOpened():
+                    cap.release()
+                    cap = None
+                    time.sleep(1)
+                    continue
+                log("camera opened (sensor on).")
             ok, frame = cap.read()
             if not ok:
                 time.sleep(0.2)
@@ -290,25 +348,38 @@ def main() -> None:
     state = register(state)
     state.setdefault("volume", 80)
     kind, base = find_player()
+    player = Player(kind, base)
 
-    motion_flag = start_motion_detector() if MOTION == "webcam" else None
+    # Sensor on/off switch shared with the detector thread (restored from state).
+    camera_on = threading.Event()
+    if state.get("motion_enabled", True):
+        camera_on.set()
+
+    motion_flag = start_motion_detector(camera_on) if MOTION == "webcam" else None
     motion_mode = motion_flag is not None
     if MOTION == "webcam" and not motion_mode:
         log("Motion mode requested but unavailable — falling back to schedule playback.")
     log(f"Agent online. Server={SERVER}  player={kind}  volume={state['volume']}  mode={'motion' if motion_mode else 'schedule'}")
 
+    ctl = {"stop": False, "next": False, "play_now": None}
     last_hb = 0.0
     idx = 0
     cooldown_until = 0.0
+    active: dict | None = None  # {track, trigger} currently playing
+    force_play: dict | None = None  # a scheduled track queued by "next"
     schedule: dict = {"tracks": [], "window": None, "cooldownSec": 15, "version": -1}
+
+    def cooldown_sec() -> float:
+        return float(schedule.get("cooldownSec", 15))
 
     while True:
         now = time.time()
 
+        # --- poll heartbeat, control commands, and schedule ---
         if now - last_hb >= HEARTBEAT_EVERY:
             hb = heartbeat(state)
             for cmd in (hb or {}).get("commands", []):
-                handle_command(cmd, state, kind, base)
+                handle_command(cmd, state, ctl, camera_on)
             fresh = pull_schedule(state)
             if fresh and fresh.get("version", 0) != schedule.get("version"):
                 schedule = fresh
@@ -316,14 +387,58 @@ def main() -> None:
                 log(f"schedule v{schedule.get('version')} — {len(schedule.get('tracks', []))} track(s)")
             last_hb = now
 
+        # --- manage the currently-playing spot ---
+        if active is not None:
+            if ctl["stop"] or ctl["next"]:
+                want_next = ctl["next"]
+                ctl["stop"] = ctl["next"] = False
+                player.stop()
+                report_playback(state, active["track"], "complete", active["trigger"])
+                log(f"{'skipped' if want_next else 'stopped'} '{active['track']['name']}'")
+                cooldown_until = now + cooldown_sec()
+                active = None
+                tracks = schedule.get("tracks", [])
+                if want_next and tracks:
+                    force_play = tracks[idx % len(tracks)]
+                    idx += 1
+                    cooldown_until = 0.0  # play the next one immediately
+                continue
+            if not player.is_playing():  # finished on its own
+                report_playback(state, active["track"], "complete", active["trigger"])
+                cooldown_until = now + cooldown_sec()
+                active = None
+                continue
+            time.sleep(0.2)
+            continue
+
+        # Nothing playing — a leftover stop/next is meaningless, so drop it.
+        if ctl["stop"] or ctl["next"]:
+            ctl["stop"] = ctl["next"] = False
+
+        # --- immediate plays: admin test_play, or the "next" queued track ---
+        req = ctl["play_now"] or force_play
+        if req is not None:
+            is_test = ctl["play_now"] is not None
+            ctl["play_now"] = None
+            force_play = None
+            ctl["stop"] = ctl["next"] = False
+            path = cache_track(req)
+            if path:
+                trigger = "admin_test" if is_test else "scheduled_play"
+                log(f"playing '{req['name']}' at volume {state['volume']}")
+                report_playback(state, req, "start", trigger)
+                player.start(path, state["volume"])
+                active = {"track": req, "trigger": trigger}
+            continue
+
+        # --- scheduled / motion-gated playback ---
         tracks = schedule.get("tracks", [])
         ready = bool(tracks) and now >= cooldown_until and in_window(schedule.get("window"))
 
         if motion_mode:
-            # Play only when the sensor fires (one play per cooldown).
-            if not ready:
-                motion_flag.clear()  # drop stale triggers while cooling down / out of window
-                time.sleep(0.1)
+            if not ready or not camera_on.is_set():
+                motion_flag.clear()  # drop stale triggers while cooling down / sensor off / out of window
+                time.sleep(0.15)
                 continue
             if not motion_flag.is_set():
                 time.sleep(0.1)
@@ -331,7 +446,7 @@ def main() -> None:
             motion_flag.clear()
             trigger = "motion_detected"
         elif not ready:
-            time.sleep(1)
+            time.sleep(0.5)
             continue
         else:
             trigger = "scheduled_play"
@@ -342,9 +457,8 @@ def main() -> None:
         if path:
             log(f"{'MOTION -> ' if motion_mode else ''}playing '{track['name']}' at volume {state['volume']}")
             report_playback(state, track, "start", trigger)
-            play(kind, base, path, state["volume"])
-            report_playback(state, track, "complete", trigger)
-            cooldown_until = time.time() + float(schedule.get("cooldownSec", 15))
+            player.start(path, state["volume"])
+            active = {"track": track, "trigger": trigger}
 
 
 if __name__ == "__main__":

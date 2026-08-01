@@ -300,9 +300,12 @@ export async function recentActivity(deviceId: string) {
 
 export async function enqueueCommand(deviceId: string, type: string, payload: Record<string, unknown>): Promise<DeviceCommand> {
   const sb = supabaseAdmin();
-  if (type === "set_volume") {
-    await sb.from("commands").delete().eq("device_id", deviceId).eq("type", "set_volume");
-    if (typeof payload.volume === "number") await updateDevice(deviceId, { volume: Math.max(0, Math.min(100, Math.round(payload.volume))) });
+  // Collapse repeat control commands so they don't stack while a device is offline.
+  if (["set_volume", "set_motion", "stop", "next"].includes(type)) {
+    await sb.from("commands").delete().eq("device_id", deviceId).eq("type", type);
+  }
+  if (type === "set_volume" && typeof payload.volume === "number") {
+    await updateDevice(deviceId, { volume: Math.max(0, Math.min(100, Math.round(payload.volume))) });
   }
   const { data, error } = await sb.from("commands").insert({ device_id: deviceId, type, payload }).select("*").single();
   if (error) throw error;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Eye, FlaskConical, ListMusic, Loader2, Play, Radar, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Radar, SkipForward, Square, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
 
 import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   const [volume, setVolume] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [library, setLibrary] = useState<Track[] | null>(null);
+  const [sensorOn, setSensorOn] = useState(true);
   const seenRef = useRef(false);
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,6 +120,29 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
     } catch {
       setToast("Couldn't add it.");
     }
+  }
+
+  async function sendStop() {
+    const dev = data?.device;
+    if (!dev) return;
+    setToast(null);
+    await cmd(dev.id, "stop", {}).then(() => setToast("Stop sent.")).catch(() => setToast("Couldn't send stop."));
+  }
+
+  async function sendNext() {
+    const dev = data?.device;
+    if (!dev) return;
+    setToast(null);
+    await cmd(dev.id, "next", {}).then(() => setToast("Skipping to the next spot.")).catch(() => setToast("Couldn't send next."));
+  }
+
+  async function toggleSensor() {
+    const dev = data?.device;
+    if (!dev) return;
+    const next = !sensorOn;
+    setSensorOn(next);
+    setToast(null);
+    await cmd(dev.id, "set_motion", { enabled: next }).then(() => setToast(next ? "Camera/sensor on." : "Camera/sensor off.")).catch(() => setToast("Couldn't toggle the sensor."));
   }
 
   async function addSpot(file: File) {
@@ -255,6 +279,12 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
             />
           </div>
 
+          {/* Transport */}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="flex-1" onClick={sendStop}><Square className="h-3.5 w-3.5" /> Stop</Button>
+            <Button size="sm" variant="outline" className="flex-1" onClick={sendNext}><SkipForward className="h-3.5 w-3.5" /> Next</Button>
+          </div>
+
           {/* Spots on this player */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -306,7 +336,20 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
             <div className="rounded-lg border border-border p-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Radar className="h-4 w-4 text-brand-strong" /> Motion</div>
               <p className="mt-1 text-xs text-muted-foreground">Walk in front of the webcam — plays land in the feed below.</p>
-              <Badge className="mt-2 border-transparent bg-success/15 text-success">Live</Badge>
+              {motionMode ? (
+                <button
+                  onClick={toggleSensor}
+                  className={cn(
+                    "mt-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                    sensorOn ? "border-success/40 bg-success/10 text-success" : "border-border text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {sensorOn ? <Camera className="h-3.5 w-3.5" /> : <CameraOff className="h-3.5 w-3.5" />}
+                  {sensorOn ? "Camera on" : "Camera off"}
+                </button>
+              ) : (
+                <Badge className="mt-2 border-transparent bg-secondary text-secondary-foreground">Scheduled</Badge>
+              )}
             </div>
             <div className="rounded-lg border border-border p-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Eye className="h-4 w-4 text-muted-foreground" /> Vision</div>
