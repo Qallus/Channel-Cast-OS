@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus, QrCode as QrIcon, Rocket, Search, Wifi } from "lucide-react";
 
 import { QrCode } from "@/components/devices/qr-code";
-import { RegisterDeviceWizard } from "@/components/devices/register-device-wizard";
+import { DeviceSetupWizard } from "@/components/devices/device-setup-wizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,13 +86,6 @@ export function DevicesManager() {
     });
   }, [devices, filter, query]);
 
-  function handleRegister(device: DeviceRecord) {
-    setDevices((prev) => {
-      const exists = prev.some((d) => d.id === device.id);
-      return exists ? prev.map((d) => (d.id === device.id ? device : d)) : [device, ...prev];
-    });
-  }
-
   function activateDevice(id: string) {
     setDevices((prev) =>
       prev.map((d) =>
@@ -114,7 +107,7 @@ export function DevicesManager() {
         </div>
         <Button onClick={() => setWizardOpen(true)}>
           <Plus className="h-4 w-4" />
-          Register Device
+          Set up a device
         </Button>
       </div>
 
@@ -163,7 +156,7 @@ export function DevicesManager() {
               <Wifi className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium text-foreground">No devices in this view</p>
               <Button className="mt-2" onClick={() => setWizardOpen(true)}>
-                <Plus className="h-4 w-4" /> Register Device
+                <Plus className="h-4 w-4" /> Set up a device
               </Button>
             </CardContent>
           </Card>
@@ -174,7 +167,7 @@ export function DevicesManager() {
         )}
       </div>
 
-      <RegisterDeviceWizard open={wizardOpen} onOpenChange={setWizardOpen} onRegister={handleRegister} />
+      <DeviceSetupWizard open={wizardOpen} onOpenChange={setWizardOpen} />
 
       <ActivationDialog device={activating} onOpenChange={(o) => !o && setActivating(null)} onSimulate={activateDevice} />
     </div>
