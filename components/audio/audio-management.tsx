@@ -6,17 +6,23 @@ import {
   Archive,
   ArchiveRestore,
   CalendarDays,
+  Download,
   ImagePlus,
   LayoutGrid,
   List,
+  Loader2,
   Map as MapIcon,
+  MonitorPlay,
   MoreVertical,
   Pencil,
+  Radar,
   Share2,
   SquareKanban,
   Table as TableIcon,
   Trash2,
   Upload,
+  Wifi,
+  WifiOff,
   X,
 } from "lucide-react";
 
@@ -28,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -51,6 +58,17 @@ type LibView = "cards" | "list" | "table" | "kanban" | "calendar" | "map";
 const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`;
 const fileExt = (a: LibAudio) => (a.mime?.includes("wav") ? "wav" : a.mime?.includes("mpeg") || a.mime?.includes("mp3") ? "mp3" : a.mime?.split("/")[1] || "audio");
 const dateFmt = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+function downloadFile(id: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = `/api/audio/${id}/file`;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+type FleetDevice = { id: string; name: string; deviceCode: string; type: string; status: string };
 
 const SpotsMap = dynamic(() => import("@/components/audio/spots-map"), {
   ssr: false,
@@ -126,6 +144,8 @@ function LibraryTab() {
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [deleteItem, setDeleteItem] = useState<LibAudio | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sendItems, setSendItems] = useState<LibAudio[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -234,15 +254,48 @@ function LibraryTab() {
     [items, meta, showArchived],
   );
 
+  const visibleIds = spots.map((s) => s.id);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(visibleIds));
+
   const actions = (a: LibAudio) => (
     <RowActions
       archived={Boolean(a.archived)}
       onEdit={() => openEdit(a)}
       onArchive={() => toggleArchive(a)}
       onShare={() => share(a)}
+      onDownload={() => downloadFile(a.id, dl(a))}
+      onSend={() => setSendItems([a])}
       onDelete={() => setDeleteItem(a)}
     />
   );
+
+  // Bulk selection over the currently-visible spots.
+  const toggleSelect = (id: string) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const selection = { isSelected: (id: string) => selected.has(id), toggle: toggleSelect };
+
+  async function bulkArchive(archive: boolean) {
+    const ids = [...selected];
+    for (const id of ids) await fetch(`/api/admin/audio/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: archive }) }).catch(() => {});
+    setSelected(new Set());
+    await load();
+    flash(archive ? `Archived ${ids.length}.` : `Restored ${ids.length}.`);
+  }
+  async function bulkDelete() {
+    const ids = [...selected];
+    if (!window.confirm(`Delete ${ids.length} audio file${ids.length === 1 ? "" : "s"}? This can't be undone.`)) return;
+    for (const id of ids) await fetch(`/api/admin/audio/${id}`, { method: "DELETE" }).catch(() => {});
+    setSelected(new Set());
+    await load();
+    flash(`Deleted ${ids.length}.`);
+  }
+  function bulkDownload() {
+    items.filter((a) => selected.has(a.id)).forEach((a, i) => setTimeout(() => downloadFile(a.id, dl(a)), i * 300));
+  }
+  function bulkShare() {
+    const links = items.filter((a) => selected.has(a.id)).map((a) => `${window.location.origin}/api/audio/${a.id}/file`).join("\n");
+    navigator.clipboard?.writeText(links).then(() => flash("Share links copied."), () => flash("Copy failed."));
+  }
 
   const player = (a: LibAudio, props?: { compact?: boolean; className?: string }) => (
     <AudioPlayer src={src(a)} downloadName={dl(a)} {...props} />
@@ -253,6 +306,12 @@ function LibraryTab() {
       <input ref={inputRef} type="file" accept="audio/*" multiple hidden onChange={(e) => upload(e.target.files)} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
+          {spots.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground" title="Select all">
+              <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="h-4 w-4 accent-[hsl(var(--brand))]" />
+              <span className="hidden sm:inline">All</span>
+            </label>
+          )}
           <Button onClick={() => inputRef.current?.click()} disabled={busy}>
             <Upload className="h-4 w-4" /> {busy ? "Uploading…" : "Upload audio"}
           </Button>
@@ -286,6 +345,20 @@ function LibraryTab() {
         )}
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2">
+          <span className="text-sm font-medium text-foreground">{selected.size} selected</span>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => setSendItems(items.filter((a) => selected.has(a.id)))}><MonitorPlay className="h-3.5 w-3.5" /> Add to Device</Button>
+            <Button size="sm" variant="outline" onClick={bulkDownload}><Download className="h-3.5 w-3.5" /> Download</Button>
+            <Button size="sm" variant="outline" onClick={bulkShare}><Share2 className="h-3.5 w-3.5" /> Share</Button>
+            <Button size="sm" variant="outline" onClick={() => bulkArchive(true)}><Archive className="h-3.5 w-3.5" /> Archive</Button>
+            <Button size="sm" variant="outline" onClick={bulkDelete} className="text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button>
+          </div>
+        </div>
+      )}
+
       {spots.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center text-sm text-muted-foreground">
@@ -293,11 +366,11 @@ function LibraryTab() {
           </CardContent>
         </Card>
       ) : view === "cards" ? (
-        <CardsView spots={spots} actions={actions} player={player} />
+        <CardsView spots={spots} actions={actions} player={player} selection={selection} />
       ) : view === "list" ? (
-        <ListView spots={spots} actions={actions} player={player} />
+        <ListView spots={spots} actions={actions} player={player} selection={selection} />
       ) : view === "table" ? (
-        <TableViewLib spots={spots} actions={actions} player={player} />
+        <TableViewLib spots={spots} actions={actions} player={player} selection={selection} />
       ) : view === "kanban" ? (
         <KanbanView spots={spots} onOpen={openEdit} />
       ) : view === "calendar" ? (
@@ -381,7 +454,99 @@ function LibraryTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Send to device slide-out */}
+      <SendToDeviceSheet
+        items={sendItems}
+        onClose={() => setSendItems(null)}
+        onSent={(msg) => { setSendItems(null); setSelected(new Set()); flash(msg); }}
+      />
     </div>
+  );
+}
+
+/* ── Send to device slide-out ────────────────────────────────────────── */
+
+function SendToDeviceSheet({ items, onClose, onSent }: { items: LibAudio[] | null; onClose: () => void; onSent: (msg: string) => void }) {
+  const [devices, setDevices] = useState<FleetDevice[]>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+  const open = items !== null;
+
+  useEffect(() => {
+    if (!open) { setPicked(new Set()); return; }
+    fetch("/api/admin/devices", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (Array.isArray(d)) setDevices(d); }).catch(() => {});
+  }, [open]);
+
+  const toggle = (id: string) => setPicked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  async function send() {
+    if (!items || picked.size === 0) return;
+    setSending(true);
+    let ok = 0;
+    for (const deviceId of picked) {
+      for (const a of items) {
+        try {
+          const res = await fetch(`/api/admin/devices/${deviceId}/audio`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audioId: a.id }),
+          });
+          if (res.ok) ok++;
+        } catch {
+          /* skip */
+        }
+      }
+    }
+    setSending(false);
+    onSent(`Added ${items.length} spot${items.length === 1 ? "" : "s"} to ${picked.size} device${picked.size === 1 ? "" : "s"}${ok ? "" : " (nothing applied)"}.`);
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="flex flex-col">
+        <SheetHeader>
+          <SheetTitle>Send to device</SheetTitle>
+          <SheetDescription>{items?.length === 1 ? `“${items[0].name}”` : `${items?.length ?? 0} spots`} → pick the devices to add them to.</SheetDescription>
+        </SheetHeader>
+        <div className="mt-4 flex-1 space-y-2 overflow-y-auto">
+          {devices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No devices yet. Add one from the Devices page first.</p>
+          ) : (
+            devices.map((d) => {
+              const online = d.status === "online";
+              const motion = d.type === "ai_vision" || d.type === "pir_motion";
+              const on = picked.has(d.id);
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => toggle(d.id)}
+                  className={cn("flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors", on ? "border-brand-strong bg-accent/40" : "border-border hover:bg-accent/30")}
+                >
+                  <input type="checkbox" checked={on} readOnly className="h-4 w-4 accent-[hsl(var(--brand))]" />
+                  <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", online ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
+                    {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{d.name}</span>
+                    <span className="block text-xs text-muted-foreground">{d.deviceCode}</span>
+                  </span>
+                  <Badge className={cn("gap-1 border-transparent", motion ? "bg-brand/15 text-brand-strong" : "bg-secondary text-secondary-foreground")}>
+                    {motion ? <Radar className="h-3 w-3" /> : null}{motion ? "Motion" : "Scheduled"}
+                  </Badge>
+                </button>
+              );
+            })
+          )}
+        </div>
+        <div className="mt-4 flex items-center gap-2 border-t border-border pt-4">
+          <Button className="flex-1" onClick={send} disabled={sending || picked.size === 0}>
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MonitorPlay className="h-4 w-4" />} Send to {picked.size || 0} device{picked.size === 1 ? "" : "s"}
+          </Button>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -423,11 +588,27 @@ function ImageField({ image, onChange }: { image: string | null; onChange: (v: s
 
 /* ── Views ───────────────────────────────────────────────────────────── */
 
+type Selection = { isSelected: (id: string) => boolean; toggle: (id: string) => void };
 type ViewProps = {
   spots: Spot[];
   actions: (a: Spot) => React.ReactNode;
   player: (a: Spot, props?: { compact?: boolean; className?: string }) => React.ReactNode;
+  selection?: Selection;
 };
+
+function SelectBox({ id, selection }: { id: string; selection?: Selection }) {
+  if (!selection) return null;
+  return (
+    <input
+      type="checkbox"
+      checked={selection.isSelected(id)}
+      onChange={() => selection.toggle(id)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label="Select"
+      className="h-4 w-4 shrink-0 accent-[hsl(var(--brand))]"
+    />
+  );
+}
 
 function TitleWithThumb({ spot, size = "sm" }: { spot: Spot; size?: "sm" | "md" | "lg" }) {
   return (
@@ -438,14 +619,17 @@ function TitleWithThumb({ spot, size = "sm" }: { spot: Spot; size?: "sm" | "md" 
   );
 }
 
-function CardsView({ spots, actions, player }: ViewProps) {
+function CardsView({ spots, actions, player, selection }: ViewProps) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {spots.map((a) => (
-        <Card key={a.id} className={cn(a.archived && "opacity-70")}>
+        <Card key={a.id} className={cn(a.archived && "opacity-70", selection?.isSelected(a.id) && "ring-1 ring-brand-strong")}>
           <CardContent className="space-y-3 p-4">
             <div className="flex items-start justify-between gap-2">
-              <TitleWithThumb spot={a} size="md" />
+              <div className="flex min-w-0 items-center gap-2">
+                <SelectBox id={a.id} selection={selection} />
+                <TitleWithThumb spot={a} size="md" />
+              </div>
               {actions(a)}
             </div>
             <div className="flex items-center gap-2">
@@ -464,17 +648,20 @@ function CardsView({ spots, actions, player }: ViewProps) {
   );
 }
 
-function ListView({ spots, actions, player }: ViewProps) {
+function ListView({ spots, actions, player, selection }: ViewProps) {
   return (
     <div className="space-y-2">
       {spots.map((a) => (
-        <Card key={a.id} className={cn(a.archived && "opacity-70")}>
+        <Card key={a.id} className={cn(a.archived && "opacity-70", selection?.isSelected(a.id) && "ring-1 ring-brand-strong")}>
           <CardContent className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center">
-            <div className="min-w-0 lg:w-72">
-              <TitleWithThumb spot={a} />
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {SPOT_STATUS_META[a.status].label} · {fileExt(a).toUpperCase()} · {mb(a.sizeBytes)}
-              </p>
+            <div className="flex min-w-0 items-center gap-2 lg:w-72">
+              <SelectBox id={a.id} selection={selection} />
+              <div className="min-w-0">
+                <TitleWithThumb spot={a} />
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {SPOT_STATUS_META[a.status].label} · {fileExt(a).toUpperCase()} · {mb(a.sizeBytes)}
+                </p>
+              </div>
             </div>
             {player(a, { className: "flex-1" })}
             {actions(a)}
@@ -485,13 +672,14 @@ function ListView({ spots, actions, player }: ViewProps) {
   );
 }
 
-function TableViewLib({ spots, actions, player }: ViewProps) {
+function TableViewLib({ spots, actions, player, selection }: ViewProps) {
   return (
     <Card>
       <CardContent className="pt-4">
         <Table>
           <TableHeader>
             <TableRow>
+              {selection && <TableHead className="w-8" />}
               <TableHead>Spot</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Format</TableHead>
@@ -504,6 +692,7 @@ function TableViewLib({ spots, actions, player }: ViewProps) {
           <TableBody>
             {spots.map((a) => (
               <TableRow key={a.id} className={cn(a.archived && "opacity-70")}>
+                {selection && <TableCell className="w-8"><SelectBox id={a.id} selection={selection} /></TableCell>}
                 <TableCell className="max-w-[260px]">
                   <TitleWithThumb spot={a} />
                 </TableCell>
@@ -671,12 +860,16 @@ function RowActions({
   onEdit,
   onArchive,
   onShare,
+  onDownload,
+  onSend,
   onDelete,
 }: {
   archived: boolean;
   onEdit: () => void;
   onArchive: () => void;
   onShare: () => void;
+  onDownload: () => void;
+  onSend: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -717,8 +910,10 @@ function RowActions({
         <MoreVertical className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-40 rounded-md border border-border bg-popover p-1 shadow-md">
+        <div className="absolute right-0 z-30 mt-1 w-44 rounded-md border border-border bg-popover p-1 shadow-md">
           {item("Edit", Pencil, onEdit)}
+          {item("Send to Device", MonitorPlay, onSend)}
+          {item("Download", Download, onDownload)}
           {item(archived ? "Unarchive" : "Archive", archived ? ArchiveRestore : Archive, onArchive)}
           {item("Share", Share2, onShare)}
           {item("Delete", Trash2, onDelete, true)}
