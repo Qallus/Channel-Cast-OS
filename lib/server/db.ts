@@ -23,6 +23,8 @@ export type Device = {
   volume: number;
   lastHeartbeatAt: string | null;
   groupId: string | null;
+  latitude: number | null;
+  longitude: number | null;
   createdAt: string;
 };
 
@@ -81,6 +83,8 @@ function mapDevice(r: Row): Device {
     volume: (r.volume as number) ?? 80,
     lastHeartbeatAt: (r.last_heartbeat_at as string) ?? null,
     groupId: (r.group_id as string) ?? null,
+    latitude: (r.latitude as number) ?? null,
+    longitude: (r.longitude as number) ?? null,
     createdAt: r.created_at as string,
   };
 }

@@ -8,6 +8,7 @@ import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type Device = {
@@ -19,6 +20,8 @@ type Device = {
   volume: number;
   model: string;
   locationName: string | null;
+  latitude: number | null;
+  longitude: number | null;
   hardwareId: string | null;
   lastHeartbeatAt: string | null;
 };
@@ -56,7 +59,32 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [library, setLibrary] = useState<Track[] | null>(null);
   const [sensorOn, setSensorOn] = useState(true);
+  const [loc, setLoc] = useState<{ name: string; lat: string; lng: string } | null>(null);
   const seenRef = useRef(false);
+
+  // Adopt the device's saved location once.
+  useEffect(() => {
+    if (loc === null && data?.device) {
+      const dv = data.device;
+      setLoc({ name: dv.locationName ?? "", lat: dv.latitude != null ? String(dv.latitude) : "", lng: dv.longitude != null ? String(dv.longitude) : "" });
+    }
+  }, [data, loc]);
+
+  async function saveLocation() {
+    const dev = data?.device;
+    if (!dev || !loc) return;
+    setToast(null);
+    try {
+      await fetch(`/api/admin/devices/${dev.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locationName: loc.name || null, latitude: loc.lat.trim() === "" ? null : Number(loc.lat), longitude: loc.lng.trim() === "" ? null : Number(loc.lng) }),
+      });
+      setToast("Location saved.");
+    } catch {
+      setToast("Couldn't save location.");
+    }
+  }
   const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Adopt the device's volume once, then let the slider drive it.
@@ -379,6 +407,24 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
           {toast && <p className="text-sm text-brand-strong">{toast}</p>}
         </CardContent>
       </Card>
+
+      {/* Location (for the fleet Map view) */}
+      {loc && (
+        <Card>
+          <CardContent className="space-y-3 p-5">
+            <p className="text-sm font-semibold text-foreground">Location</p>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <Input value={loc.name} onChange={(e) => setLoc({ ...loc, name: e.target.value })} placeholder="Location name (e.g. Front entrance)" />
+              <Input value={loc.lat} onChange={(e) => setLoc({ ...loc, lat: e.target.value })} placeholder="Latitude" inputMode="decimal" className="sm:w-32" />
+              <Input value={loc.lng} onChange={(e) => setLoc({ ...loc, lng: e.target.value })} placeholder="Longitude" inputMode="decimal" className="sm:w-32" />
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Add latitude/longitude to plot this device on the fleet Map view.</p>
+              <Button size="sm" onClick={saveLocation}>Save location</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Live activity feed */}
       <Card>

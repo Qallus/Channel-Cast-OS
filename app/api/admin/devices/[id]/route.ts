@@ -13,6 +13,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if ("groupId" in body) patch.groupId = body.groupId || null;
   if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
   if ("locationName" in body) patch.locationName = body.locationName || null;
+  if ("latitude" in body) patch.latitude = body.latitude === null || body.latitude === "" ? null : Number(body.latitude);
+  if ("longitude" in body) patch.longitude = body.longitude === null || body.longitude === "" ? null : Number(body.longitude);
   if (Object.keys(patch).length === 0) return Response.json({ error: "nothing to update" }, { status: 400 });
 
   const updated = await updateDevice(id, patch);
