@@ -55,3 +55,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const trackCount = await attachToDevice(id, device.name, audio.id);
   return Response.json({ audio: { id: audio.id, name: audio.name }, trackCount });
 }
+
+// DELETE /api/admin/devices/:id/audio  { audioId }
+// Removes a spot from THIS device's playlist (keeps it in the library).
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const device = await getDeviceById(id);
+  if (!device) return Response.json({ error: "device not found" }, { status: 404 });
+
+  const body = await req.json().catch(() => ({}));
+  if (!body?.audioId) return Response.json({ error: "audioId is required" }, { status: 400 });
+
+  const dep = await getDeployment(id);
+  if (!dep?.playlistId) return Response.json({ trackCount: 0 });
+  const pl = await getPlaylist(dep.playlistId);
+  const trackIds = (pl?.trackIds ?? []).filter((t) => t !== body.audioId);
+  const playlist = await createPlaylist(`${device.name} - Spots`, trackIds);
+  await upsertDeployment({ deviceId: id, playlistId: playlist.id, cooldownSec: dep.cooldownSec });
+  return Response.json({ trackCount: trackIds.length });
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Radar, SkipForward, Square, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Radar, SkipForward, Square, Trash2, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
 
 import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +119,23 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
       setPickerOpen(false);
     } catch {
       setToast("Couldn't add it.");
+    }
+  }
+
+  async function removeSpot(t: Track) {
+    const dev = data?.device;
+    if (!dev) return;
+    setToast(null);
+    try {
+      const res = await fetch(`/api/admin/devices/${dev.id}/audio`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioId: t.id }),
+      });
+      const j = await res.json();
+      setToast(res.ok ? `Removed "${t.name}".` : j.error || "Couldn't remove it.");
+    } catch {
+      setToast("Couldn't remove it.");
     }
   }
 
@@ -306,6 +323,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
                     <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
                     <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t.name}</span>
                     <Button size="sm" variant="outline" onClick={() => playSpot(t)}><Play className="h-3.5 w-3.5" /> Play</Button>
+                    <button onClick={() => removeSpot(t)} aria-label="Remove spot" className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
                   </li>
                 ))}
               </ul>
