@@ -1,10 +1,19 @@
+import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
 export const runtime = "nodejs";
 
-// POST /api/comm/transcribe { recordingSid } — Twilio recording → OpenAI Whisper.
+// GET /api/comm/transcribe?callSid=… — the saved transcript for a call (if any)
+export async function GET(request: Request) {
+  const callSid = new URL(request.url).searchParams.get("callSid") || "";
+  if (!callSid) return jsonError("callSid is required.");
+  const { data } = await supabaseAdmin().from("call_transcripts").select("transcript, created_at").eq("call_sid", callSid).maybeSingle();
+  return Response.json({ transcript: data?.transcript ?? null, createdAt: data?.created_at ?? null });
+}
+
+// POST /api/comm/transcribe { recordingSid, callSid } — Twilio recording → Whisper → save
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { recordingSid?: string } | null;
+  const body = (await request.json().catch(() => null)) as { recordingSid?: string; callSid?: string } | null;
   if (!body?.recordingSid) return jsonError("recordingSid is required.");
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -31,6 +40,13 @@ export async function POST(request: Request) {
   });
   if (!whisper.ok) return jsonError(`OpenAI transcription failed: ${await whisper.text()}`, 500);
 
-  const transcript = await whisper.text();
-  return Response.json({ transcript: transcript.trim() });
+  const transcript = (await whisper.text()).trim();
+
+  if (body.callSid) {
+    await supabaseAdmin()
+      .from("call_transcripts")
+      .upsert({ call_sid: body.callSid, recording_sid: body.recordingSid, transcript }, { onConflict: "call_sid" });
+  }
+
+  return Response.json({ transcript });
 }

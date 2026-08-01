@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Call, Device as TwilioDevice } from "@twilio/voice-sdk";
 import {
   Bell,
+  Check,
   ChevronDown,
   Contact as ContactIcon,
   Delete,
+  Disc,
   Download,
+  Link2,
   Mail,
   MessageSquare,
   Mic,
@@ -16,14 +19,17 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   RefreshCw,
+  Search,
   Send,
   Share2,
   Sparkles,
   Voicemail,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -43,6 +49,10 @@ type CallRecord = {
 };
 type Recording = { sid: string; duration: string | null; audioUrl: string };
 type Note = { id: string; note: string; created_at: string };
+type CallLink = { id: string; contact_id: string | null; contact_name: string | null; role: string | null; created_at: string };
+type CrmContact = { id: string; name: string; role?: string; company?: string; title?: string };
+
+const CALL_ROLES = ["Decision maker", "Champion", "Influencer", "Technical", "Billing", "Owner", "Manager", "Support", "Advertiser", "Client"];
 type Sms = { id: string; direction: string; from_number: string | null; to_number: string | null; body: string; status: string | null; created_at: string };
 
 type Tab = "calls" | "sms" | "contacts" | "ai_voice" | "email" | "notifications" | "social";
@@ -178,6 +188,7 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
   const deviceRef = useRef<TwilioDevice | null>(null);
   const callRef = useRef<Call | null>(null);
   const [callState, setCallState] = useState<"idle" | "connecting" | "on_call">("idle");
+  const [record, setRecord] = useState(true);
 
   useEffect(() => setFrom(defaultFrom), [defaultFrom]);
 
@@ -220,7 +231,7 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
     if (!to || !deviceRef.current) return;
     setCallState("connecting");
     try {
-      const call = await deviceRef.current.connect({ params: { To: to, From: from || "" } });
+      const call = await deviceRef.current.connect({ params: { To: to, From: from || "", Record: record ? "true" : "false" } });
       callRef.current = call;
       call.on("accept", () => setCallState("on_call"));
       call.on("disconnect", () => {
@@ -243,7 +254,7 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
   const canDial = status === "ready";
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[500px_1fr] lg:items-start">
       {/* Dialpad */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground"><Phone className="h-4 w-4 text-brand-strong" /> Dialpad</div>
@@ -265,10 +276,20 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
             </button>
           ))}
         </div>
+        <button
+          onClick={() => setRecord((v) => !v)}
+          disabled={callState !== "idle"}
+          className="mt-3 flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:border-brand/50 disabled:opacity-60"
+        >
+          <span className="flex items-center gap-2"><Disc className={cn("h-4 w-4", record ? "text-destructive" : "text-muted-foreground")} /> Record call</span>
+          <span className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", record ? "bg-brand" : "bg-muted")}>
+            <span className={cn("inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform", record ? "translate-x-4" : "translate-x-0.5")} />
+          </span>
+        </button>
         <Button
           onClick={placeCall}
           disabled={!canDial || (!dialInput.trim() && callState === "idle")}
-          className={cn("mt-3 w-full", callState !== "idle" ? "bg-destructive hover:bg-destructive/90" : "bg-success text-success-foreground hover:bg-success/90")}
+          className={cn("mt-2 w-full", callState !== "idle" ? "bg-destructive hover:bg-destructive/90" : "bg-success text-success-foreground hover:bg-success/90")}
         >
           <Phone className="h-4 w-4" /> {callState === "connecting" ? "Connecting…" : callState === "on_call" ? "End call" : "Call"}
         </Button>
@@ -369,16 +390,22 @@ function CallRow({ call, expanded, onToggle, onCallBack }: { call: CallRecord; e
   const [transcript, setTranscript] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [links, setLinks] = useState<CallLink[]>([]);
+  const [linkOpen, setLinkOpen] = useState(false);
 
   useEffect(() => {
     if (!expanded || loaded) return;
     (async () => {
-      const [r, n] = await Promise.all([
+      const [r, n, t, l] = await Promise.all([
         fetch(`/api/comm/recordings?callSid=${call.sid}`).then((x) => x.json()).catch(() => ({})),
         fetch(`/api/comm/calls/notes?callSid=${call.sid}`).then((x) => x.json()).catch(() => ({})),
+        fetch(`/api/comm/transcribe?callSid=${call.sid}`).then((x) => x.json()).catch(() => ({})),
+        fetch(`/api/comm/calls/link?callSid=${call.sid}`).then((x) => x.json()).catch(() => ({})),
       ]);
       setRecordings(r.recordings || []);
       setNotes(n.notes || []);
+      if (t.transcript) setTranscript(t.transcript);
+      setLinks(l.links || []);
       setLoaded(true);
     })();
   }, [expanded, loaded, call.sid]);
@@ -396,7 +423,7 @@ function CallRow({ call, expanded, onToggle, onCallBack }: { call: CallRecord; e
   async function transcribe(recordingSid: string) {
     setTranscribing(true);
     try {
-      const res = await fetch("/api/comm/transcribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recordingSid }) });
+      const res = await fetch("/api/comm/transcribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recordingSid, callSid: call.sid }) });
       const data = await res.json();
       setTranscript(res.ok ? data.transcript : data.error || "Transcription failed.");
     } finally {
@@ -437,7 +464,20 @@ function CallRow({ call, expanded, onToggle, onCallBack }: { call: CallRecord; e
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => onCallBack(number || "")}><Phone className="h-4 w-4" /> Call back</Button>
             <Button variant="outline" size="sm" asChild><a href={`#sms:${number}`}><MessageSquare className="h-4 w-4" /> SMS</a></Button>
+            <Button variant="outline" size="sm" onClick={() => setLinkOpen(true)}><Link2 className="h-4 w-4" /> Link to contact / role</Button>
           </div>
+
+          {links.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {links.map((l) => (
+                <span key={l.id} className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs text-brand-strong">
+                  <Link2 className="h-3 w-3" />
+                  {l.contact_name || "Contact"}{l.role ? ` · ${l.role}` : ""}
+                  <button onClick={() => fetch(`/api/comm/calls/link?id=${l.id}`, { method: "DELETE" }).then(() => setLinks((p) => p.filter((x) => x.id !== l.id)))} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
 
           {recordings.map((rec) => (
             <div key={rec.sid} className="space-y-2">
@@ -471,7 +511,153 @@ function CallRow({ call, expanded, onToggle, onCallBack }: { call: CallRecord; e
           </div>
         </div>
       )}
+      <LinkCallDialog
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        call={call}
+        number={number}
+        hasRecording={recordings.length > 0}
+        hasTranscript={Boolean(transcript)}
+        onLinked={(link) => setLinks((p) => [...p, link])}
+      />
     </div>
+  );
+}
+
+function LinkCallDialog({
+  open,
+  onClose,
+  call,
+  number,
+  hasRecording,
+  hasTranscript,
+  onLinked,
+}: {
+  open: boolean;
+  onClose: () => void;
+  call: CallRecord;
+  number: string | null;
+  hasRecording: boolean;
+  hasTranscript: boolean;
+  onLinked: (link: CallLink) => void;
+}) {
+  const [contacts, setContacts] = useState<CrmContact[]>([]);
+  const [query, setQuery] = useState("");
+  const [contact, setContact] = useState<CrmContact | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open || contacts.length) return;
+    fetch("/api/crm/contacts").then((r) => r.json()).then((d) => setContacts(Array.isArray(d) ? d : [])).catch(() => {});
+  }, [open, contacts.length]);
+
+  const filtered = contacts
+    .filter((c) => `${c.name} ${c.company ?? ""} ${c.title ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()))
+    .slice(0, 8);
+
+  async function save() {
+    if (!contact && !role) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/comm/calls/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callSid: call.sid,
+          contactId: contact?.id ?? null,
+          contactName: contact?.name ?? null,
+          role,
+          details: {
+            number,
+            direction: isInbound(call.direction) ? "inbound" : "outbound",
+            duration: call.duration,
+            dateTime: call.dateCreated,
+            status: call.status,
+            estCost: estCost(call),
+            hasRecording,
+            hasTranscript,
+          },
+        }),
+      });
+      const d = await res.json();
+      if (res.ok && d.link) {
+        onLinked(d.link);
+        setContact(null);
+        setRole(null);
+        setQuery("");
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Link call to contact / role</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Connect this call — details, date &amp; time, recording, and transcript — to a contact, a role, or both.
+          </p>
+
+          {/* Contact picker */}
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-foreground">Contact</p>
+            {contact ? (
+              <div className="flex items-center justify-between rounded-lg border border-brand/40 bg-brand/10 px-3 py-2">
+                <span className="text-sm text-foreground">{contact.name}{contact.company ? ` · ${contact.company}` : ""}</span>
+                <button onClick={() => setContact(null)} className="text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search contacts…" className="pl-8" />
+                </div>
+                {query.trim() && (
+                  <div className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-border">
+                    {filtered.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">No contacts found.</p>
+                    ) : (
+                      filtered.map((c) => (
+                        <button key={c.id} onClick={() => setContact(c)} className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent">
+                          <span className="text-foreground">{c.name}</span>
+                          <span className="text-xs text-muted-foreground">{c.company || c.title || ""}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Role picker */}
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-foreground">Role <span className="font-normal text-muted-foreground">(optional)</span></p>
+            <div className="flex flex-wrap gap-1.5">
+              {CALL_ROLES.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRole(role === r ? null : r)}
+                  className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors", role === r ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}
+                >
+                  {role === r ? <Check className="h-3 w-3" /> : null} {r}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={saving || (!contact && !role)}>{saving ? "Linking…" : "Link call"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
