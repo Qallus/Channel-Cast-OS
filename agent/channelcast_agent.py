@@ -52,7 +52,7 @@ CAMERA_INDEX = int(os.environ.get("CC_CAMERA_INDEX", "0") or 0)
 # Fraction of the frame that must change to count as motion (0–1). Lower = more sensitive.
 MOTION_SENSITIVITY = float(os.environ.get("CC_MOTION_SENSITIVITY", "0.012") or 0.012)
 MOTION_WARMUP_FRAMES = 12
-FIRMWARE = "agent-0.2.0"
+FIRMWARE = "agent-0.3.0"
 DEVICE_TYPE = "standard_audio"
 MODEL = f"{platform.system()} {platform.machine()}"
 
@@ -268,6 +268,18 @@ def handle_command(cmd: dict, state: dict, ctl: dict, camera_on: "threading.Even
         state["motion_enabled"] = enabled
         save_state(state)
         log(f"command: sensor {'ON' if enabled else 'OFF'}")
+    elif ctype == "set_power":
+        enabled = bool(payload.get("enabled", True))
+        state["active"] = enabled
+        save_state(state)
+        if enabled:
+            if MOTION == "webcam" and state.get("motion_enabled", True):
+                camera_on.set()
+            log("command: power ON")
+        else:
+            ctl["stop"] = True   # stop whatever is playing
+            camera_on.clear()
+            log("command: power OFF")
     elif ctype == "test_play":
         url = payload.get("url")
         if not url:
@@ -347,12 +359,13 @@ def main() -> None:
     state = load_state()
     state = register(state)
     state.setdefault("volume", 80)
+    state.setdefault("active", True)
     kind, base = find_player()
     player = Player(kind, base)
 
     # Sensor on/off switch shared with the detector thread (restored from state).
     camera_on = threading.Event()
-    if state.get("motion_enabled", True):
+    if state.get("motion_enabled", True) and state.get("active", True):
         camera_on.set()
 
     motion_flag = start_motion_detector(camera_on) if MOTION == "webcam" else None
@@ -409,6 +422,11 @@ def main() -> None:
                 active = None
                 continue
             time.sleep(0.2)
+            continue
+
+        # Powered off — play nothing until turned back on.
+        if not state.get("active", True):
+            time.sleep(0.3)
             continue
 
         # Nothing playing — a leftover stop/next is meaningless, so drop it.

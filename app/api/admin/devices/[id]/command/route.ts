@@ -2,7 +2,7 @@ import { enqueueCommand, getDeviceById } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
-const ALLOWED = new Set(["set_volume", "test_play", "stop", "next", "set_motion"]);
+const ALLOWED = new Set(["set_volume", "test_play", "stop", "next", "set_motion", "set_power"]);
 
 // POST /api/admin/devices/:id/command
 //   { type: "set_volume" | "test_play" | "stop" | "next" | "set_motion", payload }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Radar, SkipForward, Square, Trash2, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Power, Radar, SkipForward, Square, Trash2, Upload, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react";
 
 import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
@@ -59,8 +59,11 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [library, setLibrary] = useState<Track[] | null>(null);
   const [sensorOn, setSensorOn] = useState(true);
+  const [powered, setPowered] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [loc, setLoc] = useState<{ name: string; lat: string; lng: string } | null>(null);
   const seenRef = useRef(false);
+  const prevVol = useRef(80);
 
   // Adopt the device's saved location once.
   useEffect(() => {
@@ -188,6 +191,34 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
     setSensorOn(next);
     setToast(null);
     await cmd(dev.id, "set_motion", { enabled: next }).then(() => setToast(next ? "Camera/sensor on." : "Camera/sensor off.")).catch(() => setToast("Couldn't toggle the sensor."));
+  }
+
+  async function togglePower() {
+    const dev = data?.device;
+    if (!dev) return;
+    const next = !powered;
+    setPowered(next);
+    setToast(null);
+    await cmd(dev.id, "set_power", { enabled: next }).then(() => setToast(next ? "Device on." : "Device off — playback paused.")).catch(() => setToast("Couldn't toggle power."));
+  }
+
+  async function toggleMute() {
+    const dev = data?.device;
+    if (!dev) return;
+    const next = !muted;
+    setMuted(next);
+    setToast(null);
+    if (next) {
+      prevVol.current = volume ?? dev.volume;
+      setVolume(0);
+      await cmd(dev.id, "set_volume", { volume: 0 }).catch(() => {});
+      setToast("Muted (applies from the next play).");
+    } else {
+      const v = prevVol.current || 60;
+      setVolume(v);
+      await cmd(dev.id, "set_volume", { volume: v }).catch(() => {});
+      setToast("Unmuted.");
+    }
   }
 
   async function addSpot(file: File) {
@@ -322,6 +353,16 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
               className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted"
               style={{ accentColor: "hsl(var(--brand-strong))" }}
             />
+          </div>
+
+          {/* Power / Mute */}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className={cn("flex-1", !powered && "border-destructive/40 text-destructive")} onClick={togglePower}>
+              <Power className="h-3.5 w-3.5" /> {powered ? "On" : "Off"}
+            </Button>
+            <Button size="sm" variant="outline" className={cn("flex-1", muted && "border-warning/40 text-warning")} onClick={toggleMute}>
+              {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />} {muted ? "Unmute" : "Mute"}
+            </Button>
           </div>
 
           {/* Transport */}

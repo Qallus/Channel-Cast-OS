@@ -358,7 +358,7 @@ export async function recentActivity(deviceId: string) {
 export async function enqueueCommand(deviceId: string, type: string, payload: Record<string, unknown>): Promise<DeviceCommand> {
   const sb = supabaseAdmin();
   // Collapse repeat control commands so they don't stack while a device is offline.
-  if (["set_volume", "set_motion", "stop", "next"].includes(type)) {
+  if (["set_volume", "set_motion", "set_power", "stop", "next"].includes(type)) {
     await sb.from("commands").delete().eq("device_id", deviceId).eq("type", type);
   }
   if (type === "set_volume" && typeof payload.volume === "number") {
