@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Columns3, Folder, FolderPlus, LayoutGrid, List as ListIcon, Pencil, Plus, Radar, Search, Table2, Trash2, Wifi, WifiOff } from "lucide-react";
+import { CalendarClock, Columns3, Folder, FolderPlus, ImagePlus, LayoutGrid, List as ListIcon, Pencil, Plus, Radar, Search, Table2, Trash2, Wifi, WifiOff, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { imageToDataUrl } from "@/lib/audio/spot-meta";
 import { cn } from "@/lib/utils";
 
 type RealDevice = {
@@ -65,6 +69,7 @@ export function DevicesManager() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("list");
+  const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; description: string; imageUrl: string | null } | null>(null);
 
   const loadGroups = () => fetch("/api/admin/device-groups", { cache: "no-store" }).then((r) => r.json()).then((g) => { if (Array.isArray(g)) setGroups(g); }).catch(() => {});
 
@@ -96,18 +101,20 @@ export function DevicesManager() {
     }
   }
 
-  async function newGroup() {
-    const name = window.prompt("Group name (e.g. a location):")?.trim();
-    if (!name) return;
-    await fetch("/api/admin/device-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => {});
-    loadGroups();
-  }
+  function openNewGroup() { setGroupDialog({ name: "", description: "", imageUrl: null }); }
+  function openEditGroup(g: Group) { setGroupDialog({ id: g.id, name: g.name, description: g.description ?? "", imageUrl: g.imageUrl }); }
 
-  async function renameGroup(g: Group) {
-    const name = window.prompt("Rename group:", g.name)?.trim();
-    if (!name || name === g.name) return;
-    setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, name } : x)));
-    await fetch(`/api/admin/device-groups/${g.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => {});
+  async function saveGroup() {
+    if (!groupDialog?.name.trim()) return;
+    const body = { name: groupDialog.name.trim(), description: groupDialog.description.trim() || null, imageUrl: groupDialog.imageUrl };
+    if (groupDialog.id) {
+      setGroups((prev) => prev.map((x) => (x.id === groupDialog.id ? { ...x, ...body } : x)));
+      await fetch(`/api/admin/device-groups/${groupDialog.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+    } else {
+      await fetch("/api/admin/device-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+    }
+    setGroupDialog(null);
+    loadGroups();
   }
 
   async function deleteGroup(g: Group) {
@@ -187,7 +194,7 @@ export function DevicesManager() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{filtered.length} device{filtered.length === 1 ? "" : "s"}</p>
         <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={newGroup}><FolderPlus className="h-3.5 w-3.5" /> New group</Button>
+        <Button size="sm" variant="outline" onClick={openNewGroup}><FolderPlus className="h-3.5 w-3.5" /> New group</Button>
         <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
           {VIEWS.map((v) => {
             const Icon = v.icon;
@@ -230,8 +237,64 @@ export function DevicesManager() {
       ) : view === "kanban" ? (
         <DeviceKanban devices={filtered} />
       ) : (
-        <DeviceFolders devices={filtered} groups={groups} onAssign={assignGroup} onRename={renameGroup} onDelete={deleteGroup} onRemove={removeDevice} />
+        <DeviceFolders devices={filtered} groups={groups} onAssign={assignGroup} onRename={openEditGroup} onDelete={deleteGroup} onRemove={removeDevice} />
       )}
+
+      {/* Group create/edit dialog */}
+      <Dialog open={groupDialog !== null} onOpenChange={(o) => !o && setGroupDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{groupDialog?.id ? "Edit group" : "New group"}</DialogTitle>
+          </DialogHeader>
+          {groupDialog && (
+            <div className="space-y-4">
+              <GroupImageField image={groupDialog.imageUrl} onChange={(imageUrl) => setGroupDialog({ ...groupDialog, imageUrl })} />
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-foreground">Name</span>
+                <Input value={groupDialog.name} onChange={(e) => setGroupDialog({ ...groupDialog, name: e.target.value })} placeholder="Front Office Location" />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-foreground">Description <span className="text-muted-foreground">(optional)</span></span>
+                <Textarea rows={3} value={groupDialog.description} onChange={(e) => setGroupDialog({ ...groupDialog, description: e.target.value })} placeholder="Notes about this location or group…" />
+              </label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGroupDialog(null)}>Cancel</Button>
+            <Button onClick={saveGroup} disabled={!groupDialog?.name.trim()}>{groupDialog?.id ? "Save" : "Create group"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function GroupImageField({ image, onChange }: { image: string | null; onChange: (v: string | null) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  async function pick(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      onChange(await imageToDataUrl(file));
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+        {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <Folder className="h-6 w-6 text-muted-foreground" />}
+      </span>
+      <div className="flex items-center gap-2">
+        <input ref={ref} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files)} />
+        <Button type="button" variant="outline" size="sm" onClick={() => ref.current?.click()} disabled={busy}>
+          <ImagePlus className="h-4 w-4" /> {busy ? "Processing…" : image ? "Replace" : "Add image"}
+        </Button>
+        {image && <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}><X className="h-4 w-4" /> Remove</Button>}
+      </div>
     </div>
   );
 }
@@ -424,8 +487,12 @@ function DeviceFolders({
         return (
           <div key={g.id} className="rounded-lg border border-border">
             <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-              <div className="flex min-w-0 items-center gap-2">
-                <Folder className="h-4 w-4 shrink-0 text-brand-strong" />
+              <div className="flex min-w-0 items-center gap-2.5">
+                {g.imageUrl ? (
+                  <img src={g.imageUrl} alt="" className="h-9 w-9 shrink-0 rounded-lg border border-border object-cover" />
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-brand-strong"><Folder className="h-4 w-4" /></span>
+                )}
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-foreground">{g.name} <span className="text-xs font-normal text-muted-foreground">· {items.length}</span></p>
                   {g.description && <p className="truncate text-xs text-muted-foreground">{g.description}</p>}
