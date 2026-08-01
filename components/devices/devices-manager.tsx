@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Columns3, LayoutGrid, List as ListIcon, Plus, Radar, Search, Table2, Trash2, Wifi, WifiOff } from "lucide-react";
+import { CalendarClock, Columns3, Folder, FolderPlus, LayoutGrid, List as ListIcon, Pencil, Plus, Radar, Search, Table2, Trash2, Wifi, WifiOff } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,14 @@ type RealDevice = {
   claimCode: string | null;
   locationName: string | null;
   lastHeartbeatAt: string | null;
+  groupId: string | null;
 };
+
+type Group = { id: string; name: string; description: string | null; imageUrl: string | null };
 
 type Norm = "online" | "pending" | "offline";
 type Filter = "all" | "online" | "pending" | "attention" | "retired";
-type ViewMode = "list" | "table" | "cards" | "kanban";
+type ViewMode = "list" | "table" | "cards" | "kanban" | "folder";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
@@ -38,6 +41,7 @@ const VIEWS: { id: ViewMode; label: string; icon: typeof ListIcon }[] = [
   { id: "table", label: "Table", icon: Table2 },
   { id: "cards", label: "Cards", icon: LayoutGrid },
   { id: "kanban", label: "Kanban", icon: Columns3 },
+  { id: "folder", label: "Folders (groups)", icon: Folder },
 ];
 
 function normStatus(d: RealDevice): Norm {
@@ -57,14 +61,18 @@ function matchesFilter(n: Norm, f: Filter) {
 
 export function DevicesManager() {
   const [devices, setDevices] = useState<RealDevice[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("list");
+
+  const loadGroups = () => fetch("/api/admin/device-groups", { cache: "no-store" }).then((r) => r.json()).then((g) => { if (Array.isArray(g)) setGroups(g); }).catch(() => {});
 
   useEffect(() => {
     let stop = false;
     const load = () => fetch("/api/admin/devices", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (!stop && Array.isArray(d)) setDevices(d); }).catch(() => {});
     load();
+    loadGroups();
     const iv = setInterval(load, 8000);
     return () => { stop = true; clearInterval(iv); };
   }, []);
@@ -77,6 +85,36 @@ export function DevicesManager() {
     } catch {
       /* next poll re-syncs if it failed */
     }
+  }
+
+  async function assignGroup(deviceId: string, groupId: string | null) {
+    setDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, groupId } : d)));
+    try {
+      await fetch(`/api/admin/devices/${deviceId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ groupId }) });
+    } catch {
+      /* next poll re-syncs */
+    }
+  }
+
+  async function newGroup() {
+    const name = window.prompt("Group name (e.g. a location):")?.trim();
+    if (!name) return;
+    await fetch("/api/admin/device-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => {});
+    loadGroups();
+  }
+
+  async function renameGroup(g: Group) {
+    const name = window.prompt("Rename group:", g.name)?.trim();
+    if (!name || name === g.name) return;
+    setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, name } : x)));
+    await fetch(`/api/admin/device-groups/${g.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => {});
+  }
+
+  async function deleteGroup(g: Group) {
+    if (!window.confirm(`Delete group "${g.name}"? Its devices become ungrouped.`)) return;
+    setGroups((prev) => prev.filter((x) => x.id !== g.id));
+    setDevices((prev) => prev.map((d) => (d.groupId === g.id ? { ...d, groupId: null } : d)));
+    await fetch(`/api/admin/device-groups/${g.id}`, { method: "DELETE" }).catch(() => {});
   }
 
   const stats = useMemo(() => ({
@@ -146,8 +184,10 @@ export function DevicesManager() {
       </div>
 
       {/* View switcher */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{filtered.length} device{filtered.length === 1 ? "" : "s"}</p>
+        <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={newGroup}><FolderPlus className="h-3.5 w-3.5" /> New group</Button>
         <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
           {VIEWS.map((v) => {
             const Icon = v.icon;
@@ -164,6 +204,7 @@ export function DevicesManager() {
               </button>
             );
           })}
+        </div>
         </div>
       </div>
 
@@ -186,8 +227,10 @@ export function DevicesManager() {
         <DeviceTable devices={filtered} onRemove={removeDevice} />
       ) : view === "cards" ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filtered.map((d) => <DeviceCard key={d.id} dev={d} onRemove={() => removeDevice(d)} />)}</div>
-      ) : (
+      ) : view === "kanban" ? (
         <DeviceKanban devices={filtered} />
+      ) : (
+        <DeviceFolders devices={filtered} groups={groups} onAssign={assignGroup} onRename={renameGroup} onDelete={deleteGroup} onRemove={removeDevice} />
       )}
     </div>
   );
@@ -330,6 +373,93 @@ function DeviceCard({ dev, onRemove }: { dev: RealDevice; onRemove: () => void }
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function GroupSelect({ value, groups, onChange }: { value: string | null; groups: Group[]; onChange: (g: string | null) => void }) {
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || null)}
+      aria-label="Assign group"
+      className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-ring"
+    >
+      <option value="">Ungrouped</option>
+      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+    </select>
+  );
+}
+
+function FolderDeviceRow({ d, groups, onAssign, onRemove }: { d: RealDevice; groups: Group[]; onAssign: (deviceId: string, g: string | null) => void; onRemove: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+      <div className="min-w-0 flex-1">
+        <Link href={`/app/admin/devices/${d.deviceCode}`} className="block truncate text-sm font-medium text-foreground hover:text-brand-strong hover:underline">{d.name}</Link>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2"><StatusBadge dev={d} /><ModeBadge dev={d} /></div>
+      </div>
+      <GroupSelect value={d.groupId} groups={groups} onChange={(g) => onAssign(d.id, g)} />
+      <RemoveBtn onRemove={onRemove} />
+    </div>
+  );
+}
+
+function DeviceFolders({
+  devices, groups, onAssign, onRename, onDelete, onRemove,
+}: {
+  devices: RealDevice[];
+  groups: Group[];
+  onAssign: (deviceId: string, g: string | null) => void;
+  onRename: (g: Group) => void;
+  onDelete: (g: Group) => void;
+  onRemove: (d: RealDevice) => void;
+}) {
+  const ungrouped = devices.filter((d) => !d.groupId);
+  return (
+    <div className="space-y-4">
+      {groups.length === 0 && (
+        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">No groups yet. Click <b className="font-medium text-foreground">New group</b> above to create one (e.g. a location), then assign devices with the dropdown.</p>
+      )}
+      {groups.map((g) => {
+        const items = devices.filter((d) => d.groupId === g.id);
+        return (
+          <div key={g.id} className="rounded-lg border border-border">
+            <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <Folder className="h-4 w-4 shrink-0 text-brand-strong" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">{g.name} <span className="text-xs font-normal text-muted-foreground">· {items.length}</span></p>
+                  {g.description && <p className="truncate text-xs text-muted-foreground">{g.description}</p>}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <button onClick={() => onRename(g)} aria-label="Rename group" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
+                <button onClick={() => onDelete(g)} aria-label="Delete group" className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+            <div className="divide-y divide-border">
+              {items.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-muted-foreground">No devices — assign one from Ungrouped below.</p>
+              ) : (
+                items.map((d) => <FolderDeviceRow key={d.id} d={d} groups={groups} onAssign={onAssign} onRemove={() => onRemove(d)} />)
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="rounded-lg border border-dashed border-border">
+        <div className="border-b border-border px-4 py-2.5">
+          <p className="text-sm font-semibold text-foreground">Ungrouped <span className="text-xs font-normal text-muted-foreground">· {ungrouped.length}</span></p>
+        </div>
+        <div className="divide-y divide-border">
+          {ungrouped.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">Everything is grouped.</p>
+          ) : (
+            ungrouped.map((d) => <FolderDeviceRow key={d.id} d={d} groups={groups} onAssign={onAssign} onRemove={() => onRemove(d)} />)
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

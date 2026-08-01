@@ -22,6 +22,15 @@ export type Device = {
   ip: string | null;
   volume: number;
   lastHeartbeatAt: string | null;
+  groupId: string | null;
+  createdAt: string;
+};
+
+export type DeviceGroup = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
   createdAt: string;
 };
 
@@ -71,6 +80,7 @@ function mapDevice(r: Row): Device {
     ip: (r.ip as string) ?? null,
     volume: (r.volume as number) ?? 80,
     lastHeartbeatAt: (r.last_heartbeat_at as string) ?? null,
+    groupId: (r.group_id as string) ?? null,
     createdAt: r.created_at as string,
   };
 }
@@ -157,6 +167,7 @@ export async function updateDevice(id: string, patch: Partial<Record<string, unk
   const map: Record<string, string> = {
     hardwareId: "hardware_id", deviceToken: "device_token", claimCode: "claim_code", firmwareVersion: "firmware_version",
     lastHeartbeatAt: "last_heartbeat_at", locationName: "location_name", ownerOrg: "owner_org", deviceCode: "device_code",
+    groupId: "group_id",
   };
   const row: Row = {};
   for (const [k, v] of Object.entries(patch)) row[map[k] ?? k] = v;
@@ -175,6 +186,48 @@ export async function deleteDevice(id: string): Promise<void> {
     sb.from("commands").delete().eq("device_id", id),
   ]);
   const { error } = await sb.from("devices").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ── Device groups ───────────────────────────────────────────────────── */
+
+const mapGroup = (r: Row): DeviceGroup => ({
+  id: r.id as string,
+  name: r.name as string,
+  description: (r.description as string) ?? null,
+  imageUrl: (r.image_url as string) ?? null,
+  createdAt: r.created_at as string,
+});
+
+export async function listGroups(): Promise<DeviceGroup[]> {
+  const { data, error } = await supabaseAdmin().from("device_groups").select("*").order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapGroup);
+}
+
+export async function createGroup(input: { name: string; description?: string | null; imageUrl?: string | null }): Promise<DeviceGroup> {
+  const { data, error } = await supabaseAdmin()
+    .from("device_groups")
+    .insert({ name: input.name, description: input.description ?? null, image_url: input.imageUrl ?? null })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapGroup(data);
+}
+
+export async function updateGroup(id: string, patch: { name?: string; description?: string | null; imageUrl?: string | null }): Promise<DeviceGroup | null> {
+  const row: Row = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.description !== undefined) row.description = patch.description;
+  if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl;
+  const { data, error } = await supabaseAdmin().from("device_groups").update(row).eq("id", id).select("*").maybeSingle();
+  if (error) throw error;
+  return data ? mapGroup(data) : null;
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  // devices.group_id is ON DELETE SET NULL, so members just become ungrouped.
+  const { error } = await supabaseAdmin().from("device_groups").delete().eq("id", id);
   if (error) throw error;
 }
 
