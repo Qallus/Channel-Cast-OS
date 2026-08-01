@@ -125,6 +125,7 @@ async function findDevice(column: string, value: string): Promise<Device | null>
   return data ? mapDevice(data) : null;
 }
 export const getDeviceById = (id: string) => findDevice("id", id);
+export const getDeviceByCode = (code: string) => findDevice("device_code", code);
 export const getDeviceByToken = (t: string) => findDevice("device_token", t);
 export const getDeviceByHardwareId = (hw: string) => findDevice("hardware_id", hw);
 
