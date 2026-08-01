@@ -24,9 +24,14 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Network/cookie failure — don't take the whole app down; treat as signed out.
+    return response;
+  }
 
   const path = request.nextUrl.pathname;
   const isAppRoute = path.startsWith("/app");
