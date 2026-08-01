@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, QrCode as QrIcon, Rocket, Search, Wifi } from "lucide-react";
+import { CalendarClock, Plus, QrCode as QrIcon, Radar, Rocket, Search, Wifi, WifiOff } from "lucide-react";
 
 import { QrCode } from "@/components/devices/qr-code";
 import { DeviceSetupWizard } from "@/components/devices/device-setup-wizard";
@@ -62,6 +62,16 @@ export function DevicesManager() {
   const [query, setQuery] = useState("");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [activating, setActivating] = useState<DeviceRecord | null>(null);
+  const [realDevices, setRealDevices] = useState<RealDevice[]>([]);
+
+  // Poll real (Supabase-backed) devices so connected players show up live.
+  useEffect(() => {
+    let stop = false;
+    const load = () => fetch("/api/admin/devices", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (!stop && Array.isArray(d)) setRealDevices(d); }).catch(() => {});
+    load();
+    const iv = setInterval(load, 8000);
+    return () => { stop = true; clearInterval(iv); };
+  }, []);
 
   const stats = useMemo(() => {
     return {
@@ -110,6 +120,16 @@ export function DevicesManager() {
           Set up a device
         </Button>
       </div>
+
+      {/* Real (connected) devices */}
+      {realDevices.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground">Your devices</h2>
+          {realDevices.map((dev) => (
+            <RealDeviceRow key={dev.id} dev={dev} />
+          ))}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -171,6 +191,55 @@ export function DevicesManager() {
 
       <ActivationDialog device={activating} onOpenChange={(o) => !o && setActivating(null)} onSimulate={activateDevice} />
     </div>
+  );
+}
+
+type RealDevice = {
+  id: string;
+  name: string;
+  deviceCode: string;
+  type: string;
+  status: string;
+  claimCode: string | null;
+  locationName: string | null;
+  lastHeartbeatAt: string | null;
+};
+
+function RealDeviceRow({ dev }: { dev: RealDevice }) {
+  const online = dev.status === "online";
+  const pending = dev.status === "needs_setup" || (!!dev.claimCode && !dev.lastHeartbeatAt);
+  const motion = dev.type === "ai_vision" || dev.type === "pir_motion";
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg", online ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
+          {online ? <Wifi className="h-5 w-5" /> : <WifiOff className="h-5 w-5" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/app/admin/devices/${dev.deviceCode}`} className="truncate text-sm font-semibold text-foreground hover:text-brand-strong hover:underline">{dev.name}</Link>
+            <span className="text-xs text-muted-foreground">{dev.deviceCode}</span>
+            <Badge className={cn("gap-1 border-transparent capitalize", online ? "bg-success/15 text-success" : pending ? "bg-brand/15 text-brand-strong" : "bg-muted text-muted-foreground")}>
+              {online ? "Online" : pending ? "Awaiting setup" : "Offline"}
+            </Badge>
+            <Badge className={cn("gap-1 border-transparent", motion ? "bg-brand/15 text-brand-strong" : "bg-secondary text-secondary-foreground")}>
+              {motion ? <Radar className="h-3 w-3" /> : <CalendarClock className="h-3 w-3" />}{motion ? "Motion" : "Scheduled"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{dev.locationName ?? "Unassigned"}</p>
+        </div>
+        {pending && dev.claimCode ? (
+          <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-center">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Claim code</p>
+            <p className="font-mono text-sm font-semibold tracking-wider text-foreground">{dev.claimCode}</p>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/app/admin/devices/${dev.deviceCode}`}>Open</Link>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
