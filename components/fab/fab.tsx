@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Call, Device as TwilioDevice } from "@twilio/voice-sdk";
 import {
   Delete,
+  Maximize2,
   MessageCircle,
   MessageSquare,
+  Minimize2,
   Phone,
   PhoneCall,
   PhoneIncoming,
@@ -21,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type ToolId = "agent" | "dm" | "sms" | "dialpad" | "calls" | "notes";
@@ -41,98 +44,141 @@ const fmtPhone = (v: string | null) => {
 };
 
 export function Fab() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [tool, setTool] = useState<ToolId | null>(null);
+  const [open, setOpen] = useState(false);
+  const [tool, setTool] = useState<ToolId>("agent");
+  const [expanded, setExpanded] = useState(false);
   const [dialSeed, setDialSeed] = useState("");
 
-  // Close menu on Escape / outside handled by overlay.
+  // Close on Escape (collapse from full → compact first, then close).
   useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (expanded) setExpanded(false);
+      else setOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
+  }, [open, expanded]);
 
-  const openTool = (id: ToolId) => {
-    setTool(id);
-    setMenuOpen(false);
-  };
+  const body = (
+    <>
+      {tool === "agent" && <AgentTool />}
+      {tool === "dm" && <Scaffold icon={MessageCircle} title="Direct Message" note="Team & customer DMs land here — a unified inbox across the org." />}
+      {tool === "sms" && <SmsTool />}
+      {tool === "dialpad" && <DialpadTool seed={dialSeed} />}
+      {tool === "calls" && <CallLogsTool onCallBack={(n) => { setDialSeed(n); setTool("dialpad"); }} />}
+      {tool === "notes" && <NotesTool />}
+    </>
+  );
+
+  const tabRow = (
+    <TooltipProvider delayDuration={200}>
+      <div className="flex items-center gap-0.5">
+        {TOOLS.map((t) => {
+          const Icon = t.icon;
+          const active = tool === t.id;
+          return (
+            <Tooltip key={t.id}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setTool(t.id)}
+                  aria-label={t.label}
+                  aria-pressed={active}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                    active ? "bg-accent text-brand-strong" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t.label}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </TooltipProvider>
+  );
 
   return (
     <>
-      {/* Radial menu */}
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end gap-2">
-            {TOOLS.map((t, i) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => openTool(t.id)}
-                  style={{ animationDelay: `${i * 30}ms` }}
-                  className="flex items-center gap-2 rounded-full border border-border bg-card py-2 pl-3 pr-3.5 text-sm font-medium text-foreground shadow-lg transition-colors hover:border-brand/50 hover:text-brand-strong"
-                >
-                  <Icon className="h-4 w-4 text-brand-strong" /> {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-
       {/* FAB button */}
       <button
-        onClick={() => (tool ? setTool(null) : setMenuOpen((v) => !v))}
+        onClick={() => setOpen((v) => !v)}
         aria-label="Quick actions"
+        aria-expanded={open}
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-xl transition-transform hover:scale-105",
-          menuOpen && "rotate-45",
+          "fixed bottom-6 right-6 z-[55] flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-xl transition-transform hover:scale-105",
+          open && "rotate-45",
         )}
       >
         <Plus className="h-6 w-6" />
       </button>
 
-      {/* Expandable modal (80–90% of the viewport) */}
-      {tool && (
+      {open && !expanded && (
+        /* Compact panel anchored directly above the FAB (~450×450) */
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="fixed bottom-24 right-6 z-50 flex h-[min(450px,calc(100vh-8rem))] w-[min(450px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            role="dialog"
+            aria-label="Quick actions"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5">
+              {tabRow}
+              <div className="flex items-center gap-0.5">
+                <button onClick={() => setExpanded(true)} aria-label="Expand" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"><Maximize2 className="h-4 w-4" /></button>
+                <button onClick={() => setOpen(false)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">{body}</div>
+          </div>
+        </>
+      )}
+
+      {open && expanded && (
+        /* Full modal (icon rail + content) */
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-6">
-          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setTool(null)} />
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setExpanded(false)} />
           <div className="relative z-10 flex h-[88vh] w-[92vw] max-w-[1400px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
             {/* Tool rail */}
-            <div className="hidden w-52 shrink-0 flex-col border-r border-border p-2 sm:flex">
-              <p className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick actions</p>
-              {TOOLS.map((t) => {
-                const Icon = t.icon;
-                const active = tool === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTool(t.id)}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-                      active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                    )}
-                  >
-                    <Icon className={cn("h-4 w-4", active && "text-brand-strong")} /> {t.label}
-                  </button>
-                );
-              })}
-            </div>
+            <TooltipProvider delayDuration={200}>
+              <div className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border py-3 sm:w-52 sm:items-stretch sm:px-2">
+                <p className="hidden px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:block">Quick actions</p>
+                {TOOLS.map((t) => {
+                  const Icon = t.icon;
+                  const active = tool === t.id;
+                  return (
+                    <Tooltip key={t.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => setTool(t.id)}
+                          aria-label={t.label}
+                          className={cn(
+                            "flex h-10 w-10 items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-colors sm:h-auto sm:w-auto sm:justify-start sm:px-2.5 sm:py-2",
+                            active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                          )}
+                        >
+                          <Icon className={cn("h-4 w-4 shrink-0", active && "text-brand-strong")} /> <span className="hidden sm:inline">{t.label}</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="sm:hidden">{t.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </TooltipProvider>
             {/* Content */}
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold text-foreground">{TOOLS.find((t) => t.id === tool)?.label}</p>
-                <button onClick={() => setTool(null)} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+                <div className="flex items-center gap-0.5">
+                  <button onClick={() => setExpanded(false)} aria-label="Collapse" className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><Minimize2 className="h-4 w-4" /></button>
+                  <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
+                </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {tool === "agent" && <AgentTool />}
-                {tool === "dm" && <Scaffold icon={MessageCircle} title="Direct Message" note="Team & customer DMs land here — a unified inbox across the org." />}
-                {tool === "sms" && <SmsTool />}
-                {tool === "dialpad" && <DialpadTool seed={dialSeed} />}
-                {tool === "calls" && <CallLogsTool onCallBack={(n) => { setDialSeed(n); setTool("dialpad"); }} />}
-                {tool === "notes" && <NotesTool />}
-              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">{body}</div>
             </div>
           </div>
         </div>
