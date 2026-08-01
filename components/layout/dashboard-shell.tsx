@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { Fab } from "@/components/fab/fab";
 import { cn } from "@/lib/utils";
 
 export function DashboardShell({
@@ -50,6 +51,9 @@ export function DashboardShell({
         <AppTopbar onOpenMobileNav={() => setMobileOpen(true)} roleLabel={roleLabel} />
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">{children}</main>
       </div>
+
+      {/* Global quick-actions FAB */}
+      <Fab />
     </div>
   );
 }
