@@ -5,7 +5,6 @@ import Link from "next/link";
 import { CalendarClock, Plus, QrCode as QrIcon, Radar, Rocket, Search, Wifi, WifiOff } from "lucide-react";
 
 import { QrCode } from "@/components/devices/qr-code";
-import { DeviceSetupWizard } from "@/components/devices/device-setup-wizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,7 +59,6 @@ export function DevicesManager() {
   const [devices, setDevices] = useState<DeviceRecord[]>(mockDevices);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [wizardOpen, setWizardOpen] = useState(false);
   const [activating, setActivating] = useState<DeviceRecord | null>(null);
   const [realDevices, setRealDevices] = useState<RealDevice[]>([]);
 
@@ -115,9 +113,11 @@ export function DevicesManager() {
             Register, activate, and manage Channel Cast playback devices across the network.
           </p>
         </div>
-        <Button onClick={() => setWizardOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Set up a device
+        <Button asChild>
+          <Link href="/app/admin/devices/new">
+            <Plus className="h-4 w-4" />
+            Add Device
+          </Link>
         </Button>
       </div>
 
@@ -175,8 +175,8 @@ export function DevicesManager() {
             <CardContent className="flex flex-col items-center gap-2 p-10 text-center">
               <Wifi className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium text-foreground">No devices in this view</p>
-              <Button className="mt-2" onClick={() => setWizardOpen(true)}>
-                <Plus className="h-4 w-4" /> Set up a device
+              <Button className="mt-2" asChild>
+                <Link href="/app/admin/devices/new"><Plus className="h-4 w-4" /> Add Device</Link>
               </Button>
             </CardContent>
           </Card>
@@ -186,8 +186,6 @@ export function DevicesManager() {
           ))
         )}
       </div>
-
-      <DeviceSetupWizard open={wizardOpen} onOpenChange={setWizardOpen} />
 
       <ActivationDialog device={activating} onOpenChange={(o) => !o && setActivating(null)} onSimulate={activateDevice} />
     </div>

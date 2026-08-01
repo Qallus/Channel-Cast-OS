@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { Call, Device as TwilioDevice } from "@twilio/voice-sdk";
 import {
   Bold,
@@ -12,6 +13,7 @@ import {
   MessageCircle,
   MessageSquare,
   Minimize2,
+  MonitorPlay,
   Phone,
   PhoneCall,
   PhoneIncoming,
@@ -51,7 +53,7 @@ function IconTip({ label, side = "bottom", children }: { label: string; side?: "
   );
 }
 
-type ToolId = "agent" | "dm" | "sms" | "dialpad" | "calls" | "notes";
+type ToolId = "agent" | "dm" | "sms" | "dialpad" | "calls" | "notes" | "device";
 const TOOLS: { id: ToolId; label: string; icon: typeof Phone }[] = [
   { id: "agent", label: "AI Agent", icon: Sparkles },
   { id: "dm", label: "Direct Message", icon: MessageCircle },
@@ -59,6 +61,7 @@ const TOOLS: { id: ToolId; label: string; icon: typeof Phone }[] = [
   { id: "dialpad", label: "Dialpad", icon: Phone },
   { id: "calls", label: "Call Logs", icon: PhoneCall },
   { id: "notes", label: "Notes", icon: StickyNote },
+  { id: "device", label: "Add Device", icon: MonitorPlay },
 ];
 
 const fmtPhone = (v: string | null) => {
@@ -94,6 +97,7 @@ export function Fab() {
       {tool === "dialpad" && <DialpadTool seed={dialSeed} />}
       {tool === "calls" && <CallLogsTool onCallBack={(n) => { setDialSeed(n); setTool("dialpad"); }} />}
       {tool === "notes" && <NotesTool />}
+      {tool === "device" && <AddDeviceTool onNavigate={() => setOpen(false)} />}
     </>
   );
 
@@ -543,6 +547,26 @@ function NotesTool() {
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+/* ── Add Device (shortcut to the setup page) ─────────────────────────── */
+
+function AddDeviceTool({ onNavigate }: { onNavigate: () => void }) {
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-4 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-brand-strong"><MonitorPlay className="h-6 w-6" /></span>
+      <p className="text-sm font-semibold text-foreground">Add a new device</p>
+      <p className="text-sm text-muted-foreground">Name a player, run one command on it, and watch it connect — about a minute.</p>
+      <ol className="w-full space-y-1.5 text-left text-xs text-muted-foreground">
+        <li>1. Name it &amp; pick Motion or Scheduled</li>
+        <li>2. Run the command on the device (PowerShell)</li>
+        <li>3. It connects &amp; appears in your fleet</li>
+      </ol>
+      <Button asChild className="mt-1 w-full" onClick={onNavigate}>
+        <Link href="/app/admin/devices/new">Open device setup</Link>
+      </Button>
     </div>
   );
 }
