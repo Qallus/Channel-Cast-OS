@@ -165,6 +165,19 @@ export async function updateDevice(id: string, patch: Partial<Record<string, unk
   return data ? mapDevice(data) : null;
 }
 
+export async function deleteDevice(id: string): Promise<void> {
+  const sb = supabaseAdmin();
+  // Remove dependent rows first (no cascade guaranteed on the schema).
+  await Promise.all([
+    sb.from("deployments").delete().eq("device_id", id),
+    sb.from("playback").delete().eq("device_id", id),
+    sb.from("heartbeats").delete().eq("device_id", id),
+    sb.from("commands").delete().eq("device_id", id),
+  ]);
+  const { error } = await sb.from("devices").delete().eq("id", id);
+  if (error) throw error;
+}
+
 /* ── Audio (+ storage) ───────────────────────────────────────────────── */
 
 export async function listAudio(): Promise<Audio[]> {

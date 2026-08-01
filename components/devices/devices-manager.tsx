@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Plus, QrCode as QrIcon, Radar, Rocket, Search, Wifi, WifiOff } from "lucide-react";
+import { CalendarClock, Plus, QrCode as QrIcon, Radar, Rocket, Search, Trash2, Wifi, WifiOff } from "lucide-react";
 
 import { QrCode } from "@/components/devices/qr-code";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,16 @@ export function DevicesManager() {
     return () => { stop = true; clearInterval(iv); };
   }, []);
 
+  async function removeRealDevice(dev: RealDevice) {
+    if (!window.confirm(`Remove "${dev.name}" (${dev.deviceCode})? This can't be undone.`)) return;
+    setRealDevices((prev) => prev.filter((d) => d.id !== dev.id)); // optimistic
+    try {
+      await fetch(`/api/admin/devices/${dev.id}`, { method: "DELETE" });
+    } catch {
+      /* next poll will re-sync if it failed */
+    }
+  }
+
   const stats = useMemo(() => {
     return {
       total: devices.length,
@@ -126,7 +136,7 @@ export function DevicesManager() {
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground">Your devices</h2>
           {realDevices.map((dev) => (
-            <RealDeviceRow key={dev.id} dev={dev} />
+            <RealDeviceRow key={dev.id} dev={dev} onRemove={() => removeRealDevice(dev)} />
           ))}
         </div>
       )}
@@ -203,7 +213,7 @@ type RealDevice = {
   lastHeartbeatAt: string | null;
 };
 
-function RealDeviceRow({ dev }: { dev: RealDevice }) {
+function RealDeviceRow({ dev, onRemove }: { dev: RealDevice; onRemove: () => void }) {
   const online = dev.status === "online";
   const pending = dev.status === "needs_setup" || (!!dev.claimCode && !dev.lastHeartbeatAt);
   const motion = dev.type === "ai_vision" || dev.type === "pir_motion";
@@ -226,16 +236,21 @@ function RealDeviceRow({ dev }: { dev: RealDevice }) {
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{dev.locationName ?? "Unassigned"}</p>
         </div>
-        {pending && dev.claimCode ? (
-          <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-center">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Claim code</p>
-            <p className="font-mono text-sm font-semibold tracking-wider text-foreground">{dev.claimCode}</p>
-          </div>
-        ) : (
-          <Button size="sm" variant="outline" asChild>
-            <Link href={`/app/admin/devices/${dev.deviceCode}`}>Open</Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {pending && dev.claimCode ? (
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Claim code</p>
+              <p className="font-mono text-sm font-semibold tracking-wider text-foreground">{dev.claimCode}</p>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/app/admin/devices/${dev.deviceCode}`}>Open</Link>
+            </Button>
+          )}
+          <button onClick={onRemove} aria-label="Remove device" className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </CardContent>
     </Card>
   );
