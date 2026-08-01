@@ -23,8 +23,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ToolBoundary } from "@/components/fab/tool-boundary";
 import { cn } from "@/lib/utils";
+
+/** Lightweight, dependency-free hover/focus tooltip (light + dark via popover tokens). */
+function IconTip({ label, side = "bottom", children }: { label: string; side?: "bottom" | "right"; children: React.ReactNode }) {
+  return (
+    <span className="group/tip relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className={cn(
+          "pointer-events-none absolute z-[80] whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground opacity-0 shadow-md transition-opacity duration-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100",
+          side === "bottom" ? "left-1/2 top-full mt-1.5 -translate-x-1/2" : "left-full top-1/2 ml-2 -translate-y-1/2",
+        )}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
 
 type ToolId = "agent" | "dm" | "sms" | "dialpad" | "calls" | "notes";
 const TOOLS: { id: ToolId; label: string; icon: typeof Phone }[] = [
@@ -73,32 +91,27 @@ export function Fab() {
   );
 
   const tabRow = (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex items-center gap-0.5">
-        {TOOLS.map((t) => {
-          const Icon = t.icon;
-          const active = tool === t.id;
-          return (
-            <Tooltip key={t.id}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setTool(t.id)}
-                  aria-label={t.label}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                    active ? "bg-accent text-brand-strong" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                  )}
-                >
-                  <Icon className="h-[18px] w-[18px]" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{t.label}</TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </div>
-    </TooltipProvider>
+    <div className="flex items-center gap-0.5">
+      {TOOLS.map((t) => {
+        const Icon = t.icon;
+        const active = tool === t.id;
+        return (
+          <IconTip key={t.id} label={t.label}>
+            <button
+              onClick={() => setTool(t.id)}
+              aria-label={t.label}
+              aria-pressed={active}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                active ? "bg-accent text-brand-strong" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              )}
+            >
+              <Icon className="h-[18px] w-[18px]" />
+            </button>
+          </IconTip>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -132,7 +145,9 @@ export function Fab() {
                 <button onClick={() => setOpen(false)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">{body}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <ToolBoundary key={tool}>{body}</ToolBoundary>
+            </div>
           </div>
         </>
       )}
@@ -143,32 +158,32 @@ export function Fab() {
           <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setExpanded(false)} />
           <div className="relative z-10 flex h-[88vh] w-[92vw] max-w-[1400px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
             {/* Tool rail */}
-            <TooltipProvider delayDuration={200}>
-              <div className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border py-3 sm:w-52 sm:items-stretch sm:px-2">
-                <p className="hidden px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:block">Quick actions</p>
-                {TOOLS.map((t) => {
-                  const Icon = t.icon;
-                  const active = tool === t.id;
-                  return (
-                    <Tooltip key={t.id}>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => setTool(t.id)}
-                          aria-label={t.label}
-                          className={cn(
-                            "flex h-10 w-10 items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-colors sm:h-auto sm:w-auto sm:justify-start sm:px-2.5 sm:py-2",
-                            active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                          )}
-                        >
-                          <Icon className={cn("h-4 w-4 shrink-0", active && "text-brand-strong")} /> <span className="hidden sm:inline">{t.label}</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="sm:hidden">{t.label}</TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </TooltipProvider>
+            <div className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border py-3 sm:w-52 sm:items-stretch sm:px-2">
+              <p className="hidden px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:block">Quick actions</p>
+              {TOOLS.map((t) => {
+                const Icon = t.icon;
+                const active = tool === t.id;
+                const btn = (
+                  <button
+                    onClick={() => setTool(t.id)}
+                    aria-label={t.label}
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-colors sm:h-auto sm:w-auto sm:justify-start sm:px-2.5 sm:py-2",
+                      active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4 shrink-0", active && "text-brand-strong")} /> <span className="hidden sm:inline">{t.label}</span>
+                  </button>
+                );
+                // On the wide rail the label is inline; only tip when collapsed to icons.
+                return (
+                  <div key={t.id} className="w-full">
+                    <span className="sm:hidden"><IconTip label={t.label} side="right">{btn}</IconTip></span>
+                    <span className="hidden sm:block">{btn}</span>
+                  </div>
+                );
+              })}
+            </div>
             {/* Content */}
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -178,7 +193,9 @@ export function Fab() {
                   <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">{body}</div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <ToolBoundary key={tool}>{body}</ToolBoundary>
+              </div>
             </div>
           </div>
         </div>
@@ -254,17 +271,21 @@ function DialpadTool({ seed }: { seed: string }) {
   useEffect(() => {
     let device: TwilioDevice | null = null;
     (async () => {
-      const res = await fetch("/api/comm/token");
-      const data = await res.json();
-      if (!res.ok) return;
-      setNumbers(data.phoneNumbers || []);
-      setFrom(data.defaultPhoneNumber || null);
-      if (!data.dialpadReady) return;
-      const { Device } = await import("@twilio/voice-sdk");
-      device = new Device(data.token, { logLevel: "error" });
-      deviceRef.current = device;
-      device.on("registered", () => setReady(true));
-      device.register().catch(() => {});
+      try {
+        const res = await fetch("/api/comm/token");
+        if (!res.ok) return;
+        const data = await res.json();
+        setNumbers(data.phoneNumbers || []);
+        setFrom(data.defaultPhoneNumber || null);
+        if (!data.dialpadReady) return;
+        const { Device } = await import("@twilio/voice-sdk");
+        device = new Device(data.token, { logLevel: "error" });
+        deviceRef.current = device;
+        device.on("registered", () => setReady(true));
+        device.register().catch(() => {});
+      } catch {
+        /* comm not configured / offline — dialpad stays in "connecting" state */
+      }
     })();
     return () => {
       device?.destroy();
