@@ -141,6 +141,18 @@ export function DevicesManager() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name, device ID, owner, or location…"
+          className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Devices" value={stats.total} />
@@ -149,7 +161,7 @@ export function DevicesManager() {
         <StatCard label="Needs Attention" value={stats.attention} tone="warning" />
       </div>
 
-      {/* Filters */}
+      {/* Filters (tabs) */}
       <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">
         {FILTERS.map((f) => (
           <button
@@ -164,18 +176,6 @@ export function DevicesManager() {
             {f.label}
           </button>
         ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, device ID, owner, or location…"
-          className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring"
-        />
       </div>
 
       {/* List */}

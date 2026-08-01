@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Eye, FlaskConical, Loader2, Play, Radar, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarClock, Eye, FlaskConical, ListMusic, Loader2, Play, Radar, Upload, Volume2, Wifi, WifiOff } from "lucide-react";
 
 import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
@@ -50,27 +50,74 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   const [data, setData] = useState<Payload | null>(null);
   const [state, setState] = useState<"loading" | "real" | "mock">("loading");
   const [now, setNow] = useState(() => Date.now());
-  const [testing, setTesting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [volume, setVolume] = useState<number | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [library, setLibrary] = useState<Track[] | null>(null);
   const seenRef = useRef(false);
+  const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function testAudio() {
-    const t = data?.tracks?.[0];
+  // Adopt the device's volume once, then let the slider drive it.
+  useEffect(() => {
+    if (volume === null && data?.device) setVolume(data.device.volume);
+  }, [data, volume]);
+
+  function cmd(deviceId: string, type: string, payload: Record<string, unknown>) {
+    return fetch(`/api/admin/devices/${deviceId}/command`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, payload }),
+    });
+  }
+
+  async function playSpot(t: Track) {
     const dev = data?.device;
-    if (!t || !dev) return;
-    setToast(null); setTesting(true);
+    if (!dev) return;
+    setToast(null);
     try {
-      const res = await fetch(`/api/admin/devices/${dev.id}/command`, {
+      const res = await cmd(dev.id, "test_play", { url: `${window.location.origin}/api/audio/${t.id}/file`, name: t.name, audioId: t.id });
+      setToast(res.ok ? `Queued "${t.name}" — plays on the device within ~15s.` : "Couldn't send the play command.");
+    } catch {
+      setToast("Couldn't send the play command.");
+    }
+  }
+
+  function onVolume(v: number) {
+    setVolume(v);
+    const dev = data?.device;
+    if (!dev) return;
+    if (volTimer.current) clearTimeout(volTimer.current);
+    volTimer.current = setTimeout(() => { cmd(dev.id, "set_volume", { volume: v }).catch(() => {}); }, 400);
+  }
+
+  async function openPicker() {
+    setPickerOpen((v) => !v);
+    if (library) return;
+    try {
+      const r = await fetch("/api/admin/audio", { cache: "no-store" });
+      const j = await r.json();
+      setLibrary(Array.isArray(j) ? j.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })) : []);
+    } catch {
+      setLibrary([]);
+    }
+  }
+
+  async function assignExisting(t: Track) {
+    const dev = data?.device;
+    if (!dev) return;
+    setToast(null);
+    try {
+      const res = await fetch(`/api/admin/devices/${dev.id}/audio`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "test_play", payload: { url: `${window.location.origin}/api/audio/${t.id}/file`, name: t.name, audioId: t.id } }),
+        body: JSON.stringify({ audioId: t.id }),
       });
-      setToast(res.ok ? `Sent "${t.name}" — it should play on the device within ~15s.` : "Couldn't send the test.");
+      const j = await res.json();
+      setToast(res.ok ? `Added "${t.name}" — ${j.trackCount} spot(s) on this player.` : j.error || "Couldn't add it.");
+      setPickerOpen(false);
     } catch {
-      setToast("Couldn't send the test.");
-    } finally {
-      setTesting(false);
+      setToast("Couldn't add it.");
     }
   }
 
@@ -188,18 +235,74 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
         </CardContent>
       </Card>
 
-      {/* Quick test */}
+      {/* Controls & tests */}
       <Card>
-        <CardContent className="space-y-3 p-5">
-          <p className="text-sm font-semibold text-foreground">Quick test</p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <div className="rounded-lg border border-border p-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Play className="h-4 w-4 text-brand-strong" /> Play audio</div>
-              <p className="mt-1 text-xs text-muted-foreground">Send a spot to the speaker right now.</p>
-              <Button size="sm" className="mt-2 w-full" onClick={testAudio} disabled={testing || tracks.length === 0}>
-                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} {tracks.length ? "Test play" : "Add a spot first"}
-              </Button>
+        <CardContent className="space-y-4 p-5">
+          <p className="text-sm font-semibold text-foreground">Controls &amp; tests</p>
+
+          {/* Volume */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground"><Volume2 className="h-4 w-4" /> Volume</span>
+              <span className="text-sm text-muted-foreground">{volume ?? d.volume}%</span>
             </div>
+            <input
+              type="range" min={0} max={100} step={5}
+              value={volume ?? d.volume}
+              onChange={(e) => onVolume(Number(e.target.value))}
+              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted"
+              style={{ accentColor: "hsl(var(--brand-strong))" }}
+            />
+          </div>
+
+          {/* Spots on this player */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground">Spots on this player ({tracks.length})</span>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={openPicker}><ListMusic className="h-3.5 w-3.5" /> Library</Button>
+                <label className={cn("inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-accent", uploading && "pointer-events-none opacity-60")}>
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Upload
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac" hidden disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) addSpot(f); e.target.value = ""; }} />
+                </label>
+              </div>
+            </div>
+            {tracks.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">No spots yet. Add one from your library or upload a file, then press Play to test.</p>
+            ) : (
+              <ul className="divide-y divide-border rounded-md border border-border">
+                {tracks.map((t, i) => (
+                  <li key={t.id} className="flex items-center gap-2 px-3 py-2">
+                    <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t.name}</span>
+                    <Button size="sm" variant="outline" onClick={() => playSpot(t)}><Play className="h-3.5 w-3.5" /> Play</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {pickerOpen && (
+              <div className="rounded-md border border-border">
+                <p className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">Add from your audio library</p>
+                {library === null ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">Loading…</p>
+                ) : library.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">No audio in your library yet — upload one in Audio Management.</p>
+                ) : (
+                  <ul className="max-h-48 divide-y divide-border overflow-auto">
+                    {library.map((a) => (
+                      <li key={a.id} className="flex items-center gap-2 px-3 py-2">
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{a.name}</span>
+                        <Button size="sm" onClick={() => assignExisting(a)}>Add</Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Motion / Vision */}
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Radar className="h-4 w-4 text-brand-strong" /> Motion</div>
               <p className="mt-1 text-xs text-muted-foreground">Walk in front of the webcam — plays land in the feed below.</p>
@@ -211,16 +314,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
               <Badge className="mt-2 border-transparent bg-secondary text-secondary-foreground">Coming soon</Badge>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border p-3">
-            <div>
-              <p className="text-sm font-medium text-foreground">Audio on this player</p>
-              <p className="text-xs text-muted-foreground">{tracks.length} spot{tracks.length === 1 ? "" : "s"} deployed</p>
-            </div>
-            <label className={cn("inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent", uploading && "pointer-events-none opacity-60")}>
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Add a spot
-              <input type="file" accept="audio/*" hidden disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) addSpot(f); e.target.value = ""; }} />
-            </label>
-          </div>
+
           {toast && <p className="text-sm text-brand-strong">{toast}</p>}
         </CardContent>
       </Card>
