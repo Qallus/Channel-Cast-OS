@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Call, Device as TwilioDevice } from "@twilio/voice-sdk";
 import {
+  Bold,
   Delete,
+  Italic,
+  List,
+  ListOrdered,
   Maximize2,
   MessageCircle,
   MessageSquare,
@@ -17,11 +21,14 @@ import {
   Sparkles,
   StickyNote,
   Trash2,
+  Underline as UnderlineIcon,
   X,
 } from "lucide-react";
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ToolBoundary } from "@/components/fab/tool-boundary";
 import { cn } from "@/lib/utils";
@@ -134,7 +141,7 @@ export function Fab() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="fixed bottom-24 right-6 z-50 flex h-[min(450px,calc(100vh-8rem))] w-[min(450px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            className="fixed bottom-24 right-6 z-50 flex h-[min(525px,calc(100vh-8rem))] w-[min(450px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
             role="dialog"
             aria-label="Quick actions"
           >
@@ -316,10 +323,18 @@ function DialpadTool({ seed }: { seed: string }) {
   return (
     <div className="mx-auto max-w-sm">
       {numbers.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {numbers.map((n) => (
-            <button key={n} onClick={() => setFrom(n)} className={cn("rounded-lg border px-2 py-1 text-xs", from === n ? "border-brand-strong text-brand-strong" : "border-border text-muted-foreground")}>{fmtPhone(n)}</button>
-          ))}
+        <div className="mb-3">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Call from</label>
+          <Select value={from ?? undefined} onValueChange={setFrom}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a caller ID" />
+            </SelectTrigger>
+            <SelectContent>
+              {numbers.map((n) => (
+                <SelectItem key={n} value={n}>{fmtPhone(n)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
       <div className="relative">
@@ -347,32 +362,44 @@ function CallLogsTool({ onCallBack }: { onCallBack: (n: string) => void }) {
   useEffect(() => {
     fetch("/api/comm/calls?limit=40").then((r) => r.json()).then((d) => setCalls(d.calls || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
+  const fmtDur = (s: string | null) => `${Math.floor(Number(s || 0) / 60)}:${String(Number(s || 0) % 60).padStart(2, "0")}`;
+
+  if (loading) return <p className="mx-auto max-w-2xl text-sm text-muted-foreground">Loading…</p>;
+  if (calls.length === 0) return <p className="mx-auto max-w-2xl text-sm text-muted-foreground">No calls.</p>;
+
   return (
-    <div className="mx-auto max-w-2xl space-y-2">
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : calls.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No calls.</p>
-      ) : (
-        calls.map((c) => {
-          const inbound = c.direction?.toLowerCase().includes("inbound");
-          const number = inbound ? c.from : c.to;
-          return (
-            <div key={c.sid} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-              <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg", inbound ? "bg-brand/10 text-brand-strong" : "bg-muted text-muted-foreground")}>
-                {inbound ? <PhoneIncoming className="h-4 w-4" /> : <PhoneOutgoing className="h-4 w-4" />}
+    <Accordion type="single" collapsible className="mx-auto max-w-2xl space-y-2">
+      {calls.map((c) => {
+        const inbound = c.direction?.toLowerCase().includes("inbound");
+        const number = inbound ? c.from : c.to;
+        return (
+          <AccordionItem key={c.sid} value={c.sid} className="rounded-lg border border-border bg-card px-3">
+            <AccordionTrigger className="py-2.5 hover:no-underline">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", inbound ? "bg-brand/10 text-brand-strong" : "bg-muted text-muted-foreground")}>
+                  {inbound ? <PhoneIncoming className="h-4 w-4" /> : <PhoneOutgoing className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block truncate text-sm font-medium text-foreground">{fmtPhone(number)}</span>
+                  <span className="block text-xs capitalize text-muted-foreground">{c.status.replace("-", " ")} · {fmtDur(c.duration)}</span>
+                </span>
+                <span className="shrink-0 pr-1 text-xs text-muted-foreground">{new Date(c.dateCreated).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{fmtPhone(number)}</p>
-                <p className="text-xs text-muted-foreground capitalize">{c.status.replace("-", " ")} · {Math.floor(Number(c.duration || 0) / 60)}:{String(Number(c.duration || 0) % 60).padStart(2, "0")}</p>
-              </div>
-              <span className="text-xs text-muted-foreground">{new Date(c.dateCreated).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-              <Button size="sm" variant="outline" onClick={() => onCallBack(number || "")}><Phone className="h-3.5 w-3.5" /> Call</Button>
-            </div>
-          );
-        })
-      )}
-    </div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border pt-2.5 text-xs">
+                <div><dt className="text-muted-foreground">Direction</dt><dd className="font-medium capitalize text-foreground">{inbound ? "Inbound" : "Outbound"}</dd></div>
+                <div><dt className="text-muted-foreground">Status</dt><dd className="font-medium capitalize text-foreground">{c.status.replace("-", " ")}</dd></div>
+                <div><dt className="text-muted-foreground">Duration</dt><dd className="font-medium text-foreground">{fmtDur(c.duration)}</dd></div>
+                <div><dt className="text-muted-foreground">When</dt><dd className="font-medium text-foreground">{new Date(c.dateCreated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</dd></div>
+                <div className="col-span-2"><dt className="text-muted-foreground">{inbound ? "From" : "To"}</dt><dd className="font-medium text-foreground">{fmtPhone(number)}</dd></div>
+              </dl>
+              <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => onCallBack(number || "")}><Phone className="h-3.5 w-3.5" /> Call back</Button>
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
+    </Accordion>
   );
 }
 
@@ -421,13 +448,16 @@ function SmsTool() {
   );
 }
 
-/* ── Notes (local quick pad) ─────────────────────────────────────────── */
+/* ── Notes (local rich-text quick pad) ───────────────────────────────── */
 
 type QuickNote = { id: string; text: string; at: number };
 
+const NOTE_LIST_STYLES = "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand-strong [&_a]:underline";
+
 function NotesTool() {
   const [notes, setNotes] = useState<QuickNote[]>([]);
-  const [draft, setDraft] = useState("");
+  const [empty, setEmpty] = useState(true);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     try {
@@ -442,29 +472,74 @@ function NotesTool() {
     localStorage.setItem("cc-quick-notes", JSON.stringify(n));
   };
 
+  // execCommand is deprecated but universally supported and dependency-free —
+  // ideal for a local quick-notes pad. preventDefault keeps the editor selection.
+  const exec = (cmd: string) => {
+    document.execCommand(cmd);
+    editorRef.current?.focus();
+    setEmpty(!editorRef.current?.textContent?.trim());
+  };
+
   function add() {
-    const text = draft.trim();
-    if (!text) return;
-    persist([{ id: Math.random().toString(36).slice(2), text, at: Date.now() }, ...notes]);
-    setDraft("");
+    const el = editorRef.current;
+    if (!el || !el.textContent?.trim()) return;
+    persist([{ id: Math.random().toString(36).slice(2), text: el.innerHTML, at: Date.now() }, ...notes]);
+    el.innerHTML = "";
+    setEmpty(true);
   }
+
+  const ToolbarBtn = ({ cmd, label, children }: { cmd: string; label: string; children: React.ReactNode }) => (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onMouseDown={(e) => { e.preventDefault(); exec(cmd); }}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
-      <div className="flex items-end gap-2">
-        <Textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === "Enter" && add()} placeholder="Jot a quick note… (⌘↵ to save)" className="flex-1" />
-        <Button onClick={add} disabled={!draft.trim()}>Save</Button>
+      <div className="rounded-lg border border-border">
+        <div className="flex items-center gap-0.5 border-b border-border p-1">
+          <ToolbarBtn cmd="bold" label="Bold"><Bold className="h-4 w-4" /></ToolbarBtn>
+          <ToolbarBtn cmd="italic" label="Italic"><Italic className="h-4 w-4" /></ToolbarBtn>
+          <ToolbarBtn cmd="underline" label="Underline"><UnderlineIcon className="h-4 w-4" /></ToolbarBtn>
+          <span className="mx-1 h-5 w-px bg-border" />
+          <ToolbarBtn cmd="insertUnorderedList" label="Bulleted list"><List className="h-4 w-4" /></ToolbarBtn>
+          <ToolbarBtn cmd="insertOrderedList" label="Numbered list"><ListOrdered className="h-4 w-4" /></ToolbarBtn>
+        </div>
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          data-placeholder="Jot a quick note…"
+          onInput={() => setEmpty(!editorRef.current?.textContent?.trim())}
+          className={cn(
+            "min-h-[130px] px-3 py-2 text-sm text-foreground outline-none",
+            "empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]",
+            NOTE_LIST_STYLES,
+          )}
+        />
       </div>
+      <Button onClick={add} disabled={empty} className="w-full bg-[#2f5e1a] text-white hover:bg-[#264f16] disabled:opacity-50">
+        Save note
+      </Button>
+
       {notes.length === 0 ? (
         <p className="text-sm text-muted-foreground">No notes yet.</p>
       ) : (
         notes.map((n) => (
           <div key={n.id} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
-            <div className="min-w-0">
-              <p className="whitespace-pre-wrap text-sm text-foreground">{n.text}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">{new Date(n.at).toLocaleString()}</p>
+            <div className="min-w-0 flex-1">
+              <div className={cn("text-sm text-foreground [&_p]:my-0", NOTE_LIST_STYLES)} dangerouslySetInnerHTML={{ __html: n.text }} />
+              <p className="mt-1.5 text-[11px] text-muted-foreground">{new Date(n.at).toLocaleString()}</p>
             </div>
-            <button onClick={() => persist(notes.filter((x) => x.id !== n.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+            <button aria-label="Delete note" onClick={() => persist(notes.filter((x) => x.id !== n.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
           </div>
         ))
       )}
