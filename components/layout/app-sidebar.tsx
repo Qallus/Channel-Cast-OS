@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { AppIcon } from "@/components/brand/logo";
 import { adminNavGroups, isNavItemActive } from "@/lib/nav/navigation";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar({
@@ -18,6 +19,14 @@ export function AppSidebar({
   roleLabel?: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    const supabase = getSupabaseBrowserClient();
+    await supabase?.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -45,25 +54,34 @@ export function AppSidebar({
             )}
             <ul className="space-y-0.5">
               {group.items.map((item) => {
-                const active = item.action !== "logout" && isNavItemActive(item.href, pathname);
+                const isLogout = item.action === "logout";
+                const active = !isLogout && isNavItemActive(item.href, pathname);
                 const Icon = item.icon;
+                const className = cn(
+                  "group flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+                  collapsed && "justify-center",
+                  active
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  isLogout && "text-muted-foreground hover:text-destructive",
+                );
+                const inner = (
+                  <>
+                    <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-brand-strong")} />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </>
+                );
                 return (
                   <li key={item.label}>
-                    <Link
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={cn(
-                        "group flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
-                        collapsed && "justify-center",
-                        active
-                          ? "bg-accent text-accent-foreground"
-                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                        item.action === "logout" && "text-muted-foreground hover:text-destructive",
-                      )}
-                    >
-                      <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-brand-strong")} />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Link>
+                    {isLogout ? (
+                      <button type="button" onClick={handleLogout} title={collapsed ? item.label : undefined} className={className}>
+                        {inner}
+                      </button>
+                    ) : (
+                      <Link href={item.href} title={collapsed ? item.label : undefined} className={className}>
+                        {inner}
+                      </Link>
+                    )}
                   </li>
                 );
               })}

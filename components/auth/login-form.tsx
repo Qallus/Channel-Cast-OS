@@ -2,23 +2,44 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Download, Eye, EyeOff, KeyRound, LifeBuoy } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Download, Eye, EyeOff, KeyRound, LifeBuoy, Loader2 } from "lucide-react";
 
 import { AppIcon } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
 export function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const next = params.get("next") || "/app/admin";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Auth is wired in a later phase; route into the console for now.
-    router.push("/app/admin");
+    setError(null);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setError("Auth isn't configured. Add the Supabase env vars and reload.");
+      return;
+    }
+    setBusy(true);
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (signInError) {
+      setError(signInError.message);
+      setBusy(false);
+      return;
+    }
+    router.push(next);
+    router.refresh();
   }
 
   return (
@@ -28,9 +49,18 @@ export function LoginForm() {
       <h1 className="text-xl font-semibold tracking-tight text-foreground">Log in to Channel Cast</h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {params.get("error") === "auth" && !error && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            That link was invalid or expired. Please log in again.
+          </p>
+        )}
+        {error && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+        )}
+
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-sm font-medium text-foreground">Email</label>
-          <Input id="email" type="email" placeholder="you@company.com" autoComplete="email" required className="h-11" />
+          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email" required className="h-11" />
         </div>
 
         <div className="space-y-1.5">
@@ -39,6 +69,8 @@ export function LoginForm() {
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
               autoComplete="current-password"
               required
@@ -77,7 +109,9 @@ export function LoginForm() {
         </label>
 
         <div className="grid grid-cols-2 gap-3 pt-1">
-          <Button type="submit" className="h-11 rounded-full">Log in</Button>
+          <Button type="submit" disabled={busy} className="h-11 rounded-full">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Log in
+          </Button>
           <Button type="button" variant="outline" className="h-11 rounded-full" asChild>
             <Link href="/contact"><LifeBuoy className="h-4 w-4" /> Help</Link>
           </Button>

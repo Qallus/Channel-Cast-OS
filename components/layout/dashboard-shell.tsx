@@ -10,9 +10,11 @@ import { cn } from "@/lib/utils";
 export function DashboardShell({
   children,
   roleLabel = "Super Admin",
+  userEmail,
 }: {
   children: React.ReactNode;
   roleLabel?: string;
+  userEmail?: string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,7 +50,7 @@ export function DashboardShell({
 
       {/* Content */}
       <div className={cn("flex min-h-screen flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[76px]" : "lg:pl-64")}>
-        <AppTopbar onOpenMobileNav={() => setMobileOpen(true)} roleLabel={roleLabel} />
+        <AppTopbar onOpenMobileNav={() => setMobileOpen(true)} roleLabel={roleLabel} userEmail={userEmail} />
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">{children}</main>
       </div>
 

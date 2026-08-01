@@ -303,8 +303,33 @@ description (STT) is a future add — text works now.
 - AI Beats schema updated → returns drums + melodic note lines; verified (lofi prompt → 4-on-floor
   kick, backbeat snare, piano melody, bass line, guitar). Merge in BackgroundMusic updated.
 
-- Wire remaining admin nav destinations (stub pages) so navigation is fully clickable.
+## 2026-07-28 — LIVE on os.channelcast.io (Coolify + GitHub App + Supabase)
+
+- Deployed: Coolify VPS builds from `Qallus/Channel-Cast-OS` (GitHub App auth) via Dockerfile,
+  HTTPS on **os.channelcast.io**. Auto-deploy on push.
+- Verified in prod: `/api/health` → `{ok:true}`; `/api/admin/devices` → `[]` (Supabase data layer
+  connected — tables + service-role env correct).
+- Gotchas resolved: repo was private (GitHub App install fixed the pull); `SUPABASE_URL`/
+  `SUPABASE_SECRET_KEY` env-name flexibility; reserved `window` column → `play_window`.
+- Devices can now activate against `https://os.channelcast.io/install.sh`.
+
+## Next up
+- Add **Supabase Auth** (real login) to protect the public dashboard — TOP PRIORITY (it's public + open).
 - Begin Phase 2 public marketing home + marketplace archive, or role dashboards — TBD.
+
+## 2026-07-21 — Supabase migration (data + storage) + pushed to GitHub
+
+- **JSON store removed.** Data now lives in Supabase Postgres; audio in Supabase Storage.
+- Schema: `supabase/migrations/0001_init.sql` (devices/audio/playlists/deployments/heartbeats/
+  playback/commands, RLS deny-all, private `audio` bucket). Run it in the Supabase SQL editor.
+- `lib/server/supabase.ts` (service-role client) + `lib/server/db.ts` (async data layer, camelCase
+  mappers, Storage upload/download). Device-auth is async. All 13 API routes swapped.
+- `/api/audio/:id/file` streams from Storage with Range support; device URLs unchanged.
+- Needs env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`. Runbook: `SUPABASE_SETUP.md`.
+- Verified: typecheck + `npm run build` clean (lazy client → builds without the key). Pushed to
+  `Qallus/Channel-Cast-OS` main. **App now requires Supabase to run** (run SQL + set keys first).
+- Repo: initialized, `.env`/`.data`/`_reference` gitignored, Dockerfile for Coolify.
 
 ## 2026-07-21 — One-command device activation (Linux + Windows)
 

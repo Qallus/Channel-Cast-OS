@@ -19,7 +19,7 @@ function useCurrentSection() {
 export function AppTopbar({
   onOpenMobileNav,
   roleLabel = "Super Admin",
-  userEmail = "alex@channelcast.example",
+  userEmail = "",
 }: {
   onOpenMobileNav: () => void;
   roleLabel?: string;
@@ -73,7 +73,7 @@ export function AppTopbar({
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
             {initials}
           </span>
-          <span className="hidden text-sm text-muted-foreground lg:inline">{userEmail}</span>
+          {userEmail && <span className="hidden text-sm text-muted-foreground lg:inline">{userEmail}</span>}
         </div>
       </div>
     </header>
