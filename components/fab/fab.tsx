@@ -211,7 +211,11 @@ function AgentTool() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+  // Block body: never return the scrollIntoView() result — in current Chrome it's a
+  // Promise, which React would try to call as an effect cleanup ("u is not a function").
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function send() {
     const text = input.trim();
@@ -266,7 +270,9 @@ function DialpadTool({ seed }: { seed: string }) {
   const deviceRef = useRef<TwilioDevice | null>(null);
   const callRef = useRef<Call | null>(null);
 
-  useEffect(() => setNum(seed), [seed]);
+  useEffect(() => {
+    setNum(seed);
+  }, [seed]);
 
   useEffect(() => {
     let device: TwilioDevice | null = null;
