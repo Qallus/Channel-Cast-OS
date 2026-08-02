@@ -337,10 +337,19 @@ def start_motion_detector(camera_on: "threading.Event", vision: dict):
         return None
     probe.release()
 
-    hog = cv2.HOGDescriptor()
-    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+    # Person counting is best-effort — if the HOG model can't initialize on this
+    # OpenCV build, we still run motion detection (just without people counts)
+    # rather than crashing the whole agent.
+    try:
+        hog = cv2.HOGDescriptor()
+        hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+    except Exception as e:  # noqa: BLE001
+        hog = None
+        log(f"person-count unavailable ({e}); motion detection continues without it.")
 
     def count_people(frame) -> int:
+        if hog is None:
+            return 1
         try:
             w = frame.shape[1]
             if w > 640:
@@ -418,7 +427,12 @@ def main() -> None:
         camera_on.set()
 
     vision = {"enabled": False, "count": 1, "audiences": [], "idx": {}}
-    motion_flag = start_motion_detector(camera_on, vision) if MOTION == "webcam" else None
+    motion_flag = None
+    if MOTION == "webcam":
+        try:
+            motion_flag = start_motion_detector(camera_on, vision)
+        except Exception as e:  # noqa: BLE001
+            log(f"motion detector failed to start ({e}); falling back to schedule playback.")
     motion_mode = motion_flag is not None
     if MOTION == "webcam" and not motion_mode:
         log("Motion mode requested but unavailable — falling back to schedule playback.")

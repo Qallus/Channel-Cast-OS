@@ -402,7 +402,17 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
 
           {/* Power / Mute */}
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className={cn("flex-1", !powered && "border-destructive/40 text-destructive")} onClick={togglePower}>
+            <Button
+              size="sm"
+              variant="outline"
+              className={cn(
+                "flex-1 font-semibold",
+                powered
+                  ? "border-success/50 bg-success/10 text-success hover:bg-success/15"
+                  : "border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/15",
+              )}
+              onClick={togglePower}
+            >
               <Power className="h-3.5 w-3.5" /> {powered ? "On" : "Off"}
             </Button>
             <Button size="sm" variant="outline" className={cn("flex-1", muted && "border-warning/40 text-warning")} onClick={toggleMute}>
