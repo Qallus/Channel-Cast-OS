@@ -3,21 +3,18 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarClock, MapPin, Monitor, Radar, Store, Tag, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getListing, LISTINGS, money } from "@/lib/marketing/marketplace";
-
-export function generateStaticParams() {
-  return LISTINGS.map((l) => ({ slug: l.slug }));
-}
+import { money } from "@/lib/marketing/marketplace";
+import { resolveListing } from "@/lib/marketing/listings";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const l = getListing(slug);
+  const l = await resolveListing(slug);
   return { title: l ? `${l.name} · Channel Cast Marketplace` : "Ad space · Channel Cast" };
 }
 
 export default async function ListingPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const l = getListing(slug);
+  const l = await resolveListing(slug);
   if (!l) notFound();
 
   return (
@@ -26,21 +23,27 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
 
       <div className="mt-4 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div>
-          <div className="flex h-56 items-center justify-center rounded-2xl border border-border bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-12 w-12 text-brand-strong/70" /></div>
+          {l.imageUrl ? (
+            <img src={l.imageUrl} alt="" className="h-56 w-full rounded-2xl border border-border object-cover" />
+          ) : (
+            <div className="flex h-56 items-center justify-center rounded-2xl border border-border bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-12 w-12 text-brand-strong/70" /></div>
+          )}
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">{l.name}</h1>
             <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-brand-strong">{l.type}</span>
           </div>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" /> {l.city}, {l.state}</p>
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{l.description}</p>
+          {(l.city || l.state) && <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" /> {[l.city, l.state].filter(Boolean).join(", ")}</p>}
+          {l.description && <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{l.description}</p>}
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            {l.tags.map((t) => <span key={t} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground"><Tag className="h-3 w-3" /> {t}</span>)}
-          </div>
+          {l.tags.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {l.tags.map((t) => <span key={t} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground"><Tag className="h-3 w-3" /> {t}</span>)}
+            </div>
+          )}
 
           <div className="mt-6 rounded-xl border border-border bg-card p-5">
             <p className="text-sm font-semibold text-foreground">How your spot plays here</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm text-muted-foreground">
+            <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
               <p className="flex items-start gap-2"><Radar className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> Plays on presence, respecting cooldowns.</p>
               <p className="flex items-start gap-2"><CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> You choose the play window.</p>
               <p className="flex items-start gap-2"><Users className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> Reach a present, local audience.</p>

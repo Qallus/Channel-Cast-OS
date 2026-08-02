@@ -4,21 +4,22 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MapPin, Monitor, Search, Store, Users } from "lucide-react";
 
-import { LISTINGS, LISTING_TYPES, money } from "@/lib/marketing/marketplace";
+import { money, type Listing } from "@/lib/marketing/marketplace";
 import { cn } from "@/lib/utils";
 
-export function MarketplaceBrowser() {
+export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<string>("all");
 
+  const types = useMemo(() => Array.from(new Set(listings.map((l) => l.type))).sort(), [listings]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return LISTINGS.filter((l) => {
+    return listings.filter((l) => {
       if (type !== "all" && l.type !== type) return false;
       if (!q) return true;
       return [l.name, l.city, l.state, l.type, ...l.tags].join(" ").toLowerCase().includes(q);
     });
-  }, [query, type]);
+  }, [listings, query, type]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -28,7 +29,7 @@ export function MarketplaceBrowser() {
       </div>
 
       <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">
-        {["all", ...LISTING_TYPES].map((t) => (
+        {["all", ...types].map((t) => (
           <button key={t} onClick={() => setType(t)} className={cn("shrink-0 rounded-md px-3.5 py-2 text-sm font-medium capitalize transition-colors", t === type ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground")}>{t === "all" ? "All spaces" : t}</button>
         ))}
       </div>
@@ -38,7 +39,11 @@ export function MarketplaceBrowser() {
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((l) => (
           <Link key={l.slug} href={`/marketplace/${l.slug}`} className="group overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-brand/50">
-            <div className="flex h-32 items-center justify-center bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-9 w-9 text-brand-strong/70" /></div>
+            {l.imageUrl ? (
+              <img src={l.imageUrl} alt="" className="h-32 w-full object-cover" />
+            ) : (
+              <div className="flex h-32 items-center justify-center bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-9 w-9 text-brand-strong/70" /></div>
+            )}
             <div className="p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-sm font-semibold text-foreground group-hover:text-brand-strong">{l.name}</p>

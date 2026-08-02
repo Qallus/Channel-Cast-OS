@@ -2,15 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, Columns3, Folder, LayoutGrid, List as ListIcon, Map as MapIcon, Plus, Table2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Columns3, ExternalLink, Folder, LayoutGrid, List as ListIcon, Map as MapIcon, Plus, Store, Table2 } from "lucide-react";
 
 import { FleetViews, type DeviceView, type FleetDevice } from "@/components/devices/fleet-views";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type Group = { id: string; name: string; description: string | null; imageUrl: string | null };
+type Group = {
+  id: string; name: string; description: string | null; imageUrl: string | null;
+  listed?: boolean; slug?: string | null; spaceType?: string | null; city?: string | null; state?: string | null;
+  pricePerWeek?: number | null; audiencePerWeek?: number | null; tags?: string[];
+};
+type ListingForm = { listed: boolean; spaceType: string; city: string; state: string; price: string; audience: string; tags: string };
 
 const VIEWS: { id: DeviceView; label: string; icon: typeof ListIcon }[] = [
   { id: "list", label: "List", icon: ListIcon },
@@ -26,6 +32,41 @@ export function GroupDetailView({ groupId }: { groupId: string }) {
   const [devices, setDevices] = useState<FleetDevice[]>([]);
   const [view, setView] = useState<DeviceView>("list");
   const [addOpen, setAddOpen] = useState(false);
+  const [listing, setListing] = useState<ListingForm | null>(null);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (group && listing === null) {
+      setListing({
+        listed: !!group.listed, spaceType: group.spaceType ?? "", city: group.city ?? "", state: group.state ?? "",
+        price: group.pricePerWeek != null ? String(group.pricePerWeek) : "", audience: group.audiencePerWeek != null ? String(group.audiencePerWeek) : "",
+        tags: (group.tags ?? []).join(", "),
+      });
+    }
+  }, [group, listing]);
+
+  async function saveListing(publish?: boolean) {
+    if (!listing) return;
+    const listed = publish !== undefined ? publish : listing.listed;
+    const body = {
+      listed,
+      spaceType: listing.spaceType.trim() || null,
+      city: listing.city.trim() || null,
+      state: listing.state.trim() || null,
+      pricePerWeek: listing.price.trim() === "" ? null : Number(listing.price),
+      audiencePerWeek: listing.audience.trim() === "" ? null : Number(listing.audience),
+      tags: listing.tags.split(",").map((t) => t.trim()).filter(Boolean),
+      name: group?.name,
+    };
+    const r = await fetch(`/api/admin/device-groups/${groupId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setGroup(j);
+      setListing((l) => (l ? { ...l, listed } : l));
+      setSavedMsg(listed ? "Published to the marketplace." : "Saved.");
+      setTimeout(() => setSavedMsg(null), 2500);
+    }
+  }
 
   useEffect(() => {
     let stop = false;
@@ -66,6 +107,38 @@ export function GroupDetailView({ groupId }: { groupId: string }) {
           <Button className="ml-auto" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add devices</Button>
         </div>
       </div>
+
+      {/* Marketplace listing */}
+      {listing && (
+        <Card>
+          <CardContent className="space-y-4 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><Store className="h-4 w-4 text-brand-strong" /><p className="text-sm font-semibold text-foreground">Marketplace listing</p></div>
+              {group?.listed && group?.slug && <a href={`/marketplace/${group.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong hover:underline">View listing <ExternalLink className="h-3 w-3" /></a>}
+            </div>
+            <p className="text-xs text-muted-foreground">Publish this location as a bookable ad space on the public marketplace. Advertisers can find and book it.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Space type"><Input value={listing.spaceType} onChange={(e) => setListing({ ...listing, spaceType: e.target.value })} placeholder="Café, Gym, Salon…" /></Field>
+              <Field label="Tags (comma-separated)"><Input value={listing.tags} onChange={(e) => setListing({ ...listing, tags: e.target.value })} placeholder="Morning, Local, Professionals" /></Field>
+              <Field label="City"><Input value={listing.city} onChange={(e) => setListing({ ...listing, city: e.target.value })} placeholder="Austin" /></Field>
+              <Field label="State"><Input value={listing.state} onChange={(e) => setListing({ ...listing, state: e.target.value })} placeholder="TX" /></Field>
+              <Field label="Price / week ($)"><Input value={listing.price} onChange={(e) => setListing({ ...listing, price: e.target.value })} inputMode="numeric" placeholder="120" /></Field>
+              <Field label="Est. audience / week"><Input value={listing.audience} onChange={(e) => setListing({ ...listing, audience: e.target.value })} inputMode="numeric" placeholder="1200" /></Field>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {group?.listed ? (
+                <>
+                  <Button size="sm" onClick={() => saveListing()}>Save changes</Button>
+                  <Button size="sm" variant="outline" onClick={() => saveListing(false)}>Unpublish</Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={() => saveListing(true)}>Publish to marketplace</Button>
+              )}
+              {savedMsg && <span className="text-sm text-brand-strong">{savedMsg}</span>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{members.length} device{members.length === 1 ? "" : "s"} in this group</p>
@@ -114,5 +187,14 @@ export function GroupDetailView({ groupId }: { groupId: string }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }

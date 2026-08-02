@@ -9,6 +9,7 @@ export type Listing = {
   pricePerWeek: number;
   devices: number;
   tags: string[];
+  imageUrl?: string | null;
 };
 
 export const LISTINGS: Listing[] = [

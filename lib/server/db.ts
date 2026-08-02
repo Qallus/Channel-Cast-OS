@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { AUDIO_BUCKET, supabaseAdmin } from "@/lib/server/supabase";
+import type { Listing } from "@/lib/marketing/marketplace";
 
 /* ── Public shapes (camelCase — what routes/frontend consume) ───────── */
 
@@ -46,6 +47,14 @@ export type DeviceGroup = {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  listed: boolean;
+  slug: string | null;
+  spaceType: string | null;
+  city: string | null;
+  state: string | null;
+  pricePerWeek: number | null;
+  audiencePerWeek: number | null;
+  tags: string[];
   createdAt: string;
 };
 
@@ -226,6 +235,14 @@ const mapGroup = (r: Row): DeviceGroup => ({
   name: r.name as string,
   description: (r.description as string) ?? null,
   imageUrl: (r.image_url as string) ?? null,
+  listed: (r.listed as boolean) ?? false,
+  slug: (r.slug as string) ?? null,
+  spaceType: (r.space_type as string) ?? null,
+  city: (r.city as string) ?? null,
+  state: (r.state as string) ?? null,
+  pricePerWeek: (r.price_per_week as number) ?? null,
+  audiencePerWeek: (r.audience_per_week as number) ?? null,
+  tags: (r.tags as string[]) ?? [],
   createdAt: r.created_at as string,
 });
 
@@ -245,11 +262,18 @@ export async function createGroup(input: { name: string; description?: string | 
   return mapGroup(data);
 }
 
-export async function updateGroup(id: string, patch: { name?: string; description?: string | null; imageUrl?: string | null }): Promise<DeviceGroup | null> {
+type GroupPatch = {
+  name?: string; description?: string | null; imageUrl?: string | null;
+  listed?: boolean; slug?: string | null; spaceType?: string | null; city?: string | null; state?: string | null;
+  pricePerWeek?: number | null; audiencePerWeek?: number | null; tags?: string[];
+};
+
+export async function updateGroup(id: string, patch: GroupPatch): Promise<DeviceGroup | null> {
+  const map: Record<string, string> = {
+    imageUrl: "image_url", spaceType: "space_type", pricePerWeek: "price_per_week", audiencePerWeek: "audience_per_week",
+  };
   const row: Row = {};
-  if (patch.name !== undefined) row.name = patch.name;
-  if (patch.description !== undefined) row.description = patch.description;
-  if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl;
+  for (const [k, v] of Object.entries(patch)) if (v !== undefined) row[map[k] ?? k] = v;
   const { data, error } = await supabaseAdmin().from("device_groups").update(row).eq("id", id).select("*").maybeSingle();
   if (error) throw error;
   return data ? mapGroup(data) : null;
@@ -259,6 +283,49 @@ export async function deleteGroup(id: string): Promise<void> {
   // devices.group_id is ON DELETE SET NULL, so members just become ungrouped.
   const { error } = await supabaseAdmin().from("device_groups").delete().eq("id", id);
   if (error) throw error;
+}
+
+/* ── Marketplace (published groups as ad spaces) ─────────────────────── */
+
+function groupToListing(g: DeviceGroup, devices: number): Listing {
+  return {
+    slug: g.slug || g.id,
+    name: g.name,
+    type: g.spaceType || "Space",
+    city: g.city || "",
+    state: g.state || "",
+    description: g.description || "",
+    audiencePerWeek: g.audiencePerWeek ?? 0,
+    pricePerWeek: g.pricePerWeek ?? 0,
+    devices,
+    tags: g.tags ?? [],
+    imageUrl: g.imageUrl,
+  };
+}
+
+async function deviceCountsByGroup(): Promise<Map<string, number>> {
+  const { data } = await supabaseAdmin().from("devices").select("group_id");
+  const m = new Map<string, number>();
+  for (const r of data ?? []) {
+    const gid = (r as Row).group_id as string | null;
+    if (gid) m.set(gid, (m.get(gid) ?? 0) + 1);
+  }
+  return m;
+}
+
+export async function listListings(): Promise<Listing[]> {
+  const { data, error } = await supabaseAdmin().from("device_groups").select("*").eq("listed", true).order("created_at", { ascending: true });
+  if (error) throw error;
+  const counts = await deviceCountsByGroup();
+  return (data ?? []).map(mapGroup).map((g) => groupToListing(g, counts.get(g.id) ?? 0));
+}
+
+export async function getListingBySlug(slug: string): Promise<Listing | null> {
+  const { data } = await supabaseAdmin().from("device_groups").select("*").eq("listed", true).eq("slug", slug).maybeSingle();
+  if (!data) return null;
+  const g = mapGroup(data);
+  const counts = await deviceCountsByGroup();
+  return groupToListing(g, counts.get(g.id) ?? 0);
 }
 
 /* ── Audio (+ storage) ───────────────────────────────────────────────── */

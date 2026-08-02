@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { CheckoutConfirm } from "@/components/site/checkout-confirm";
-import { getListing, money } from "@/lib/marketing/marketplace";
+import { money } from "@/lib/marketing/marketplace";
+import { resolveListing } from "@/lib/marketing/listings";
 
 export const metadata = { title: "Checkout · Channel Cast" };
 
@@ -10,7 +11,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
   const slug = one(sp.slug);
-  const listing = getListing(slug);
+  const listing = await resolveListing(slug);
   const campaign = one(sp.campaign) || "Untitled campaign";
   const weeks = Math.max(1, Number(one(sp.weeks)) || 1);
   const windowLabel = one(sp.window) || "All day";
