@@ -20,26 +20,26 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,hsl(var(--brand)/0.10),transparent)]" />
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
           <div className="flex flex-col justify-center">
-            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+            <span className="cc-fade-up inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5 text-brand-strong" /> Motion-based audio advertising
             </span>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            <h1 className="cc-fade-up mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" style={{ animationDelay: "0.08s" }}>
               Turn physical spaces into <span className="text-brand-strong">smart audio advertising</span> channels.
             </h1>
-            <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+            <p className="cc-fade-up mt-4 max-w-xl text-lg text-muted-foreground" style={{ animationDelay: "0.16s" }}>
               Channel Cast plays the right audio spot the moment someone walks by — powered by motion and on-device vision. Discover ad space, book campaigns, create audio, and run the whole network from one dashboard.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="cc-fade-up mt-7 flex flex-wrap gap-3" style={{ animationDelay: "0.24s" }}>
               <Button asChild><Link href="/marketplace">View ad space <ArrowRight className="h-4 w-4" /></Link></Button>
               <Button asChild variant="outline"><Link href="/register">Advertise with us</Link></Button>
               <Button asChild variant="ghost"><Link href="/businesses">Become a location partner</Link></Button>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">No credit card to explore the marketplace · Works on any Windows mini-PC + USB webcam</p>
+            <p className="cc-fade-up mt-4 text-xs text-muted-foreground" style={{ animationDelay: "0.32s" }}>No credit card to explore the marketplace · Works on any Windows mini-PC + USB webcam</p>
           </div>
 
           {/* Stylized device preview */}
-          <div className="flex items-center justify-center">
-            <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-2xl">
+          <div className="cc-fade-up flex items-center justify-center" style={{ animationDelay: "0.2s" }}>
+            <div className="cc-float w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-2xl">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className="h-2 w-2 animate-pulse rounded-full bg-success" /> Mini PC — Front Entrance</span>
                 <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-medium text-brand-strong">Motion</span>
@@ -55,9 +55,9 @@ export default function HomePage() {
                     <p className="text-xs text-muted-foreground">Playing “Summer Sale — 15s” · just now</p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-end gap-0.5">
+                <div className="mt-3 flex h-8 items-end gap-0.5">
                   {[6, 12, 20, 28, 18, 32, 24, 14, 26, 20, 10, 22, 30, 16, 8].map((h, i) => (
-                    <span key={i} className="w-1.5 rounded-full bg-brand-strong/70" style={{ height: `${h}px` }} />
+                    <span key={i} className="cc-eq-bar w-1.5 rounded-full bg-brand-strong/70" style={{ height: `${h}px`, animationDelay: `${(i % 5) * 0.12}s` }} />
                   ))}
                 </div>
               </div>
