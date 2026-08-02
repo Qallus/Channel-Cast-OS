@@ -335,6 +335,35 @@ export async function getListingBySlug(slug: string): Promise<Listing | null> {
   return groupToListing(g, counts.get(g.id) ?? 0);
 }
 
+export async function getGroupBySlug(slug: string): Promise<DeviceGroup | null> {
+  const { data } = await supabaseAdmin().from("device_groups").select("*").eq("slug", slug).maybeSingle();
+  return data ? mapGroup(data) : null;
+}
+
+// Append an audio id to a device's playlist and (re)deploy it.
+export async function attachAudioToDevice(deviceId: string, deviceName: string, audioId: string): Promise<number> {
+  const dep = await getDeployment(deviceId);
+  let trackIds: string[] = [];
+  if (dep?.playlistId) {
+    const pl = await getPlaylist(dep.playlistId);
+    trackIds = pl?.trackIds ?? [];
+  }
+  if (!trackIds.includes(audioId)) trackIds = [...trackIds, audioId];
+  const playlist = await createPlaylist(`${deviceName} - Spots`, trackIds);
+  await upsertDeployment({ deviceId, playlistId: playlist.id, cooldownSec: dep?.cooldownSec ?? 8 });
+  return trackIds.length;
+}
+
+// Deploy an audio spot to every device in a booked space (device group).
+export async function deployAudioToSpace(spaceSlug: string, audioId: string): Promise<{ devices: number; notFound?: boolean }> {
+  const group = await getGroupBySlug(spaceSlug);
+  if (!group) return { devices: 0, notFound: true };
+  const { data } = await supabaseAdmin().from("devices").select("id,name").eq("group_id", group.id);
+  const devices = (data ?? []) as { id: string; name: string }[];
+  for (const d of devices) await attachAudioToDevice(d.id, d.name, audioId);
+  return { devices: devices.length };
+}
+
 /* ── Audio (+ storage) ───────────────────────────────────────────────── */
 
 export async function listAudio(): Promise<Audio[]> {

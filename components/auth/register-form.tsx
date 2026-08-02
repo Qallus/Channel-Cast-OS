@@ -9,10 +9,12 @@ import { BrandMark } from "@/components/auth/login-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { cn } from "@/lib/utils";
 
 export function RegisterForm() {
   const router = useRouter();
   const [form, setForm] = useState({ firstName: "", lastName: "", company: "", email: "", password: "" });
+  const [role, setRole] = useState<"advertiser" | "owner">("advertiser");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function RegisterForm() {
           last_name: form.lastName.trim(),
           full_name: `${form.firstName} ${form.lastName}`.trim(),
           company: form.company.trim() || null,
+          role,
         },
       },
     });
@@ -49,7 +52,7 @@ export function RegisterForm() {
     }
     // If email confirmation is required, Supabase returns a user with no session.
     if (data.session) {
-      router.push("/app/admin");
+      router.push("/app");
       router.refresh();
     } else {
       setCheckEmail(true);
@@ -100,6 +103,15 @@ export function RegisterForm() {
         <div className="space-y-1.5">
           <label htmlFor="company" className="text-sm font-medium text-foreground">Company <span className="text-muted-foreground">(optional)</span></label>
           <Input id="company" value={form.company} onChange={set("company")} autoComplete="organization" className="h-11" />
+        </div>
+
+        <div className="space-y-1.5">
+          <span className="text-sm font-medium text-foreground">I want to</span>
+          <div className="grid grid-cols-2 gap-2">
+            {([["advertiser", "Advertise"], ["owner", "Host a device"]] as const).map(([r, label]) => (
+              <button key={r} type="button" onClick={() => setRole(r)} className={cn("rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors", role === r ? "border-brand-strong bg-accent/40 text-foreground" : "border-border text-muted-foreground hover:bg-accent/30")}>{label}</button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-1.5">

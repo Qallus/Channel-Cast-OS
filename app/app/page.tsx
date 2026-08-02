@@ -1,7 +1,17 @@
 import { redirect } from "next/navigation";
 
-// Role-aware entry point. Real role resolution arrives with Supabase auth;
-// for now the Super Admin console is the default landing surface.
-export default function AppIndexPage() {
-  redirect("/app/admin");
+import { createClient } from "@/lib/supabase/server";
+import { homeForRole, roleOf, type Role } from "@/lib/server/roles";
+
+// Role-aware landing: sends each signed-in user to their dashboard.
+export default async function AppIndexPage() {
+  let role: Role = "admin";
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    role = roleOf(data.user);
+  } catch {
+    /* env missing — fall through to admin */
+  }
+  redirect(homeForRole(role));
 }

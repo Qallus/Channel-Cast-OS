@@ -45,10 +45,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirect);
   }
 
-  // Already signed in and sitting on an auth page → jump into the console.
+  // Already signed in and sitting on an auth page → jump into the app (role-aware).
   if (isAuthRoute && user) {
     const redirect = request.nextUrl.clone();
-    redirect.pathname = "/app/admin";
+    redirect.pathname = "/app";
     redirect.search = "";
     return NextResponse.redirect(redirect);
   }

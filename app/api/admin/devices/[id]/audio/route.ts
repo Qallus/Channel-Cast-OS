@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { createAudio, createPlaylist, getDeployment, getDeviceById, getPlaylist, listAudio, upsertDeployment } from "@/lib/server/db";
+import { attachAudioToDevice, createAudio, createPlaylist, getDeployment, getDeviceById, getPlaylist, listAudio, upsertDeployment } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
@@ -10,19 +10,7 @@ const EXT: Record<string, string> = {
   "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/webm": "webm",
 };
 
-// Append an audio id to the device's playlist and (re)deploy it.
-async function attachToDevice(deviceId: string, deviceName: string, audioId: string) {
-  const dep = await getDeployment(deviceId);
-  let trackIds: string[] = [];
-  if (dep?.playlistId) {
-    const pl = await getPlaylist(dep.playlistId);
-    trackIds = pl?.trackIds ?? [];
-  }
-  if (!trackIds.includes(audioId)) trackIds = [...trackIds, audioId];
-  const playlist = await createPlaylist(`${deviceName} - Spots`, trackIds);
-  await upsertDeployment({ deviceId, playlistId: playlist.id, cooldownSec: dep?.cooldownSec ?? 8 });
-  return trackIds.length;
-}
+const attachToDevice = attachAudioToDevice;
 
 // POST /api/admin/devices/:id/audio
 //  - JSON  { audioId }         → assign an existing library spot to this device
