@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarClock, MapPin, Monitor, Radar, Store, Tag, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ListingMap } from "@/components/site/listing-map";
 import { money } from "@/lib/marketing/marketplace";
 import { resolveListing } from "@/lib/marketing/listings";
 
@@ -51,7 +52,13 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
 
-        <aside className="lg:sticky lg:top-20 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          {l.lat != null && l.lng != null && (
+            <div>
+              <ListingMap listing={l} />
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> Approximate location</p>
+            </div>
+          )}
           <div className="rounded-2xl border border-border bg-card p-5">
             <p className="text-2xl font-semibold tracking-tight text-foreground">{money(l.pricePerWeek)} <span className="text-sm font-normal text-muted-foreground">/ week</span></p>
             <dl className="mt-4 space-y-2 text-sm">

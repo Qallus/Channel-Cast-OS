@@ -195,3 +195,28 @@
     animation: none !important;
   }
 }
+
+/* Marketplace map price pins (Leaflet divIcon content — theme-aware) */
+.cc-price-pin {
+  display: inline-block;
+  white-space: nowrap;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: background-color 0.12s, color 0.12s, transform 0.12s;
+}
+.cc-price-pin.is-active {
+  background: hsl(var(--brand-strong));
+  color: hsl(var(--brand-foreground));
+  border-color: hsl(var(--brand-strong));
+  transform: translate(-50%, -50%) scale(1.12);
+  z-index: 500;
+}
