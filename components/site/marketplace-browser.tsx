@@ -8,6 +8,7 @@ import { MapPin, Monitor, Search, SlidersHorizontal, Store, Users, X } from "luc
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { money, type Listing } from "@/lib/marketing/marketplace";
 import { cn } from "@/lib/utils";
 
@@ -58,23 +59,33 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
               <input value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Search city or space" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
             </label>
             <span className="h-8 w-px bg-border" />
-            <label className="hidden flex-col px-4 py-1.5 sm:flex">
+            <div className="hidden flex-col px-4 py-1 sm:flex">
               <span className="text-[11px] font-semibold text-foreground">Space type</span>
-              <select value={type} onChange={(e) => setType(e.target.value)} className="bg-transparent text-sm text-foreground outline-none">
-                <option value="all">Any type</option>
-                {allTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger className="h-auto w-auto gap-1 border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0 [&>svg]:opacity-60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any type</SelectItem>
+                  {allTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <span className="hidden h-8 w-px bg-border sm:block" />
-            <label className="hidden flex-col px-4 py-1.5 sm:flex">
+            <div className="hidden flex-col px-4 py-1 sm:flex">
               <span className="text-[11px] font-semibold text-foreground">Budget</span>
-              <select value={maxBudget} onChange={(e) => setMaxBudget(e.target.value)} className="bg-transparent text-sm text-foreground outline-none">
-                <option value="any">Any</option>
-                <option value="100">Under $100/wk</option>
-                <option value="200">Under $200/wk</option>
-                <option value="500">Under $500/wk</option>
-              </select>
-            </label>
+              <Select value={maxBudget} onValueChange={setMaxBudget}>
+                <SelectTrigger className="h-auto w-auto gap-1 border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0 [&>svg]:opacity-60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any budget</SelectItem>
+                  <SelectItem value="100">Under $100/wk</SelectItem>
+                  <SelectItem value="200">Under $200/wk</SelectItem>
+                  <SelectItem value="500">Under $500/wk</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground"><Search className="h-4 w-4" /></span>
             <span className="w-1" />
           </div>

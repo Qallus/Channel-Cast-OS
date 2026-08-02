@@ -214,9 +214,9 @@
   transition: background-color 0.12s, color 0.12s, transform 0.12s;
 }
 .cc-price-pin.is-active {
-  background: hsl(var(--brand-strong));
-  color: hsl(var(--brand-foreground));
-  border-color: hsl(var(--brand-strong));
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  border-color: hsl(var(--foreground));
   transform: translate(-50%, -50%) scale(1.12);
   z-index: 500;
 }
