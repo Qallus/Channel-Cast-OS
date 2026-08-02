@@ -25,6 +25,19 @@ export type Device = {
   groupId: string | null;
   latitude: number | null;
   longitude: number | null;
+  visionEnabled: boolean;
+  createdAt: string;
+};
+
+export type Audience = {
+  id: string;
+  deviceId: string;
+  name: string;
+  countMin: number;
+  countMax: number | null;
+  priority: number;
+  trackIds: string[];
+  enabled: boolean;
   createdAt: string;
 };
 
@@ -85,9 +98,22 @@ function mapDevice(r: Row): Device {
     groupId: (r.group_id as string) ?? null,
     latitude: (r.latitude as number) ?? null,
     longitude: (r.longitude as number) ?? null,
+    visionEnabled: (r.vision_enabled as boolean) ?? false,
     createdAt: r.created_at as string,
   };
 }
+
+const mapAudience = (r: Row): Audience => ({
+  id: r.id as string,
+  deviceId: r.device_id as string,
+  name: r.name as string,
+  countMin: (r.count_min as number) ?? 1,
+  countMax: (r.count_max as number) ?? null,
+  priority: (r.priority as number) ?? 0,
+  trackIds: (r.track_ids as string[]) ?? [],
+  enabled: (r.enabled as boolean) ?? true,
+  createdAt: r.created_at as string,
+});
 const mapAudio = (r: Row): Audio => ({
   id: r.id as string,
   name: r.name as string,
@@ -171,7 +197,7 @@ export async function updateDevice(id: string, patch: Partial<Record<string, unk
   const map: Record<string, string> = {
     hardwareId: "hardware_id", deviceToken: "device_token", claimCode: "claim_code", firmwareVersion: "firmware_version",
     lastHeartbeatAt: "last_heartbeat_at", locationName: "location_name", ownerOrg: "owner_org", deviceCode: "device_code",
-    groupId: "group_id",
+    groupId: "group_id", visionEnabled: "vision_enabled",
   };
   const row: Row = {};
   for (const [k, v] of Object.entries(patch)) row[map[k] ?? k] = v;
@@ -334,10 +360,46 @@ export async function addHeartbeat(h: { deviceId: string; status: string; firmwa
     device_id: h.deviceId, status: h.status, firmware_version: h.firmwareVersion, ip: h.ip, volume: h.volume,
   });
 }
-export async function addPlayback(p: { deviceId: string; audioId: string | null; trackName: string | null; event: string; trigger: string }) {
+export async function addPlayback(p: { deviceId: string; audioId: string | null; trackName: string | null; event: string; trigger: string; audience?: string | null; confidence?: number | null }) {
   await supabaseAdmin().from("playback").insert({
     device_id: p.deviceId, audio_id: p.audioId, track_name: p.trackName, event: p.event, trigger: p.trigger,
+    audience: p.audience ?? null, confidence: p.confidence ?? null,
   });
+}
+
+/* ── Audiences (AI vision) ───────────────────────────────────────────── */
+
+export async function listAudiences(deviceId: string): Promise<Audience[]> {
+  const { data, error } = await supabaseAdmin().from("audiences").select("*").eq("device_id", deviceId).order("priority", { ascending: false }).order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapAudience);
+}
+
+export async function createAudience(input: { deviceId: string; name: string; countMin: number; countMax: number | null; priority?: number; trackIds?: string[] }): Promise<Audience> {
+  const { data, error } = await supabaseAdmin().from("audiences").insert({
+    device_id: input.deviceId, name: input.name, count_min: input.countMin, count_max: input.countMax,
+    priority: input.priority ?? 0, track_ids: input.trackIds ?? [],
+  }).select("*").single();
+  if (error) throw error;
+  return mapAudience(data);
+}
+
+export async function updateAudience(id: string, patch: { name?: string; countMin?: number; countMax?: number | null; priority?: number; trackIds?: string[]; enabled?: boolean }): Promise<Audience | null> {
+  const row: Row = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.countMin !== undefined) row.count_min = patch.countMin;
+  if (patch.countMax !== undefined) row.count_max = patch.countMax;
+  if (patch.priority !== undefined) row.priority = patch.priority;
+  if (patch.trackIds !== undefined) row.track_ids = patch.trackIds;
+  if (patch.enabled !== undefined) row.enabled = patch.enabled;
+  const { data, error } = await supabaseAdmin().from("audiences").update(row).eq("id", id).select("*").maybeSingle();
+  if (error) throw error;
+  return data ? mapAudience(data) : null;
+}
+
+export async function deleteAudience(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("audiences").delete().eq("id", id);
+  if (error) throw error;
 }
 export async function recentActivity(deviceId: string) {
   const sb = supabaseAdmin();
@@ -348,7 +410,7 @@ export async function recentActivity(deviceId: string) {
   ]);
   return {
     heartbeats: (hb.data ?? []).map((r) => ({ deviceId, ts: r.ts, status: r.status, firmwareVersion: r.firmware_version, ip: r.ip, volume: r.volume })),
-    playback: (pb.data ?? []).map((r) => ({ deviceId, ts: r.ts, audioId: r.audio_id, trackName: r.track_name, event: r.event, trigger: r.trigger })),
+    playback: (pb.data ?? []).map((r) => ({ deviceId, ts: r.ts, audioId: r.audio_id, trackName: r.track_name, event: r.event, trigger: r.trigger, audience: r.audience ?? null, confidence: r.confidence ?? null })),
     deployment: dep,
   };
 }

@@ -52,7 +52,7 @@ CAMERA_INDEX = int(os.environ.get("CC_CAMERA_INDEX", "0") or 0)
 # Fraction of the frame that must change to count as motion (0–1). Lower = more sensitive.
 MOTION_SENSITIVITY = float(os.environ.get("CC_MOTION_SENSITIVITY", "0.012") or 0.012)
 MOTION_WARMUP_FRAMES = 12
-FIRMWARE = "agent-0.3.0"
+FIRMWARE = "agent-0.4.0"
 DEVICE_TYPE = "standard_audio"
 MODEL = f"{platform.system()} {platform.machine()}"
 
@@ -202,16 +202,45 @@ def in_window(window: dict | None) -> bool:
     return start <= cur <= end
 
 
-def report_playback(state: dict, track: dict, event: str, trigger: str = "scheduled_play") -> None:
+def report_playback(state: dict, track: dict, event: str, trigger: str = "scheduled_play", audience: str | None = None, confidence: float | None = None) -> None:
+    payload = {"event": event, "audioId": track["id"], "trackName": track["name"], "trigger": trigger}
+    if audience is not None:
+        payload["audience"] = audience
+    if confidence is not None:
+        payload["confidence"] = confidence
     try:
         requests.post(
             f"{SERVER}/api/devices/{state['hardware_id']}/playback",
             headers={"Authorization": f"Bearer {state['device_token']}"},
-            json={"event": event, "audioId": track["id"], "trackName": track["name"], "trigger": trigger},
+            json=payload,
             timeout=10,
         )
     except requests.RequestException as e:
         log(f"playback report failed: {e}")
+
+
+def pull_audiences(state: dict) -> dict | None:
+    try:
+        r = requests.get(
+            f"{SERVER}/api/devices/{state['hardware_id']}/audiences",
+            headers={"Authorization": f"Bearer {state['device_token']}"},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            return r.json()
+    except requests.RequestException:
+        pass
+    return None
+
+
+def pick_audience(audiences: list, count: int) -> dict | None:
+    """First audience (highest priority) whose count range contains `count`."""
+    for a in audiences:
+        lo = a.get("countMin", 1)
+        hi = a.get("countMax")
+        if count >= lo and (hi is None or count <= hi):
+            return a
+    return None
 
 
 class Player:
@@ -289,11 +318,12 @@ def handle_command(cmd: dict, state: dict, ctl: dict, camera_on: "threading.Even
         log(f"command: play '{ctl['play_now']['name']}'")
 
 
-def start_motion_detector(camera_on: "threading.Event"):
+def start_motion_detector(camera_on: "threading.Event", vision: dict):
     """Watch the webcam on a daemon thread; set (and return) an Event on motion.
     Honors camera_on: when it's cleared, the camera is released (LED off / privacy)
-    and re-opened when set again. Returns None if OpenCV or a camera isn't available
-    — the caller then falls back to schedule playback so the device still works."""
+    and re-opened when set again. When vision["enabled"], counts people on the frame
+    that fired (OpenCV HOG) and stores it in vision["count"] — privacy-first: no
+    frames are stored or uploaded. Returns None if OpenCV/camera isn't available."""
     try:
         import cv2  # type: ignore
     except ImportError:
@@ -306,6 +336,20 @@ def start_motion_detector(camera_on: "threading.Event"):
         probe.release()
         return None
     probe.release()
+
+    hog = cv2.HOGDescriptor()
+    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+    def count_people(frame) -> int:
+        try:
+            w = frame.shape[1]
+            if w > 640:
+                scale = 640.0 / w
+                frame = cv2.resize(frame, (640, int(frame.shape[0] * scale)))
+            rects, _ = hog.detectMultiScale(frame, winStride=(8, 8), padding=(8, 8), scale=1.05)
+            return int(len(rects))
+        except Exception:
+            return 0
 
     flag = threading.Event()
 
@@ -346,7 +390,12 @@ def start_motion_detector(camera_on: "threading.Event"):
             prev = gray
             if frames > MOTION_WARMUP_FRAMES and changed > MOTION_SENSITIVITY:
                 if not flag.is_set():
-                    log(f"motion detected ({changed*100:.1f}% of frame)")
+                    # Only run the (slower) person count once per motion event, when vision is on.
+                    if vision.get("enabled"):
+                        vision["count"] = max(1, count_people(frame))  # motion => at least 1
+                        log(f"motion detected ({changed*100:.1f}% of frame) — people~{vision['count']}")
+                    else:
+                        log(f"motion detected ({changed*100:.1f}% of frame)")
                 flag.set()
             time.sleep(0.05)
 
@@ -368,7 +417,8 @@ def main() -> None:
     if state.get("motion_enabled", True) and state.get("active", True):
         camera_on.set()
 
-    motion_flag = start_motion_detector(camera_on) if MOTION == "webcam" else None
+    vision = {"enabled": False, "count": 1, "audiences": [], "idx": {}}
+    motion_flag = start_motion_detector(camera_on, vision) if MOTION == "webcam" else None
     motion_mode = motion_flag is not None
     if MOTION == "webcam" and not motion_mode:
         log("Motion mode requested but unavailable — falling back to schedule playback.")
@@ -398,6 +448,13 @@ def main() -> None:
                 schedule = fresh
                 idx = 0
                 log(f"schedule v{schedule.get('version')} — {len(schedule.get('tracks', []))} track(s)")
+            av = pull_audiences(state)
+            if av is not None:
+                was = vision["enabled"]
+                vision["enabled"] = bool(av.get("visionEnabled"))
+                vision["audiences"] = av.get("audiences", [])
+                if vision["enabled"] != was:
+                    log(f"vision {'ON' if vision['enabled'] else 'OFF'} ({len(vision['audiences'])} audience(s))")
             last_hb = now
 
         # --- manage the currently-playing spot ---
@@ -406,7 +463,7 @@ def main() -> None:
                 want_next = ctl["next"]
                 ctl["stop"] = ctl["next"] = False
                 player.stop()
-                report_playback(state, active["track"], "complete", active["trigger"])
+                report_playback(state, active["track"], "complete", active["trigger"], active.get("audience"), active.get("confidence"))
                 log(f"{'skipped' if want_next else 'stopped'} '{active['track']['name']}'")
                 cooldown_until = now + cooldown_sec()
                 active = None
@@ -417,7 +474,7 @@ def main() -> None:
                     cooldown_until = 0.0  # play the next one immediately
                 continue
             if not player.is_playing():  # finished on its own
-                report_playback(state, active["track"], "complete", active["trigger"])
+                report_playback(state, active["track"], "complete", active["trigger"], active.get("audience"), active.get("confidence"))
                 cooldown_until = now + cooldown_sec()
                 active = None
                 continue
@@ -451,7 +508,9 @@ def main() -> None:
 
         # --- scheduled / motion-gated playback ---
         tracks = schedule.get("tracks", [])
-        ready = bool(tracks) and now >= cooldown_until and in_window(schedule.get("window"))
+        vision_on = motion_mode and vision["enabled"] and bool(vision["audiences"])
+        has_content = bool(tracks) or (vision_on and any(a.get("tracks") for a in vision["audiences"]))
+        ready = has_content and now >= cooldown_until and in_window(schedule.get("window"))
 
         if motion_mode:
             if not ready or not camera_on.is_set():
@@ -469,14 +528,37 @@ def main() -> None:
         else:
             trigger = "scheduled_play"
 
-        track = tracks[idx % len(tracks)]
-        idx += 1
+        # Vision: map the detected person count to an audience's content set.
+        audience_name = None
+        confidence = None
+        track = None
+        if trigger == "motion_detected" and vision_on:
+            count = int(vision.get("count", 1))
+            aud = pick_audience(vision["audiences"], count)
+            if aud and aud.get("tracks"):
+                key = aud["name"]
+                i = vision["idx"].get(key, 0)
+                track = aud["tracks"][i % len(aud["tracks"])]
+                vision["idx"][key] = i + 1
+                trigger = "vision"
+                audience_name = aud["name"]
+                confidence = 0.7
+                log(f"vision: {count} person(s) -> audience '{audience_name}'")
+
+        if track is None:
+            if not tracks:
+                time.sleep(0.2)
+                continue
+            track = tracks[idx % len(tracks)]
+            idx += 1
+
         path = cache_track(track)
         if path:
-            log(f"{'MOTION -> ' if motion_mode else ''}playing '{track['name']}' at volume {state['volume']}")
-            report_playback(state, track, "start", trigger)
+            label = f"VISION[{audience_name}] -> " if audience_name else ("MOTION -> " if motion_mode else "")
+            log(f"{label}playing '{track['name']}' at volume {state['volume']}")
+            report_playback(state, track, "start", trigger, audience_name, confidence)
             player.start(path, state["volume"])
-            active = {"track": track, "trigger": trigger}
+            active = {"track": track, "trigger": trigger, "audience": audience_name, "confidence": confidence}
 
 
 if __name__ == "__main__":

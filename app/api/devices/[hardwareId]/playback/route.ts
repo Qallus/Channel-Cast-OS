@@ -18,6 +18,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ hardwar
     trackName: body.trackName ?? null,
     event: body.event === "complete" ? "complete" : "start",
     trigger: body.trigger || "scheduled_play",
+    audience: typeof body.audience === "string" ? body.audience : null,
+    confidence: typeof body.confidence === "number" ? body.confidence : null,
   });
 
   return Response.json({ ok: true });

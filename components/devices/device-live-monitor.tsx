@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Power, Radar, SkipForward, Square, Trash2, Upload, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Plus, Power, Radar, SkipForward, Square, Trash2, Upload, Users, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react";
 
 import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +22,12 @@ type Device = {
   locationName: string | null;
   latitude: number | null;
   longitude: number | null;
+  visionEnabled: boolean;
   hardwareId: string | null;
   lastHeartbeatAt: string | null;
 };
-type Playback = { ts: string; trackName: string | null; event: string; trigger: string };
+type Audience = { id: string; name: string; countMin: number; countMax: number | null; priority: number; trackIds: string[]; enabled: boolean };
+type Playback = { ts: string; trackName: string | null; event: string; trigger: string; audience?: string | null };
 type Track = { id: string; name: string };
 type Payload = { device: Device; playback: Playback[]; heartbeats: { ts: string; status: string }[]; tracks: Track[] };
 
@@ -33,6 +35,7 @@ const MOTION_TYPES = new Set(["ai_vision", "pir_motion"]);
 
 const TRIGGER_META: Record<string, { label: string; icon: typeof Radar; tone: string }> = {
   motion_detected: { label: "Motion", icon: Radar, tone: "bg-brand/15 text-brand-strong" },
+  vision: { label: "Vision", icon: Eye, tone: "bg-brand/15 text-brand-strong" },
   scheduled_play: { label: "Scheduled", icon: CalendarClock, tone: "bg-muted text-muted-foreground" },
   admin_test: { label: "Test", icon: FlaskConical, tone: "bg-secondary text-secondary-foreground" },
 };
@@ -62,8 +65,50 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   const [powered, setPowered] = useState(true);
   const [muted, setMuted] = useState(false);
   const [loc, setLoc] = useState<{ name: string; lat: string; lng: string } | null>(null);
+  const [visionOn, setVisionOn] = useState(false);
+  const [audiences, setAudiences] = useState<Audience[]>([]);
+  const [audForm, setAudForm] = useState<{ name: string; min: string; max: string; trackIds: string[] } | null>(null);
   const seenRef = useRef(false);
   const prevVol = useRef(80);
+
+  const deviceId = data?.device.id;
+  useEffect(() => {
+    if (!deviceId) return;
+    setVisionOn(!!data?.device.visionEnabled);
+    loadAudiences(deviceId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId]);
+
+  async function loadAudiences(id: string) {
+    try {
+      const r = await fetch(`/api/admin/devices/${id}/audiences`, { cache: "no-store" });
+      const j = await r.json();
+      if (Array.isArray(j)) setAudiences(j);
+    } catch { /* keep */ }
+  }
+  async function toggleVision() {
+    const dev = data?.device;
+    if (!dev) return;
+    const next = !visionOn;
+    setVisionOn(next);
+    setToast(null);
+    await fetch(`/api/admin/devices/${dev.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visionEnabled: next }) }).catch(() => {});
+    setToast(next ? "Vision on — motion plays now match an audience." : "Vision off.");
+  }
+  async function addAudience() {
+    const dev = data?.device;
+    if (!dev || !audForm?.name.trim()) return;
+    const body = { name: audForm.name.trim(), countMin: Number(audForm.min || 1), countMax: audForm.max.trim() === "" ? null : Number(audForm.max), trackIds: audForm.trackIds, priority: 0 };
+    await fetch(`/api/admin/devices/${dev.id}/audiences`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+    setAudForm(null);
+    loadAudiences(dev.id);
+  }
+  async function deleteAudience(a: Audience) {
+    const dev = data?.device;
+    if (!dev) return;
+    setAudiences((prev) => prev.filter((x) => x.id !== a.id));
+    await fetch(`/api/admin/devices/${dev.id}/audiences/${a.id}`, { method: "DELETE" }).catch(() => {});
+  }
 
   // Adopt the device's saved location once.
   useEffect(() => {
@@ -467,6 +512,69 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
         </Card>
       )}
 
+      {/* AI Vision & audiences */}
+      <Card>
+        <CardContent className="space-y-3 p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2"><Eye className="h-4 w-4 text-brand-strong" /><p className="text-sm font-semibold text-foreground">AI Vision &amp; audiences</p></div>
+            <button onClick={toggleVision} className={cn("inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors", visionOn ? "border-brand-strong/40 bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:bg-accent")}>{visionOn ? "On" : "Off"}</button>
+          </div>
+          <p className="text-xs text-muted-foreground">When on, a motion play is matched to an audience by how many people the camera sees — on-device, privacy-first (no images stored or uploaded). <span className="text-muted-foreground/70">Phase 1: count-based.</span></p>
+
+          {visionOn && (
+            <div className="space-y-2">
+              {audiences.length === 0 && <p className="text-sm text-muted-foreground">No audiences yet. Add one below (e.g. <b className="font-medium text-foreground">Solo</b> = 1 person, <b className="font-medium text-foreground">Group</b> = 2+).</p>}
+              {audiences.map((a) => (
+                <div key={a.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
+                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{a.name}</p>
+                    <p className="text-xs text-muted-foreground">{a.countMin}{a.countMax != null ? `–${a.countMax}` : "+"} people · {a.trackIds.length} spot{a.trackIds.length === 1 ? "" : "s"}</p>
+                  </div>
+                  <button onClick={() => deleteAudience(a)} aria-label="Delete audience" className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+
+              {audForm ? (
+                <div className="space-y-2 rounded-md border border-border p-3">
+                  <Input value={audForm.name} onChange={(e) => setAudForm({ ...audForm, name: e.target.value })} placeholder="Audience name (e.g. Group)" />
+                  <div className="flex items-center gap-2">
+                    <Input value={audForm.min} onChange={(e) => setAudForm({ ...audForm, min: e.target.value })} placeholder="Min" inputMode="numeric" className="w-20" />
+                    <span className="text-sm text-muted-foreground">to</span>
+                    <Input value={audForm.max} onChange={(e) => setAudForm({ ...audForm, max: e.target.value })} placeholder="Max (blank = ∞)" inputMode="numeric" className="w-32" />
+                    <span className="text-xs text-muted-foreground">people</span>
+                  </div>
+                  {tracks.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Spots for this audience</p>
+                      <div className="max-h-28 space-y-1 overflow-auto">
+                        {tracks.map((t) => {
+                          const on = audForm.trackIds.includes(t.id);
+                          return (
+                            <label key={t.id} className="flex items-center gap-2 text-sm text-foreground">
+                              <input type="checkbox" checked={on} onChange={() => setAudForm({ ...audForm, trackIds: on ? audForm.trackIds.filter((x) => x !== t.id) : [...audForm.trackIds, t.id] })} className="h-4 w-4 accent-[hsl(var(--brand-strong))]" />
+                              <span className="truncate">{t.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Add spots to this player first (Controls &amp; tests above), then assign them to audiences.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={addAudience} disabled={!audForm.name.trim()}>Add audience</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setAudForm(null)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setAudForm({ name: "", min: "1", max: "", trackIds: [] })}><Plus className="h-3.5 w-3.5" /> Add audience</Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Live activity feed */}
       <Card>
         <CardContent className="p-0">
@@ -486,7 +594,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
                     <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", m.tone)}><Icon className="h-4 w-4" /></span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{p.trackName || "Untitled spot"}</p>
-                      <p className="text-xs text-muted-foreground">{m.label}</p>
+                      <p className="text-xs text-muted-foreground">{m.label}{p.audience ? ` · ${p.audience}` : ""}</p>
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">{relTime(p.ts, now)}</span>
                   </li>
