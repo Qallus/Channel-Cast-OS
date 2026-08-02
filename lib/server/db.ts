@@ -55,6 +55,8 @@ export type DeviceGroup = {
   pricePerWeek: number | null;
   audiencePerWeek: number | null;
   tags: string[];
+  latitude: number | null;
+  longitude: number | null;
   createdAt: string;
 };
 
@@ -243,6 +245,8 @@ const mapGroup = (r: Row): DeviceGroup => ({
   pricePerWeek: (r.price_per_week as number) ?? null,
   audiencePerWeek: (r.audience_per_week as number) ?? null,
   tags: (r.tags as string[]) ?? [],
+  latitude: (r.latitude as number) ?? null,
+  longitude: (r.longitude as number) ?? null,
   createdAt: r.created_at as string,
 });
 
@@ -266,6 +270,7 @@ type GroupPatch = {
   name?: string; description?: string | null; imageUrl?: string | null;
   listed?: boolean; slug?: string | null; spaceType?: string | null; city?: string | null; state?: string | null;
   pricePerWeek?: number | null; audiencePerWeek?: number | null; tags?: string[];
+  latitude?: number | null; longitude?: number | null;
 };
 
 export async function updateGroup(id: string, patch: GroupPatch): Promise<DeviceGroup | null> {
@@ -300,6 +305,8 @@ function groupToListing(g: DeviceGroup, devices: number): Listing {
     devices,
     tags: g.tags ?? [],
     imageUrl: g.imageUrl,
+    lat: g.latitude,
+    lng: g.longitude,
   };
 }
 

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -443,7 +444,7 @@ function QuoteForm({ draft, onChange }: { draft: QuoteRequest; onChange: (d: Quo
           <Input value={draft.owner} onChange={(e) => set("owner", e.target.value)} />
         </FormField>
         <FormField label="SLA due date">
-          <Input type="date" value={draft.dueDate} onChange={(e) => set("dueDate", e.target.value)} />
+          <DatePicker value={draft.dueDate} onChange={(v) => set("dueDate", v)} />
         </FormField>
       </div>
       <FormField label="Notes">

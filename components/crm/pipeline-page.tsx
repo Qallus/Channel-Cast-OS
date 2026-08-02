@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -400,7 +401,7 @@ function DealForm({ draft, onChange }: { draft: Deal; onChange: (d: Deal) => voi
           </Select>
         </FormField>
         <FormField label="Expected close">
-          <Input type="date" value={draft.closeDate} onChange={(e) => set("closeDate", e.target.value)} />
+          <DatePicker value={draft.closeDate} onChange={(v) => set("closeDate", v)} />
         </FormField>
         <FormField label="Value (USD)">
           <Input inputMode="numeric" value={String(draft.value)} onChange={(e) => set("value", num(e.target.value))} />

@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -513,10 +514,10 @@ function CampaignForm({ draft, onChange }: { draft: Campaign; onChange: (d: Camp
           </Select>
         </FormField>
         <FormField label="Start date">
-          <Input type="date" value={draft.startDate} onChange={(e) => set("startDate", e.target.value)} />
+          <DatePicker value={draft.startDate} onChange={(v) => set("startDate", v)} />
         </FormField>
         <FormField label="End date">
-          <Input type="date" value={draft.endDate} onChange={(e) => set("endDate", e.target.value)} />
+          <DatePicker value={draft.endDate} onChange={(v) => set("endDate", v)} />
         </FormField>
         <FormField label="Budget (USD)">
           <Input inputMode="numeric" value={String(draft.budget)} onChange={(e) => set("budget", n(e.target.value))} />

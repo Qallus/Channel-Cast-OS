@@ -21,6 +21,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if ("pricePerWeek" in body) patch.pricePerWeek = body.pricePerWeek === null || body.pricePerWeek === "" ? null : Math.max(0, Math.round(Number(body.pricePerWeek)));
   if ("audiencePerWeek" in body) patch.audiencePerWeek = body.audiencePerWeek === null || body.audiencePerWeek === "" ? null : Math.max(0, Math.round(Number(body.audiencePerWeek)));
   if (Array.isArray(body.tags)) patch.tags = body.tags.map((t: unknown) => String(t)).filter(Boolean).slice(0, 12);
+  if ("latitude" in body) patch.latitude = body.latitude === null || body.latitude === "" ? null : Number(body.latitude);
+  if ("longitude" in body) patch.longitude = body.longitude === null || body.longitude === "" ? null : Number(body.longitude);
   if ("slug" in body) patch.slug = body.slug ? slugify(String(body.slug)) : null;
 
   // When publishing without a slug, derive one from the (possibly new) name.

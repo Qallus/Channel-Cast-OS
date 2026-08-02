@@ -6,6 +6,7 @@ import { Check, Copy, Play, Radio, Rocket, Upload, Volume2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -325,8 +326,8 @@ function DeployCard({ devices, playlists, onChange }: { devices: Device[]; playl
           {playlists.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.trackIds.length})</option>)}
         </select>
         <div className="grid grid-cols-3 gap-2">
-          <label className="text-xs text-muted-foreground">Window start<Input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="mt-1" /></label>
-          <label className="text-xs text-muted-foreground">Window end<Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-1" /></label>
+          <label className="text-xs text-muted-foreground">Window start<TimePicker value={start} onChange={(v) => setStart(v)} className="mt-1" /></label>
+          <label className="text-xs text-muted-foreground">Window end<TimePicker value={end} onChange={(v) => setEnd(v)} className="mt-1" /></label>
           <label className="text-xs text-muted-foreground">Cooldown (s)<Input type="number" value={cooldown} onChange={(e) => setCooldown(e.target.value)} className="mt-1" /></label>
         </div>
         <Button onClick={deploy} disabled={!deviceId || !playlistId} className="w-full">

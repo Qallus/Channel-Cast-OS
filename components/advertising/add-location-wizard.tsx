@@ -9,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -363,16 +365,16 @@ function StepAvailability({ form, set }: { form: FormData; set: (k: string, v: s
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Campaign Start Date">
-          <Input type="date" value={form.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
+          <DatePicker value={form.startDate ?? ""} onChange={(v) => set("startDate", v)} />
         </Field>
         <Field label="Campaign End Date">
-          <Input type="date" value={form.endDate ?? ""} onChange={(e) => set("endDate", e.target.value)} />
+          <DatePicker value={form.endDate ?? ""} onChange={(v) => set("endDate", v)} />
         </Field>
         <Field label="Daily Window Start">
-          <Input type="time" value={form.windowStart ?? "06:00"} onChange={(e) => set("windowStart", e.target.value)} />
+          <TimePicker value={form.windowStart ?? "06:00"} onChange={(v) => set("windowStart", v)} />
         </Field>
         <Field label="Daily Window End">
-          <Input type="time" value={form.windowEnd ?? "22:00"} onChange={(e) => set("windowEnd", e.target.value)} />
+          <TimePicker value={form.windowEnd ?? "22:00"} onChange={(v) => set("windowEnd", v)} />
         </Field>
         <Field label="Time of Day Availability" full>
           <div className="flex flex-wrap gap-4">

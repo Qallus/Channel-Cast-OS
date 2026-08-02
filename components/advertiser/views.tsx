@@ -7,6 +7,7 @@ import { ArrowRight, CalendarCheck, Loader2, Megaphone, Plus, Store, Wallet } fr
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -242,7 +243,7 @@ export function CampaignBuilder({ presetSlug }: { presetSlug?: string }) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Weeks</span><Input type="number" min={1} value={weeks} onChange={(e) => setWeeks(e.target.value)} /></label>
-              <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Start date</span><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+              <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Start date</span><DatePicker value={start} onChange={setStart} placeholder="Pick a date" /></label>
             </div>
             <div className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Play window</span>

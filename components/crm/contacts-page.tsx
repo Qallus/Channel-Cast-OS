@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -442,7 +443,7 @@ function ContactForm({ draft, onChange }: { draft: Contact; onChange: (d: Contac
           <Input value={draft.state} onChange={(e) => set("state", e.target.value)} placeholder="TX" />
         </FormField>
         <FormField label="Last contact">
-          <Input type="date" value={draft.lastContact} onChange={(e) => set("lastContact", e.target.value)} />
+          <DatePicker value={draft.lastContact} onChange={(v) => set("lastContact", v)} />
         </FormField>
       </div>
       <FormField label="Notes">

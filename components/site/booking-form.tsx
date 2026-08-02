@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { money, type Listing } from "@/lib/marketing/marketplace";
@@ -38,7 +39,7 @@ export function BookingForm({ listing }: { listing: Listing }) {
           <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Campaign name</span><Input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="Summer Sale 2026" /></label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Weeks</span><Input type="number" min={1} value={weeks} onChange={(e) => setWeeks(e.target.value)} /></label>
-            <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Start date</span><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+            <label className="block space-y-1.5"><span className="text-sm font-medium text-foreground">Start date</span><DatePicker value={start} onChange={setStart} placeholder="Pick a date" /></label>
           </div>
           <div className="space-y-1.5">
             <span className="text-sm font-medium text-foreground">Play window</span>
