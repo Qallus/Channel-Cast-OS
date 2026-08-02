@@ -15,14 +15,18 @@ export async function GET(req: Request) {
   const script = `# Channel Cast device agent installer (Windows)
 $ErrorActionPreference = "Stop"
 $Server = if ($env:CC_SERVER) { $env:CC_SERVER } else { "${server}" }
-$Claim  = $env:CC_CLAIM
-if (-not $Claim) { Write-Error "Set the CC_CLAIM environment variable to your claim code first."; return }
 $Motion = $env:CC_MOTION
 $Camera = $env:CC_CAMERA_INDEX
 $Sensitivity = $env:CC_MOTION_SENSITIVITY
 
 $Dir = "$env:ProgramData\\ChannelCast"
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+
+# A claim code is only needed the first time. If this device is already
+# registered, re-running just updates the agent + dependencies.
+$Claim = $env:CC_CLAIM
+$Registered = Test-Path "$Dir\\agent_state.json"
+if (-not $Claim -and -not $Registered) { Write-Error "Set the CC_CLAIM environment variable to your claim code (from the dashboard's Add Device wizard)."; return }
 
 $AutoAgree = @('--accept-source-agreements','--accept-package-agreements')
 

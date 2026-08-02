@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Columns3, Folder, FolderPlus, ImagePlus, LayoutGrid, List as ListIcon, Map as MapIcon, Pencil, Plus, Search, Table2, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Columns3, Copy, Folder, FolderPlus, ImagePlus, LayoutGrid, List as ListIcon, Map as MapIcon, Pencil, Plus, Search, Table2, TerminalSquare, Trash2, X } from "lucide-react";
 
 import { FleetViews, ModeBadge, StatusBadge, RemoveBtn, normStatus, type DeviceView, type FleetDevice } from "@/components/devices/fleet-views";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,14 @@ export function DevicesManager() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("list");
   const [groupDialog, setGroupDialog] = useState<{ id?: string; name: string; description: string; imageUrl: string | null } | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://os.channelcast.io";
+  const updateCmd = `$env:CC_SERVER="${origin}"; $env:CC_MOTION="webcam"; irm $env:CC_SERVER/install.ps1 | iex`;
+  async function copyUpdateCmd() {
+    try { await navigator.clipboard.writeText(updateCmd); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* visible to copy manually */ }
+  }
 
   const loadGroups = () => fetch("/api/admin/device-groups", { cache: "no-store" }).then((r) => r.json()).then((g) => { if (Array.isArray(g)) setGroups(g); }).catch(() => {});
 
@@ -119,7 +127,10 @@ export function DevicesManager() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Device Fleet</h1>
           <p className="mt-1 text-sm text-muted-foreground">Register, activate, and manage Channel Cast playback devices across the network.</p>
         </div>
-        <Button asChild><Link href="/app/admin/devices/new"><Plus className="h-4 w-4" /> Add Device</Link></Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setUpdateOpen(true)}><TerminalSquare className="h-4 w-4" /> Update agent</Button>
+          <Button asChild><Link href="/app/admin/devices/new"><Plus className="h-4 w-4" /> Add Device</Link></Button>
+        </div>
       </div>
 
       <div className="relative">
@@ -169,6 +180,26 @@ export function DevicesManager() {
       ) : (
         <FleetViews devices={filtered} view={view} onRemove={removeDevice} />
       )}
+
+      {/* Update agent (temporary dev helper) */}
+      <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Update / reinstall the device agent</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">On an <b className="font-medium text-foreground">already-connected</b> device, run this in <b className="font-medium text-foreground">PowerShell as Administrator</b> to pull the latest agent (no claim code needed):</p>
+            <div className="relative">
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-background px-3 py-2.5 pr-10 font-mono text-xs text-foreground">{updateCmd}</pre>
+              <button onClick={copyUpdateCmd} aria-label="Copy command" className="absolute right-2 top-2 rounded-md border border-border bg-card p-1.5 text-muted-foreground hover:text-foreground">
+                {copied ? <Check className="h-4 w-4 text-brand-strong" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Motion players keep <span className="font-mono">CC_MOTION="webcam"</span>. For a scheduled-only device, remove that part. To set up a <i>new</i> device, use <b className="font-medium text-foreground">Add Device</b> instead. <span className="text-muted-foreground/70">(Temporary helper while we build features.)</span></p>
+          </div>
+          <DialogFooter>
+            <Button onClick={copyUpdateCmd}>{copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy command</>}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={groupDialog !== null} onOpenChange={(o) => !o && setGroupDialog(null)}>
         <DialogContent className="max-w-md">
