@@ -824,8 +824,10 @@ type Submission = {
   name?: string;
   email?: string;
   company?: string;
+  website?: string;
   phone?: string;
   interest?: string;
+  subject?: string;
   message?: string;
   status?: string;
   createdAt?: string;
@@ -890,7 +892,7 @@ function FormSubmissionsTab() {
                       {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-strong" />}
                       <Badge variant="outline" className="ml-auto shrink-0 capitalize">{s.kind || "contact"}</Badge>
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">{s.email}{s.interest ? ` · ${s.interest}` : ""}{s.message ? ` — ${s.message}` : ""}</p>
+                    <p className="truncate text-xs text-muted-foreground">{s.email}{s.subject ? ` · ${s.subject}` : s.interest ? ` · ${s.interest}` : ""}{s.message ? ` — ${s.message}` : ""}</p>
                   </div>
                   <span className="shrink-0 text-[11px] text-muted-foreground">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ""}</span>
                   <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
@@ -901,7 +903,9 @@ function FormSubmissionsTab() {
                     <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                       <SubField label="Email" value={s.email} />
                       <SubField label="Phone" value={s.phone} />
-                      <SubField label="Company" value={s.company} />
+                      <SubField label="Business" value={s.company} />
+                      <SubField label="Website" value={s.website} />
+                      <SubField label="Subject" value={s.subject} />
                       <SubField label="Interested in" value={s.interest} />
                       <SubField label="Received" value={s.createdAt ? new Date(s.createdAt).toLocaleString() : undefined} />
                     </div>

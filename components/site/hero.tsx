@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, Building2, Eye, Handshake, MapPin, Megaphone, Play, Radar, TrendingUp, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Building2, Check, Eye, Handshake, MapPin, Megaphone, MessageSquare, Play, Radar, TrendingUp, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 type Cta = { label: string; href: string };
-type Variant = "how" | "advertisers" | "businesses" | "partners";
+type Variant = "how" | "advertisers" | "businesses" | "partners" | "contact";
 
 // Split-layout marketing hero with a page-specific animated visual.
 // Pure CSS animations (cc-fade-up / cc-float / cc-eq-bar / ping) — no client JS.
@@ -53,6 +53,7 @@ export function HeroAnimated({
           {variant === "advertisers" && <AdvertisersVisual />}
           {variant === "businesses" && <BusinessesVisual />}
           {variant === "partners" && <PartnersVisual />}
+          {variant === "contact" && <ContactVisual />}
         </div>
       </div>
     </section>
@@ -159,6 +160,53 @@ function BusinessesVisual() {
             <p className="text-[11px] text-muted-foreground">{l}</p>
           </div>
         ))}
+      </div>
+    </Card>
+  );
+}
+
+/* Contact — a live chat: visitor message in, Channel Cast typing, then a reply. */
+function ContactVisual() {
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand/15 text-brand-strong"><MessageSquare className="h-4 w-4" /></span>
+          Channel Cast
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" /> Replies in ~1 day
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {/* Visitor message */}
+        <div className="cc-fade-up flex justify-end" style={{ animationDelay: "0.3s" }}>
+          <p className="max-w-[80%] rounded-2xl rounded-br-sm bg-brand-strong px-3.5 py-2.5 text-sm text-background">
+            Hi! I&apos;d love to run audio ads where my customers already are.
+          </p>
+        </div>
+
+        {/* Typing indicator */}
+        <div className="cc-fade-up flex justify-start" style={{ animationDelay: "0.9s" }}>
+          <span className="inline-flex items-center gap-1 rounded-2xl rounded-bl-sm border border-border bg-background px-3.5 py-3">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="h-1.5 w-1.5 rounded-full bg-muted-foreground" style={{ animation: `cc-pulse 1.1s ease-in-out ${i * 0.18}s infinite` }} />
+            ))}
+          </span>
+        </div>
+
+        {/* Reply */}
+        <div className="cc-fade-up flex justify-start" style={{ animationDelay: "1.6s" }}>
+          <p className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-background px-3.5 py-2.5 text-sm text-foreground">
+            Perfect — tell us about your area and we&apos;ll match you to nearby spaces. 🎯
+          </p>
+        </div>
+      </div>
+
+      <div className="cc-fade-up mt-4 flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2" style={{ animationDelay: "2.1s" }}>
+        <span className="flex-1 text-sm text-muted-foreground">Write a message…</span>
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-strong text-background"><Check className="h-4 w-4" /></span>
       </div>
     </Card>
   );
