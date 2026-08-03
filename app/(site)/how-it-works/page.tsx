@@ -2,6 +2,7 @@ import { BarChart3, CalendarClock, Eye, Play, Radar, ShieldCheck, Upload, Wifi }
 
 import { Band, CTABand, FAQList, FeatureCard, Steps } from "@/components/site/marketing";
 import { HeroAnimated } from "@/components/site/hero";
+import { ChipInline, ChipStepper, ChipVertical, DeviceCaption, DeviceWalkthrough } from "@/components/site/device-anim";
 
 export const metadata = { title: "How It Works · Channel Cast", description: "How motion-based audio advertising works — from detecting presence to playing the right spot and measuring every play." };
 
@@ -17,21 +18,32 @@ export default function HowItWorksPage() {
         secondary={{ label: "View ad space", href: "/marketplace" }}
       />
 
-      <Band eyebrow="The loop" title="Four steps, running continuously">
+      {/* Interactive walkthrough — hardware + software, together */}
+      <Band eyebrow="The whole loop" title="Click a step. Watch it happen." subtitle="Hardware and software, explained together — click any step to see that exact moment come to life.">
+        <DeviceWalkthrough />
+      </Band>
+
+      <Band eyebrow="The loop" title="Four steps, running continuously" muted>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FeatureCard icon={Radar} title="Sense" body="A USB webcam (software vision) or PIR sensor detects presence at the space." />
           <FeatureCard icon={Play} title="Play" body="The device plays the scheduled spot, respecting play windows and cooldowns." />
           <FeatureCard icon={Eye} title="Match" body="On vision devices, the spot is matched to how many people are nearby." />
           <FeatureCard icon={BarChart3} title="Measure" body="Every play is reported live — motion vs scheduled, by device and audience." />
         </div>
+        <div className="mt-8"><ChipStepper /></div>
       </Band>
 
-      <Band eyebrow="Setup" title="Online in about a minute" muted>
+      <Band eyebrow="Setup" title="Online in about a minute">
         <Steps items={[
           { title: "Add the device", body: "Register it in the dashboard to get a claim code and a one-line install command." },
           { title: "Run one command", body: "Paste the command into PowerShell on the mini-PC — it installs and connects automatically." },
           { title: "Send audio & go", body: "Add spots from your library, set a schedule or motion mode, and it starts playing." },
         ]} />
+        <div className="mt-8"><ChipVertical /></div>
+      </Band>
+
+      <Band eyebrow="Data flow" title="From one place to another" muted subtitle="A spot managed in the dashboard lands on the devices at your ad space — in seconds.">
+        <DeviceCaption />
       </Band>
 
       <Band eyebrow="Devices" title="Choose the sensing that fits">
@@ -48,6 +60,7 @@ export default function HowItWorksPage() {
           <FeatureCard icon={Wifi} title="Remote control" body="Volume, play/stop/next, power, and camera on/off — from anywhere." />
           <FeatureCard icon={ShieldCheck} title="Privacy" body="On-device sensing only; nothing about your visitors is stored." />
         </div>
+        <div className="mt-8"><ChipInline /></div>
       </Band>
 
       <Band eyebrow="FAQ" title="Common questions">
