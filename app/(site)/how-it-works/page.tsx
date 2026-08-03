@@ -1,15 +1,17 @@
 import { BarChart3, CalendarClock, Eye, Play, Radar, ShieldCheck, Upload, Wifi } from "lucide-react";
 
-import { Band, CTABand, FAQList, FeatureCard, PageHero, Steps } from "@/components/site/marketing";
+import { Band, CTABand, FAQList, FeatureCard, Steps } from "@/components/site/marketing";
+import { HeroAnimated } from "@/components/site/hero";
 
 export const metadata = { title: "How It Works · Channel Cast", description: "How motion-based audio advertising works — from detecting presence to playing the right spot and measuring every play." };
 
 export default function HowItWorksPage() {
   return (
     <>
-      <PageHero
+      <HeroAnimated
+        variant="how"
         eyebrow="How it works"
-        title="Presence in, the right message out."
+        title={<>Presence in, the <span className="text-brand-strong">right message</span> out.</>}
         subtitle="A Channel Cast device senses when someone is nearby and plays the most relevant audio spot — then reports every play in real time."
         primary={{ label: "Set up a device", href: "/register" }}
         secondary={{ label: "View ad space", href: "/marketplace" }}

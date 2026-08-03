@@ -7,6 +7,7 @@ export const metadata = { title: "For Partners · Channel Cast", description: "P
 export default function PartnersPage() {
   return (
     <SolutionPage
+      heroVariant="partners"
       hero={{ eyebrow: "For partners", title: "Build on the Channel Cast network.", subtitle: "Whether you produce audio, resell ad space, or bring devices to new locations — partner with Channel Cast and grow with the network.", primary: { label: "Become a partner", href: "/register" }, secondary: { label: "Talk to us", href: "/contact" } }}
       valueTitle="Ways to partner"
       values={[

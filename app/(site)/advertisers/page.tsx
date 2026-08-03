@@ -7,6 +7,7 @@ export const metadata = { title: "For Advertisers · Channel Cast", description:
 export default function AdvertisersPage() {
   return (
     <SolutionPage
+      heroVariant="advertisers"
       hero={{ eyebrow: "For advertisers", title: "Reach people where they already are.", subtitle: "Discover physical ad space, create or record audio spots, and launch motion-triggered campaigns that play to a real, present audience.", primary: { label: "View ad space", href: "/marketplace" }, secondary: { label: "Get started", href: "/register" } }}
       valueTitle="Everything you need to run an audio campaign"
       values={[

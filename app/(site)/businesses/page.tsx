@@ -7,6 +7,7 @@ export const metadata = { title: "For Businesses · Channel Cast", description: 
 export default function BusinessesPage() {
   return (
     <SolutionPage
+      heroVariant="businesses"
       hero={{ eyebrow: "For businesses & ad-space owners", title: "Monetize your space with smart audio.", subtitle: "Host a Channel Cast device where your customers already are, and earn from advertisers who want to reach them — no screens, no clutter.", primary: { label: "Become a location partner", href: "/register" }, secondary: { label: "Talk to us", href: "/contact" } }}
       valueTitle="A new revenue line from space you already have"
       values={[

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { HeroAnimated } from "@/components/site/hero";
 
 type Cta = { label: string; href: string };
 
@@ -99,8 +100,9 @@ export function CTABand({ title, subtitle, primary, secondary }: { title: string
 }
 
 // Composed template for the "solution" pages (advertisers, businesses, partners, …).
-export function SolutionPage({ hero, valueTitle, values, stepsTitle, steps, faq, cta }: {
-  hero: { eyebrow: string; title: string; subtitle: string; primary?: Cta; secondary?: Cta };
+export function SolutionPage({ hero, heroVariant, valueTitle, values, stepsTitle, steps, faq, cta }: {
+  hero: { eyebrow: string; title: string; subtitle: string; primary?: Cta; secondary?: Cta; badge?: string };
+  heroVariant?: "how" | "advertisers" | "businesses" | "partners";
   valueTitle: string;
   values: { icon: LucideIcon; title: string; body: string }[];
   stepsTitle: string;
@@ -110,7 +112,7 @@ export function SolutionPage({ hero, valueTitle, values, stepsTitle, steps, faq,
 }) {
   return (
     <>
-      <PageHero {...hero} />
+      {heroVariant ? <HeroAnimated variant={heroVariant} {...hero} /> : <PageHero {...hero} />}
       <Band eyebrow="What you get" title={valueTitle}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {values.map((v) => <FeatureCard key={v.title} {...v} />)}

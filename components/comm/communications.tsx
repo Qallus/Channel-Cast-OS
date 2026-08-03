@@ -10,6 +10,7 @@ import {
   Delete,
   Disc,
   Download,
+  Inbox,
   Link2,
   Mail,
   MessageSquare,
@@ -55,7 +56,7 @@ type CrmContact = { id: string; name: string; role?: string; company?: string; t
 const CALL_ROLES = ["Decision maker", "Champion", "Influencer", "Technical", "Billing", "Owner", "Manager", "Support", "Advertiser", "Client"];
 type Sms = { id: string; direction: string; from_number: string | null; to_number: string | null; body: string; status: string | null; created_at: string };
 
-type Tab = "calls" | "sms" | "contacts" | "ai_voice" | "email" | "notifications" | "social";
+type Tab = "calls" | "sms" | "contacts" | "ai_voice" | "email" | "notifications" | "social" | "forms";
 const TABS: { id: Tab; label: string; icon: typeof Phone }[] = [
   { id: "calls", label: "Calls", icon: Phone },
   { id: "sms", label: "SMS", icon: MessageSquare },
@@ -64,6 +65,7 @@ const TABS: { id: Tab; label: string; icon: typeof Phone }[] = [
   { id: "email", label: "Email", icon: Mail },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "social", label: "Social Media", icon: Share2 },
+  { id: "forms", label: "Form Submissions", icon: Inbox },
 ];
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -155,6 +157,7 @@ export function Communications() {
       {tab === "email" && <Placeholder icon={Mail} title="Email" note="Inbox + compose over Resend/SMTP (already configured in your env). Reference coming from you." />}
       {tab === "notifications" && <Placeholder icon={Bell} title="Notifications (DM)" note="Web-push notifications via VAPID (keys generated). Direct-message center lands here." />}
       {tab === "social" && <Placeholder icon={Share2} title="Social Media" note="Unified social inbox. Reference coming from you." />}
+      {tab === "forms" && <FormSubmissionsTab />}
     </div>
   );
 }
@@ -809,6 +812,130 @@ function Placeholder({ icon: Icon, title, note }: { icon: typeof Phone; title: s
       <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-brand-strong"><Icon className="h-5 w-5" /></span>
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
+/* ── Form Submissions tab ────────────────────────────────────────────── */
+
+type Submission = {
+  id: string;
+  kind?: string;
+  name?: string;
+  email?: string;
+  company?: string;
+  phone?: string;
+  interest?: string;
+  message?: string;
+  status?: string;
+  createdAt?: string;
+};
+
+function FormSubmissionsTab() {
+  const [items, setItems] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"new" | "all" | "archived">("new");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch("/api/comm/form-submissions")
+      .then((r) => r.json())
+      .then((d) => setItems(d.submissions || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => load(), [load]);
+
+  async function setStatus(id: string, status: string) {
+    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, status } : x)));
+    await fetch("/api/comm/form-submissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) }).catch(() => {});
+  }
+
+  const shown = items.filter((s) => (filter === "all" ? true : filter === "archived" ? s.status === "archived" : (s.status || "new") === "new"));
+  const newCount = items.filter((s) => (s.status || "new") === "new").length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
+          {([["new", `New${newCount ? ` (${newCount})` : ""}`], ["all", "All"], ["archived", "Archived"]] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setFilter(id)} className={cn("rounded-md px-3 py-1.5 text-sm font-medium transition-colors", filter === id ? "bg-accent text-brand-strong" : "text-muted-foreground hover:text-foreground")}>{label}</button>
+          ))}
+        </div>
+        <Button variant="outline" size="sm" onClick={load}><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh</Button>
+      </div>
+
+      {loading && !items.length ? (
+        <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">Loading submissions…</div>
+      ) : !shown.length ? (
+        <Placeholder icon={Inbox} title="No submissions here" note={filter === "new" ? "New contact and demo requests from the website land here." : "Nothing in this view yet."} />
+      ) : (
+        <div className="space-y-2">
+          {shown.map((s) => {
+            const open = openId === s.id;
+            const unread = (s.status || "new") === "new";
+            return (
+              <div key={s.id} className={cn("rounded-xl border bg-card transition-colors", unread ? "border-brand-strong/40" : "border-border")}>
+                <button
+                  onClick={() => { setOpenId(open ? null : s.id); if (unread) setStatus(s.id, "read"); }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                >
+                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold", unread ? "bg-brand/15 text-brand-strong" : "bg-accent text-muted-foreground")}>
+                    {(s.name || "?").trim().charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-foreground">{s.name || "Unknown"}</p>
+                      {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-strong" />}
+                      <Badge variant="outline" className="ml-auto shrink-0 capitalize">{s.kind || "contact"}</Badge>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{s.email}{s.interest ? ` · ${s.interest}` : ""}{s.message ? ` — ${s.message}` : ""}</p>
+                  </div>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ""}</span>
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+                </button>
+
+                {open && (
+                  <div className="border-t border-border px-4 py-3 text-sm">
+                    <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                      <SubField label="Email" value={s.email} />
+                      <SubField label="Phone" value={s.phone} />
+                      <SubField label="Company" value={s.company} />
+                      <SubField label="Interested in" value={s.interest} />
+                      <SubField label="Received" value={s.createdAt ? new Date(s.createdAt).toLocaleString() : undefined} />
+                    </div>
+                    {s.message && (
+                      <div className="mt-3">
+                        <p className="text-xs font-medium text-muted-foreground">Message</p>
+                        <p className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-foreground">{s.message}</p>
+                      </div>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {s.email && <Button asChild size="sm"><a href={`mailto:${s.email}`}><Mail className="h-4 w-4" /> Reply</a></Button>}
+                      {(s.status || "new") !== "archived" ? (
+                        <Button variant="outline" size="sm" onClick={() => setStatus(s.id, "archived")}>Archive</Button>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => setStatus(s.id, "read")}>Restore</Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-24 shrink-0 text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-sm text-foreground">{value}</span>
     </div>
   );
 }
