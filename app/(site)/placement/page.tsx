@@ -1,7 +1,6 @@
 import { Band, CTABand, FAQList } from "@/components/site/marketing";
 import { HeroAnimated } from "@/components/site/hero";
 import { PlacementScene, PlacementCompare } from "@/components/site/device-anim";
-import { QualificationForm } from "@/components/site/qualification-form";
 import { getPlacementConfig } from "@/lib/server/placement-config";
 
 export const metadata = {
@@ -24,19 +23,15 @@ export default async function PlacementPage() {
         secondary={{ label: "Talk to us", href: "/contact" }}
       />
 
-      <Band eyebrow="The models" title="Free vs paid, at a glance" subtitle="Toggle the two placement types — same device, different way in.">
-        <PlacementScene />
-      </Band>
+      <section id="qualify" className="scroll-mt-20">
+        <Band eyebrow="The models" title="Free vs paid — check your fit" subtitle="Toggle a placement type. Under free, answer a few questions to see if your location qualifies.">
+          <PlacementScene minDailyVisitors={config.minDailyVisitors} />
+        </Band>
+      </section>
 
       <Band eyebrow="Compare" title="What each model includes" muted>
         <PlacementCompare />
       </Band>
-
-      <section id="qualify" className="scroll-mt-20">
-        <Band eyebrow="Qualify" title="Find out where your location fits" subtitle="Answer a few questions and we'll tell you whether you qualify for free placement — or how paid placement can earn for you.">
-          <div className="mx-auto max-w-2xl"><QualificationForm minDailyVisitors={config.minDailyVisitors} /></div>
-        </Band>
-      </section>
 
       <Band eyebrow="FAQ" title="Common questions" muted>
         <FAQList items={[

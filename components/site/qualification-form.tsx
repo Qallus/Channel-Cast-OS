@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, TrendingUp } from "lucide-react";
 
@@ -53,11 +53,18 @@ function pts(list: { label: string; pts: number }[], label: string) {
   return list.find((o) => o.label === label)?.pts ?? 0;
 }
 
-export function QualificationForm({ minDailyVisitors = 1000 }: { minDailyVisitors?: number }) {
+export function QualificationForm({ minDailyVisitors, bare = false }: { minDailyVisitors?: number; bare?: boolean }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [threshold, setThreshold] = useState(minDailyVisitors ?? 1000);
+
+  // When no threshold is passed (e.g. the FAB modal), read it from the server.
+  useEffect(() => {
+    if (minDailyVisitors != null) { setThreshold(minDailyVisitors); return; }
+    fetch("/api/admin/placement-config").then((r) => r.json()).then((d) => { if (typeof d?.minDailyVisitors === "number") setThreshold(d.minDailyVisitors); }).catch(() => {});
+  }, [minDailyVisitors]);
 
   const set = (k: keyof Form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const onInput = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => set(k)(e.target.value);
@@ -66,9 +73,9 @@ export function QualificationForm({ minDailyVisitors = 1000 }: { minDailyVisitor
     const bucket = VISITORS.find((o) => o.label === form.visitors);
     const score = (bucket?.pts ?? 0) + pts(DWELL, form.dwell) + pts(DAYS, form.days) + pts(LOCATIONS, form.locations) + (HIGH_TRAFFIC_VENUES.has(form.venueType) ? 1 : 0);
     // Free requires the location's foot traffic to meet the configured minimum.
-    const free = (bucket?.min ?? 0) >= minDailyVisitors;
+    const free = (bucket?.min ?? 0) >= threshold;
     return { score, free };
-  }, [form, minDailyVisitors]);
+  }, [form, threshold]);
 
   const stepValid = [
     form.businessName && form.venueType && form.city && form.state,
@@ -108,7 +115,7 @@ export function QualificationForm({ minDailyVisitors = 1000 }: { minDailyVisitor
 
   if (sent) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-8 text-center">
+      <div className={cn("text-center", bare ? "py-2" : "rounded-2xl border border-border bg-card p-8")}>
         <span className={cn("mx-auto flex h-14 w-14 items-center justify-center rounded-full", result.free ? "bg-success/15 text-success" : "bg-brand/15 text-brand-strong")}>
           {result.free ? <CheckCircle2 className="h-7 w-7" /> : <TrendingUp className="h-7 w-7" />}
         </span>
@@ -134,7 +141,7 @@ export function QualificationForm({ minDailyVisitors = 1000 }: { minDailyVisitor
   const labels = ["Your business", "Your traffic", "Your details"];
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+    <div className={cn(bare ? "" : "rounded-2xl border border-border bg-card p-6 sm:p-8")}>
       {/* progress */}
       <div className="mb-6">
         <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">

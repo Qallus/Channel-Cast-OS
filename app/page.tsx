@@ -3,6 +3,7 @@ import { ArrowRight, BarChart3, Building2, CalendarClock, Eye, Megaphone, Mic, R
 
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
+import { SupportFab } from "@/components/site/support-fab";
 import { Button } from "@/components/ui/button";
 
 export const metadata = {
@@ -163,6 +164,7 @@ export default function HomePage() {
       </section>
 
       <SiteFooter />
+      <SupportFab />
     </div>
   );
 }

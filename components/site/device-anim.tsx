@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import s from "./device-anim.module.css";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { QualificationForm } from "@/components/site/qualification-form";
 
 const SC = 66 / 72; // device "width 66" scale, matches the reference proportions
 
@@ -297,7 +301,7 @@ function EqBars() {
   );
 }
 
-export function PlacementScene() {
+export function PlacementScene({ minDailyVisitors }: { minDailyVisitors?: number } = {}) {
   const [mode, setMode] = useState<"free" | "paid">("free");
   const [rev, setRev] = useState(0);
 
@@ -387,6 +391,30 @@ export function PlacementScene() {
             <p className="text-[15px] text-foreground"><b className="text-brand-strong">Pay a little — sell your space and keep the revenue.</b> A small monthly fee unlocks the full platform, including the ability to sell ad space to your own clients and keep what you earn.</p>
             <div className="mt-3 flex flex-wrap gap-2">{["Small monthly fee", "Any location qualifies", "Sell your own ad space", "Keep the revenue"].map((c) => <span key={c} className="rounded-full border border-border bg-brand/5 px-3 py-1.5 text-xs font-semibold text-foreground">{c}</span>)}</div>
           </>
+        )}
+      </div>
+
+      {/* Under the animation: qualify form (free) or a get-started CTA (paid) */}
+      <div className="border-t border-border p-5 sm:p-6">
+        {mode === "free" ? (
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-strong">See if you qualify</p>
+            <h3 className="mt-1 text-lg font-semibold text-foreground">Find out where your location fits</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Answer a few questions and we&apos;ll tell you whether you qualify for free placement — or how paid placement can earn for you.</p>
+            <div className="mt-5"><QualificationForm minDailyVisitors={minDailyVisitors} bare /></div>
+          </>
+        ) : (
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-strong">Any location qualifies</p>
+              <h3 className="mt-1 text-lg font-semibold text-foreground">Start earning with paid placement</h3>
+              <p className="mt-1 text-sm text-muted-foreground">A small monthly fee unlocks the device, the dashboard, and the ability to sell your own ad space.</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button asChild><Link href="/register">Get started <ArrowRight className="h-4 w-4" /></Link></Button>
+              <Button asChild variant="outline"><Link href="/contact">Talk to us</Link></Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
