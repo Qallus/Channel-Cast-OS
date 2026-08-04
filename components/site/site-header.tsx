@@ -15,9 +15,11 @@ const DISCOVER: { href: string; label: string; note: string }[][] = [
     { href: "/how-it-works", label: "How it works", note: "From presence to play, measured" },
     { href: "/advertisers", label: "Advertisers", note: "Reach a present audience" },
     { href: "/resources", label: "Resources", note: "Guides & blog archive" },
+    { href: "/register", label: "Get started", note: "Create your account" },
   ],
   [
     { href: "/businesses", label: "Businesses", note: "Monetize your space" },
+    { href: "/placement", label: "Placement Sites", note: "Free or paid — see if you qualify" },
     { href: "/partners", label: "Partners", note: "Build on the network" },
     { href: "/faq", label: "FAQ", note: "Answers to common questions" },
   ],
