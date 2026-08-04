@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, TrendingUp } from "lucide
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AddressMap } from "@/components/site/address-map";
 import { cn } from "@/lib/utils";
 
 /* Scored options — points feed the free/paid qualification.
@@ -43,11 +44,11 @@ const LOCATIONS: { label: string; pts: number }[] = [
 ];
 
 type Form = {
-  businessName: string; venueType: string; city: string; state: string;
+  businessName: string; venueType: string; address: string; city: string; state: string;
   visitors: string; dwell: string; days: string; locations: string;
   firstName: string; lastName: string; email: string; phone: string;
 };
-const EMPTY: Form = { businessName: "", venueType: "", city: "", state: "", visitors: "", dwell: "", days: "", locations: "", firstName: "", lastName: "", email: "", phone: "" };
+const EMPTY: Form = { businessName: "", venueType: "", address: "", city: "", state: "", visitors: "", dwell: "", days: "", locations: "", firstName: "", lastName: "", email: "", phone: "" };
 
 function pts(list: { label: string; pts: number }[], label: string) {
   return list.find((o) => o.label === label)?.pts ?? 0;
@@ -78,7 +79,7 @@ export function QualificationForm({ minDailyVisitors, bare = false }: { minDaily
   }, [form, threshold]);
 
   const stepValid = [
-    form.businessName && form.venueType && form.city && form.state,
+    form.businessName && form.venueType && form.address && form.city && form.state,
     form.visitors && form.dwell && form.days && form.locations,
     form.firstName && form.lastName && form.email,
   ];
@@ -88,7 +89,8 @@ export function QualificationForm({ minDailyVisitors, bare = false }: { minDaily
     const tier = result.free ? "free" : "paid";
     const summary = [
       `Qualification: ${tier.toUpperCase()} (score ${result.score})`,
-      `Venue: ${form.venueType} · ${form.city}, ${form.state}`,
+      `Venue: ${form.venueType}`,
+      `Address: ${[form.address, form.city, form.state].filter(Boolean).join(", ")}`,
       `Foot traffic: ${form.visitors} · Dwell: ${form.dwell} · Open: ${form.days} · Locations: ${form.locations}`,
     ].join("\n");
     try {
@@ -103,7 +105,7 @@ export function QualificationForm({ minDailyVisitors, bare = false }: { minDaily
           interest: `Placement — ${tier === "free" ? "Free" : "Paid"}`,
           subject: result.free ? "Qualifies for FREE placement" : "Paid placement fit",
           message: summary,
-          meta: { tier, score: result.score, venueType: form.venueType, city: form.city, state: form.state, visitors: form.visitors, dwell: form.dwell, days: form.days, locations: form.locations },
+          meta: { tier, score: result.score, venueType: form.venueType, address: form.address, city: form.city, state: form.state, visitors: form.visitors, dwell: form.dwell, days: form.days, locations: form.locations },
         }),
       });
     } catch {
@@ -156,9 +158,10 @@ export function QualificationForm({ minDailyVisitors, bare = false }: { minDaily
       {step === 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Business name" full><Input value={form.businessName} onChange={onInput("businessName")} placeholder="Corner Café" /></Field>
-          <Field label="Venue type"><Picker value={form.venueType} onChange={set("venueType")} placeholder="Choose a type" options={VENUE} /></Field>
+          <Field label="Street address" full><Input value={form.address} onChange={onInput("address")} placeholder="123 Main St" /></Field>
           <Field label="City"><Input value={form.city} onChange={onInput("city")} placeholder="Chandler" /></Field>
           <Field label="State"><Input value={form.state} onChange={onInput("state")} placeholder="AZ" /></Field>
+          <Field label="Venue type" full><Picker value={form.venueType} onChange={set("venueType")} placeholder="Choose a type" options={VENUE} /></Field>
         </div>
       )}
 
@@ -190,6 +193,9 @@ export function QualificationForm({ minDailyVisitors, bare = false }: { minDaily
           <Button onClick={submit} disabled={!stepValid[2] || busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} See my result <ArrowRight className="h-4 w-4" /></Button>
         )}
       </div>
+
+      {/* Map populates below the form once an address is entered */}
+      <AddressMap address={form.address} city={form.city} state={form.state} />
     </div>
   );
 }
