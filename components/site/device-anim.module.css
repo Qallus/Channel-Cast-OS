@@ -40,6 +40,12 @@
 /* ---- dashboard mock (walkthrough scene 2) ---- */
 .htmlBar { background: hsl(var(--brand-strong)); transform-origin: bottom; animation: eq 1.1s ease-in-out infinite; }
 
+/* ---- placement scene: abstract traffic flow + fee coin ---- */
+.tdot { fill: hsl(var(--brand-strong)); opacity: 0.5; transform-box: fill-box; animation: cross 4.5s linear infinite; }
+@keyframes cross { 0% { transform: translateX(0); opacity: 0; } 10% { opacity: 0.55; } 88% { opacity: 0.55; } 100% { transform: translateX(320px); opacity: 0; } }
+.coin { fill: none; stroke: hsl(var(--warning, 40 90% 45%)); stroke-width: 1.6; }
+.coinT { fill: hsl(var(--warning, 40 90% 45%)); font: 800 9px var(--font, sans-serif); }
+
 /* ---- walkthrough accordion ---- */
 .scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97); transition: opacity 0.4s, transform 0.4s; pointer-events: none; padding: 18px; }
 .sceneOn { opacity: 1; transform: none; pointer-events: auto; }

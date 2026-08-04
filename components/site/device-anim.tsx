@@ -284,3 +284,144 @@ export function DeviceCaption({ steps = HOW_STEPS }: { steps?: Step[] }) {
     </div>
   );
 }
+
+/* ── Free vs Paid placement scene (toggle + revenue counter) ──────────────── */
+
+function EqBars() {
+  return (
+    <g>
+      {[150, 158, 166, 174, 182, 190, 198].map((x, i) => (
+        <rect key={x} className={s.bar} x={x} y="98" width="5" height="16" rx="1.5" style={{ animationDelay: `${[0, 0.16, 0.32, 0.1, 0.26, 0.2, 0.34][i]}s` }} />
+      ))}
+    </g>
+  );
+}
+
+export function PlacementScene() {
+  const [mode, setMode] = useState<"free" | "paid">("free");
+  const [rev, setRev] = useState(0);
+
+  useEffect(() => {
+    if (mode !== "paid") return;
+    const reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setRev(0);
+    if (reduced) { setRev(248.5); return; }
+    const t = setInterval(() => setRev((r) => (r > 999 ? 0 : r + 0.5 + Math.random() * 3.2)), 220);
+    return () => clearInterval(t);
+  }, [mode]);
+
+  const fmt = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex gap-1.5 p-4 pb-0">
+        {(["free", "paid"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            aria-selected={mode === m}
+            className={cn(
+              "flex flex-1 flex-col items-center gap-0.5 rounded-xl border px-3 py-3 text-sm font-bold transition-colors",
+              mode === m ? "border-brand-strong bg-brand/8 text-foreground shadow-[0_0_0_3px_hsl(var(--brand-strong)/0.13)]" : "border-border text-muted-foreground hover:border-brand-strong/40",
+            )}
+          >
+            {m === "free" ? "Free placement" : "Paid placement"}
+            <span className={cn("text-[11px] font-semibold", mode === m ? "text-brand-strong" : "text-muted-foreground")}>{m === "free" ? "You have the traffic" : "You earn the revenue"}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className={cn(s.stage, "m-4 min-h-[268px] rounded-xl border border-border bg-[radial-gradient(80%_90%_at_50%_4%,hsl(var(--brand)/0.10),transparent_70%)]")}>
+        {/* FREE */}
+        <div className={cn(s.scene, mode === "free" && s.sceneOn)}>
+          <div className="absolute left-4 top-4 flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground">
+            <span>Foot traffic · High</span>
+            <span className="flex h-4 items-end gap-[3px]">{[7, 11, 14, 16].map((h) => <i key={h} className="w-[5px] rounded-sm bg-brand-strong" style={{ height: h }} />)}</span>
+          </div>
+          <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-card px-2.5 py-1.5 text-xs font-bold text-success shadow-sm">● $0 to host</span>
+          <svg viewBox="0 0 360 200" className="h-full w-full" role="img" aria-label="A busy location hosts a device for free">
+            <circle className={s.tdot} cx="18" cy="48" r="3" style={{ animationDelay: "0s" }} />
+            <circle className={s.tdot} cx="12" cy="60" r="2.3" style={{ animationDelay: "1.1s" }} />
+            <circle className={s.tdot} cx="24" cy="42" r="3.3" style={{ animationDelay: "2.2s" }} />
+            <circle className={s.tdot} cx="16" cy="54" r="2.6" style={{ animationDelay: "3.3s" }} />
+            <circle className={s.tdot} cx="20" cy="66" r="2.2" style={{ animationDelay: "1.7s" }} />
+            <circle className={s.ring} cx="180" cy="120" r="5" />
+            <circle className={cn(s.ring, s.ring2)} cx="180" cy="120" r="5" />
+            <EqBars />
+            <DeviceGroup x={147} y={120} scale={SC} />
+            <text className={s.label} x="180" y="184">We provide the device — free</text>
+          </svg>
+        </div>
+
+        {/* PAID */}
+        <div className={cn(s.scene, mode === "paid" && s.sceneOn)}>
+          <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-card px-2.5 py-1.5 text-xs font-bold text-success shadow-sm">▲ You earn</span>
+          <div className="absolute left-1/2 top-5 -translate-x-1/2 text-center">
+            <div className="text-3xl font-extrabold tracking-tight text-success [font-variant-numeric:tabular-nums]">{fmt(rev)}</div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Revenue this month</div>
+          </div>
+          <span className="absolute bottom-11 left-4 rounded-full border border-brand-strong/30 bg-brand/10 px-2.5 py-1 text-[11px] font-bold text-brand-strong">Sell your own ad space →</span>
+          <svg viewBox="0 0 360 200" className="h-full w-full" role="img" aria-label="A location pays a small fee and earns revenue">
+            <path id="cc-feein" d="M180 92 L180 118" style={{ display: "none" }} />
+            <g>
+              <circle className={s.coin} cx="180" cy="92" r="8" />
+              <text className={s.coinT} x="180" y="96" textAnchor="middle">$</text>
+              <animateMotion dur="3.2s" repeatCount="indefinite" keyPoints="0;0.28;0.28" keyTimes="0;0.28;1" calcMode="linear"><mpath href="#cc-feein" /></animateMotion>
+              <animate attributeName="opacity" dur="3.2s" repeatCount="indefinite" keyTimes="0;0.24;0.3;1" values="0;1;0;0" />
+            </g>
+            <EqBars />
+            <DeviceGroup x={147} y={120} scale={SC} />
+            <text className={s.label} x="180" y="184">Pay a small fee — keep the revenue</text>
+          </svg>
+        </div>
+      </div>
+
+      <div className="px-5 pb-5">
+        {mode === "free" ? (
+          <>
+            <p className="text-[15px] text-foreground"><b className="text-brand-strong">You have the traffic — we bring the device, free.</b> Qualify on foot traffic and host a Channel Cast device at no cost. Hardware and software included; nothing to pay.</p>
+            <div className="mt-3 flex flex-wrap gap-2">{["$0 to host", "Qualify on foot traffic", "Hardware + software included", "Zero maintenance"].map((c) => <span key={c} className="rounded-full border border-border bg-brand/5 px-3 py-1.5 text-xs font-semibold text-foreground">{c}</span>)}</div>
+          </>
+        ) : (
+          <>
+            <p className="text-[15px] text-foreground"><b className="text-brand-strong">Pay a little — sell your space and keep the revenue.</b> A small monthly fee unlocks the full platform, including the ability to sell ad space to your own clients and keep what you earn.</p>
+            <div className="mt-3 flex flex-wrap gap-2">{["Small monthly fee", "Any location qualifies", "Sell your own ad space", "Keep the revenue"].map((c) => <span key={c} className="rounded-full border border-border bg-brand/5 px-3 py-1.5 text-xs font-semibold text-foreground">{c}</span>)}</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function PlacementCompare() {
+  const rows: [string, string, string][] = [
+    ["How you qualify", "Sufficient foot traffic", "Any location"],
+    ["Cost to the location", "$0", "Small monthly fee"],
+    ["Device hardware", "Provided", "Provided"],
+    ["Dashboard & software", "Included", "Included"],
+    ["Sell your own ad space", "—", "Yes"],
+    ["Keep the revenue", "—", "Yes"],
+  ];
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-brand/5 text-xs uppercase tracking-wide text-muted-foreground">
+            <th className="px-4 py-3 text-left font-semibold">&nbsp;</th>
+            <th className="px-4 py-3 text-center font-semibold">Free</th>
+            <th className="px-4 py-3 text-center font-semibold">Paid</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, free, paid], i) => (
+            <tr key={label} className={i < rows.length - 1 ? "border-b border-border" : ""}>
+              <td className="w-2/5 px-4 py-3 font-semibold text-muted-foreground">{label}</td>
+              <td className={cn("bg-brand/5 px-4 py-3 text-center font-semibold", free === "—" ? "text-muted-foreground/60" : free === "$0" || free === "Provided" || free === "Included" ? "text-success" : "text-foreground")}>{free}</td>
+              <td className={cn("px-4 py-3 text-center font-semibold", paid === "Yes" || paid === "Provided" || paid === "Included" ? "text-success" : "text-foreground")}>{paid}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

@@ -8,10 +8,11 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const interests = Array.isArray(body.interests) ? body.interests.map((s: unknown) => String(s).slice(0, 80)).slice(0, 12) : [];
+  const KINDS = ["contact", "demo", "placement"];
   const rec = {
     id: randomUUID(),
     source: "website",
-    kind: body.kind === "demo" ? "demo" : "contact",
+    kind: KINDS.includes(body.kind) ? body.kind : "contact",
     name: String(body.name || "").slice(0, 200),
     firstName: String(body.firstName || "").slice(0, 100),
     lastName: String(body.lastName || "").slice(0, 100),
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
     interests,
     subject: String(body.subject || "").slice(0, 200),
     message: String(body.message || "").slice(0, 4000),
+    meta: body.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? body.meta : undefined,
     status: "new",
     createdAt: new Date().toISOString(),
   };

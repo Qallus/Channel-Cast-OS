@@ -8,7 +8,7 @@ export default function BusinessesPage() {
   return (
     <SolutionPage
       heroVariant="businesses"
-      hero={{ eyebrow: "For businesses & ad-space owners", title: "Monetize your space with smart audio.", subtitle: "Host a Channel Cast device where your customers already are, and earn from advertisers who want to reach them — no screens, no clutter.", primary: { label: "Become a location partner", href: "/register" }, secondary: { label: "Talk to us", href: "/contact" } }}
+      hero={{ eyebrow: "For businesses & ad-space owners", title: "Monetize your space with smart audio.", subtitle: "Host a Channel Cast device where your customers already are, and earn from advertisers who want to reach them — no screens, no clutter.", primary: { label: "See if you qualify", href: "/placement" }, secondary: { label: "Talk to us", href: "/contact" } }}
       valueTitle="A new revenue line from space you already have"
       values={[
         { icon: DollarSign, title: "Earn from your foot traffic", body: "Advertisers pay to reach your visitors; you share in the revenue." },
