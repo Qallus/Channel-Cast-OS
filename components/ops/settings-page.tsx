@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Building2, Check, KeyRound, Palette, Plug, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Building2, Check, KeyRound, Loader2, MapPin, Palette, Plug, Settings as SettingsIcon } from "lucide-react";
 
 import { FormField, PageHeader } from "@/components/crm/crm-ui";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { CURRENCIES, DEFAULT_SETTINGS, Settings, TIMEZONES, loadSettings, saveSettings } from "@/lib/ops/settings";
 import { cn } from "@/lib/utils";
 
-type Tab = "organization" | "branding" | "integrations" | "notifications";
+type Tab = "organization" | "branding" | "integrations" | "notifications" | "placement";
 const TABS: { id: Tab; label: string; icon: typeof Building2 }[] = [
   { id: "organization", label: "Organization", icon: Building2 },
   { id: "branding", label: "Branding", icon: Palette },
   { id: "integrations", label: "Integrations", icon: Plug },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "placement", label: "Placement", icon: MapPin },
 ];
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -76,10 +77,12 @@ export function SettingsPage() {
         title="Settings"
         description="Organization, branding, integrations, and preferences."
         action={
-          <div className="flex items-center gap-2">
-            {saved ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong"><Check className="h-4 w-4" /> Saved</span> : null}
-            <Button onClick={save}><Check className="h-4 w-4" /> Save changes</Button>
-          </div>
+          tab === "placement" ? undefined : (
+            <div className="flex items-center gap-2">
+              {saved ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong"><Check className="h-4 w-4" /> Saved</span> : null}
+              <Button onClick={save}><Check className="h-4 w-4" /> Save changes</Button>
+            </div>
+          )
         }
       />
 
@@ -100,6 +103,8 @@ export function SettingsPage() {
           );
         })}
       </div>
+
+      {tab === "placement" && <PlacementSettings />}
 
       {tab === "organization" && (
         <Card>
@@ -207,5 +212,78 @@ export function SettingsPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+/* Server-persisted config for the public /placement qualification form. */
+function PlacementSettings() {
+  const [min, setMin] = useState<string>("1000");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/placement-config")
+      .then((r) => r.json())
+      .then((d) => { if (typeof d?.minDailyVisitors === "number") setMin(String(d.minDailyVisitors)); setUpdatedAt(d?.updatedAt ?? null); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/placement-config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ minDailyVisitors: Number(min) || 0 }),
+      });
+      const d = await res.json();
+      if (typeof d?.minDailyVisitors === "number") setMin(String(d.minDailyVisitors));
+      setUpdatedAt(d?.updatedAt ?? new Date().toISOString());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      /* ignore */
+    }
+    setSaving(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Placement qualification</CardTitle>
+        <CardDescription>Controls the free-vs-paid result on the public placement form.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="max-w-md space-y-4">
+          <FormField label="Minimum daily foot traffic for FREE placement">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                step={50}
+                value={loading ? "" : min}
+                placeholder={loading ? "Loading…" : "1000"}
+                onChange={(e) => setMin(e.target.value)}
+                className="max-w-[180px]"
+              />
+              <span className="text-sm text-muted-foreground">visitors / day</span>
+            </div>
+          </FormField>
+          <p className="text-xs text-muted-foreground">
+            Locations reporting at least this many daily visitors qualify for <span className="font-medium text-foreground">free</span> placement; everyone else is offered <span className="font-medium text-foreground">paid</span> placement. Traffic is collected in ranges on the form — a range qualifies when its lower bound meets this number (e.g. at 1,000 only the &ldquo;1,000+/day&rdquo; range qualifies).
+          </p>
+          <div className="flex items-center gap-2">
+            <Button onClick={save} disabled={saving || loading}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save
+            </Button>
+            {saved ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong"><Check className="h-4 w-4" /> Saved</span> : null}
+            {updatedAt && !saved ? <span className="text-xs text-muted-foreground">Updated {new Date(updatedAt).toLocaleDateString()}</span> : null}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

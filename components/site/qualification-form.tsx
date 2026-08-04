@@ -17,12 +17,12 @@ const VENUE = [
 ];
 const HIGH_TRAFFIC_VENUES = new Set(["Café / Restaurant", "Retail store", "Gym / Fitness", "Bar / Nightlife", "Hotel / Hospitality", "Parking garage", "Medical / Waiting room", "Convenience / Gas"]);
 
-const VISITORS: { label: string; pts: number }[] = [
-  { label: "Under 100 / day", pts: 0 },
-  { label: "100–250 / day", pts: 1 },
-  { label: "250–500 / day", pts: 2 },
-  { label: "500–1,000 / day", pts: 3 },
-  { label: "1,000+ / day", pts: 4 },
+const VISITORS: { label: string; pts: number; min: number }[] = [
+  { label: "Under 100 / day", pts: 0, min: 0 },
+  { label: "100–250 / day", pts: 1, min: 100 },
+  { label: "250–500 / day", pts: 2, min: 250 },
+  { label: "500–1,000 / day", pts: 3, min: 500 },
+  { label: "1,000+ / day", pts: 4, min: 1000 },
 ];
 const DWELL: { label: string; pts: number }[] = [
   { label: "Under 5 min", pts: 0 },
@@ -53,7 +53,7 @@ function pts(list: { label: string; pts: number }[], label: string) {
   return list.find((o) => o.label === label)?.pts ?? 0;
 }
 
-export function QualificationForm() {
+export function QualificationForm({ minDailyVisitors = 1000 }: { minDailyVisitors?: number }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -63,11 +63,12 @@ export function QualificationForm() {
   const onInput = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => set(k)(e.target.value);
 
   const result = useMemo(() => {
-    const vpts = pts(VISITORS, form.visitors);
-    const score = vpts + pts(DWELL, form.dwell) + pts(DAYS, form.days) + pts(LOCATIONS, form.locations) + (HIGH_TRAFFIC_VENUES.has(form.venueType) ? 1 : 0);
-    const free = vpts >= 3 || score >= 5;
+    const bucket = VISITORS.find((o) => o.label === form.visitors);
+    const score = (bucket?.pts ?? 0) + pts(DWELL, form.dwell) + pts(DAYS, form.days) + pts(LOCATIONS, form.locations) + (HIGH_TRAFFIC_VENUES.has(form.venueType) ? 1 : 0);
+    // Free requires the location's foot traffic to meet the configured minimum.
+    const free = (bucket?.min ?? 0) >= minDailyVisitors;
     return { score, free };
-  }, [form]);
+  }, [form, minDailyVisitors]);
 
   const stepValid = [
     form.businessName && form.venueType && form.city && form.state,

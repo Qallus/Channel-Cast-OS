@@ -2,13 +2,17 @@ import { Band, CTABand, FAQList } from "@/components/site/marketing";
 import { HeroAnimated } from "@/components/site/hero";
 import { PlacementScene, PlacementCompare } from "@/components/site/device-anim";
 import { QualificationForm } from "@/components/site/qualification-form";
+import { getPlacementConfig } from "@/lib/server/placement-config";
 
 export const metadata = {
   title: "Placement · Channel Cast",
   description: "Free or paid placement — see how your location qualifies to host a Channel Cast device and earn.",
 };
 
-export default function PlacementPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PlacementPage() {
+  const config = await getPlacementConfig();
   return (
     <>
       <HeroAnimated
@@ -30,7 +34,7 @@ export default function PlacementPage() {
 
       <section id="qualify" className="scroll-mt-20">
         <Band eyebrow="Qualify" title="Find out where your location fits" subtitle="Answer a few questions and we'll tell you whether you qualify for free placement — or how paid placement can earn for you.">
-          <div className="mx-auto max-w-2xl"><QualificationForm /></div>
+          <div className="mx-auto max-w-2xl"><QualificationForm minDailyVisitors={config.minDailyVisitors} /></div>
         </Band>
       </section>
 

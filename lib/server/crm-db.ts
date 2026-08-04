@@ -20,6 +20,7 @@ export const CRM_COLLECTIONS = [
   "team_members",
   "automations",
   "comm_templates",
+  "settings",
 ] as const;
 export type CrmCollection = (typeof CRM_COLLECTIONS)[number];
 
