@@ -11,6 +11,7 @@ import {
   FileText,
   FolderKanban,
   Headphones,
+  ImageIcon,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -61,6 +62,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     items: [
       { label: "Advertising", icon: Megaphone, href: "/app/admin/advertising" },
       { label: "Audio Management", icon: AudioLines, href: "/app/admin/audio" },
+      { label: "Media", icon: ImageIcon, href: "/app/admin/media" },
       { label: "Devices", icon: Headphones, href: "/app/admin/devices" },
       { label: "Operating System", icon: Cpu, href: "/app/admin/operating-system" },
       { label: "Campaigns", icon: Send, href: "/app/admin/campaigns" },

@@ -7,6 +7,8 @@ import { ListingMap } from "@/components/site/listing-map";
 import { money } from "@/lib/marketing/marketplace";
 import { resolveListing } from "@/lib/marketing/listings";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const l = await resolveListing(slug);

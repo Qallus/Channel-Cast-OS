@@ -4,6 +4,8 @@ import { getAllListings } from "@/lib/marketing/listings";
 
 export const metadata = { title: "Marketplace · Channel Cast", description: "Discover physical ad spaces near your audience — cafés, gyms, salons, transit hubs, and more." };
 
+export const dynamic = "force-dynamic";
+
 export default async function MarketplacePage() {
   const { listings, sample } = await getAllListings();
   return (

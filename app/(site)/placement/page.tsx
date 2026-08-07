@@ -2,6 +2,8 @@ import { Band, CTABand, FAQList } from "@/components/site/marketing";
 import { HeroAnimated } from "@/components/site/hero";
 import { PlacementScene, PlacementCompare } from "@/components/site/device-anim";
 import { getPlacementConfig } from "@/lib/server/placement-config";
+import { getMediaConfig } from "@/lib/server/media-config";
+import { siteSlotDefault } from "@/lib/stock-images";
 
 export const metadata = {
   title: "Placement · Channel Cast",
@@ -12,6 +14,8 @@ export const dynamic = "force-dynamic";
 
 export default async function PlacementPage() {
   const config = await getPlacementConfig();
+  const media = await getMediaConfig();
+  const lifestyle = media.slots["placement-lifestyle"] || siteSlotDefault("placement-lifestyle");
   return (
     <>
       <HeroAnimated
@@ -31,6 +35,22 @@ export default async function PlacementPage() {
 
       <Band eyebrow="Compare" title="What each model includes" muted>
         <PlacementCompare />
+      </Band>
+
+      <Band eyebrow="The hardware" title="A weatherproof device your customers barely notice">
+        <div className="grid items-center gap-8 lg:grid-cols-2">
+          <div>
+            <div className="flex items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-accent/40 to-card p-8">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/device-render.svg" alt="Channel Cast device" className="w-full max-w-xs" />
+            </div>
+            <p className="mt-4 text-sm text-muted-foreground">Solar-assisted, weatherproof, and quiet — with an on-device AI sensor and speaker. It sits on a counter or mounts out of the way, and plays only when someone&apos;s actually there.</p>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lifestyle} alt="A real venue hosting a Channel Cast device" className="h-full min-h-[280px] w-full object-cover" />
+          </div>
+        </div>
       </Band>
 
       <Band eyebrow="FAQ" title="Common questions" muted>
