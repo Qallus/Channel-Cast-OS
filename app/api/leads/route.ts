@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import { upsertRecords } from "@/lib/server/crm-db";
+import { notificationHtml, sendNotificationEmail } from "@/lib/server/email";
 
 export const runtime = "nodejs";
+
+const KIND_LABEL: Record<string, string> = { contact: "Contact form", demo: "Demo request", placement: "Placement inquiry", booking: "Ad-space booking" };
 
 // POST /api/leads — capture a marketing lead (contact / demo) into the CRM.
 export async function POST(req: Request) {
@@ -33,5 +36,34 @@ export async function POST(req: Request) {
   } catch {
     /* store best-effort — the visitor is still confirmed */
   }
+
+  // Notify the team (best-effort; no-op without RESEND_API_KEY).
+  try {
+    const label = KIND_LABEL[rec.kind] || "Website submission";
+    const who = rec.name || rec.email || "Someone";
+    await sendNotificationEmail({
+      subject: `${label}: ${rec.subject || who}`,
+      replyTo: rec.email || undefined,
+      html: notificationHtml({
+        eyebrow: "New submission",
+        heading: label,
+        rows: [
+          ["Name", rec.name],
+          ["Email", rec.email],
+          ["Phone", rec.phone],
+          ["Company", rec.company],
+          ["Website", rec.website],
+          ["Interested in", rec.interest],
+          ["Subject", rec.subject],
+          ["Received", new Date(rec.createdAt).toLocaleString("en-US")],
+        ],
+        message: rec.message || undefined,
+        footer: "Also visible in Communications → Form Submissions.",
+      }),
+    });
+  } catch {
+    /* email is best-effort */
+  }
+
   return Response.json({ ok: true });
 }
