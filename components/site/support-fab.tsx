@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowRight, Building2, Handshake, Headphones, Mail, MapPin, Megaphone, Phone, Radio, Sparkles, Store, X } from "lucide-react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +25,10 @@ export function SupportFab() {
   const [open, setOpen] = useState(false); // support panel
   const [drawer, setDrawer] = useState(false); // get-started slide-out
   const [modal, setModal] = useState(false); // placement form modal
+  const pathname = usePathname();
+
+  // Marketplace + listing pages have their own sticky bottom bars — keep them clear.
+  if (pathname?.startsWith("/marketplace")) return null;
 
   return (
     <>

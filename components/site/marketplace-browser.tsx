@@ -52,7 +52,7 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
     <div>
       {/* Search combo bar */}
       <div className="sticky top-16 z-20 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1760px] flex-wrap items-center gap-3 px-5 py-3 sm:px-8">
           <div className="flex flex-1 items-center rounded-full border border-border bg-card shadow-sm">
             <label className="flex flex-1 flex-col px-4 py-1.5">
               <span className="text-[11px] font-semibold text-foreground">Where</span>
@@ -96,13 +96,13 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
       </div>
 
       {/* Split: list + map */}
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-0 px-0 lg:grid-cols-[1fr_42%]">
-        <div className="px-4 py-6 sm:px-6">
+      <div className="mx-auto grid max-w-[1760px] grid-cols-1 gap-0 px-0 lg:grid-cols-[1fr_40%]">
+        <div className="px-5 pb-28 pt-6 sm:px-8">
           <p className="mb-4 text-sm text-muted-foreground">{filtered.length} ad space{filtered.length === 1 ? "" : "s"}{where ? ` matching “${where}”` : ""}</p>
           {filtered.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No ad spaces match your search. <button onClick={clearAll} className="font-medium text-brand-strong hover:underline">Clear filters</button>.</p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((l) => (
                 <Link
                   key={l.slug}
@@ -140,10 +140,25 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
         </div>
       </div>
 
-      {/* Mobile map toggle */}
-      <button onClick={() => setShowMap(true)} className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full bg-foreground px-4 py-2.5 text-sm font-medium text-background shadow-lg lg:hidden">
-        <span className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Map</span>
-      </button>
+      {/* Sticky bottom search bar (mobile + desktop) */}
+      <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+        <div className="flex w-full max-w-2xl items-center gap-2 rounded-full border border-border bg-card/95 py-2 pl-4 pr-2 shadow-2xl backdrop-blur">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={where}
+            onChange={(e) => setWhere(e.target.value)}
+            placeholder="Search city or space"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{filtered.length} space{filtered.length === 1 ? "" : "s"}</span>
+          <button onClick={() => setShowMap(true)} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground lg:hidden">
+            <MapPin className="h-3.5 w-3.5" /> Map
+          </button>
+          <Button size="sm" onClick={() => setFiltersOpen(true)} className="shrink-0 rounded-full">
+            <SlidersHorizontal className="h-4 w-4" />{activeFilters ? ` ${activeFilters}` : ""}
+          </Button>
+        </div>
+      </div>
       {showMap && (
         <div className="fixed inset-0 z-50 bg-background lg:hidden">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
