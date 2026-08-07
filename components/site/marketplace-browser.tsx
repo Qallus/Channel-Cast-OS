@@ -4,12 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { MapPin, Monitor, Search, SlidersHorizontal, Store, Users, X } from "lucide-react";
+import { Check, MapPin, Monitor, Plus, Search, SlidersHorizontal, Store, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { money, type Listing } from "@/lib/marketing/marketplace";
+import { useCart } from "@/components/cart/cart";
+import { CartButton } from "@/components/cart/cart-drawer";
 import { cn } from "@/lib/utils";
 
 const MarketplaceMap = dynamic(() => import("@/components/site/marketplace-map"), {
@@ -28,6 +30,7 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showMap, setShowMap] = useState(false); // mobile
 
+  const { add, has, setOpen } = useCart();
   const allTypes = useMemo(() => Array.from(new Set(listings.map((l) => l.type))).sort(), [listings]);
   const allTags = useMemo(() => Array.from(new Set(listings.flatMap((l) => l.tags))).sort(), [listings]);
   const maxPrice = useMemo(() => Math.max(100, ...listings.map((l) => l.pricePerWeek)), [listings]);
@@ -109,13 +112,20 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
                   href={`/marketplace/${l.slug}`}
                   onMouseEnter={() => setHovered(l.slug)}
                   onMouseLeave={() => setHovered(null)}
-                  className={cn("group overflow-hidden rounded-xl border bg-card transition-colors", hovered === l.slug ? "border-brand-strong" : "border-border hover:border-brand/50")}
+                  className={cn("group relative overflow-hidden rounded-xl border bg-card transition-colors", hovered === l.slug ? "border-brand-strong" : "border-border hover:border-brand/50")}
                 >
                   {l.imageUrl ? (
                     <img src={l.imageUrl} alt="" className="h-36 w-full object-cover" />
                   ) : (
                     <div className="flex h-36 items-center justify-center bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-9 w-9 text-brand-strong/70" /></div>
                   )}
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (has(l.slug)) { setOpen(true); } else { add({ slug: l.slug, name: l.name, type: l.type, city: l.city, state: l.state, imageUrl: l.imageUrl, pricePerWeek: l.pricePerWeek }); setOpen(true); } }}
+                    aria-label={has(l.slug) ? "In campaign" : "Add to campaign"}
+                    className={cn("absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full shadow-md transition-colors", has(l.slug) ? "bg-brand-strong text-background" : "bg-card/90 text-foreground hover:bg-brand hover:text-brand-foreground")}
+                  >
+                    {has(l.slug) ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  </button>
                   <div className="p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-foreground group-hover:text-brand-strong">{l.name}</p>
@@ -154,6 +164,7 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
           <button onClick={() => setShowMap(true)} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground lg:hidden">
             <MapPin className="h-3.5 w-3.5" /> Map
           </button>
+          <CartButton className="shrink-0" />
           <Button size="sm" onClick={() => setFiltersOpen(true)} className="shrink-0 rounded-full">
             <SlidersHorizontal className="h-4 w-4" />{activeFilters ? ` ${activeFilters}` : ""}
           </Button>

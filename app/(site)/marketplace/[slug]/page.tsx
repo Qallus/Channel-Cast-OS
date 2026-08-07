@@ -2,11 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Award, CalendarClock, MapPin, Radar, Star, Store, Tag, Users } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { ListingMap } from "@/components/site/listing-map";
-import { BookingCard } from "@/components/site/booking-card";
+import { BookingCard, MobileReserveBar } from "@/components/site/booking-card";
 import { LocationOffers } from "@/components/site/location-offers";
-import { money } from "@/lib/marketing/marketplace";
 import { resolveListing } from "@/lib/marketing/listings";
 import { getListingContentMap } from "@/lib/server/listing-content-config";
 import { mergeContent } from "@/lib/marketing/listing-content";
@@ -106,9 +104,11 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="space-y-4">
-              <BookingCard slug={l.slug} pricePerWeek={l.pricePerWeek} audiencePerWeek={l.audiencePerWeek} devices={l.devices} type={l.type} />
+              <div className="relative z-30">
+                <BookingCard slug={l.slug} name={l.name} type={l.type} city={l.city ?? undefined} state={l.state ?? undefined} imageUrl={l.imageUrl} pricePerWeek={l.pricePerWeek} audiencePerWeek={l.audiencePerWeek} devices={l.devices} />
+              </div>
               {l.lat != null && l.lng != null && (
-                <div>
+                <div className="relative z-0">
                   <ListingMap listing={l} />
                   <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> Approximate location</p>
                 </div>
@@ -118,16 +118,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
         </div>
       </div>
 
-      {/* Mobile sticky booking bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-          <div>
-            <p className="text-lg font-semibold text-foreground">{money(l.pricePerWeek)} <span className="text-sm font-normal text-muted-foreground">/ wk</span></p>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><Star className="h-3 w-3 fill-foreground text-foreground" /> {c.rating.toFixed(2)} · {c.reviewCount} reviews</p>
-          </div>
-          <Button asChild><Link href={`/marketplace/${l.slug}/book`}>Reserve</Link></Button>
-        </div>
-      </div>
+      <MobileReserveBar item={{ slug: l.slug, name: l.name, type: l.type, city: l.city ?? undefined, state: l.state ?? undefined, imageUrl: l.imageUrl, pricePerWeek: l.pricePerWeek }} rating={c.rating} reviewCount={c.reviewCount} />
     </>
   );
 }

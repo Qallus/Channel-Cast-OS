@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const interests = Array.isArray(body.interests) ? body.interests.map((s: unknown) => String(s).slice(0, 80)).slice(0, 12) : [];
-  const KINDS = ["contact", "demo", "placement"];
+  const KINDS = ["contact", "demo", "placement", "booking"];
   const rec = {
     id: randomUUID(),
     source: "website",

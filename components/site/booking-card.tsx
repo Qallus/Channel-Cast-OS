@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Monitor } from "lucide-react";
+import { Check, Monitor } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { money } from "@/lib/marketing/marketplace";
+import { useCart } from "@/components/cart/cart";
 
-export function BookingCard({ slug, pricePerWeek, audiencePerWeek, devices, type }: { slug: string; pricePerWeek: number; audiencePerWeek: number; devices: number; type: string }) {
+export function BookingCard({ slug, name, type, city, state, imageUrl, pricePerWeek, audiencePerWeek, devices }: {
+  slug: string; name: string; type: string; city?: string; state?: string; imageUrl?: string | null;
+  pricePerWeek: number; audiencePerWeek: number; devices: number;
+}) {
+  const { add, setOpen, has } = useCart();
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
@@ -20,7 +24,12 @@ export function BookingCard({ slug, pricePerWeek, audiencePerWeek, devices, type
     return days > 0 ? Math.max(1, Math.ceil(days / 7)) : 0;
   })();
   const total = weeks * pricePerWeek;
-  const params = start && end && weeks > 0 ? `?start=${start}&end=${end}` : "";
+  const inCart = has(slug);
+
+  function reserve() {
+    add({ slug, name, type, city, state, imageUrl, pricePerWeek, start: start || undefined, end: end || undefined });
+    setOpen(true);
+  }
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -32,7 +41,6 @@ export function BookingCard({ slug, pricePerWeek, audiencePerWeek, devices, type
         )}
       </p>
 
-      {/* Date selection */}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <label className="block space-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Start date</span>
@@ -51,8 +59,8 @@ export function BookingCard({ slug, pricePerWeek, audiencePerWeek, devices, type
         </dl>
       )}
 
-      <Button asChild className="mt-4 w-full"><Link href={`/marketplace/${slug}/book${params}`}>{weeks > 0 ? "Reserve" : "Check availability"}</Link></Button>
-      <p className="mt-2 text-center text-xs text-muted-foreground">You won&apos;t be charged yet</p>
+      <Button onClick={reserve} className="mt-4 w-full">{inCart ? <><Check className="h-4 w-4" /> In your campaign</> : "Reserve"}</Button>
+      <p className="mt-2 text-center text-xs text-muted-foreground">You won&apos;t be charged yet · book multiple locations</p>
 
       <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
         <div className="flex items-center justify-between"><dt className="text-muted-foreground">Est. audience</dt><dd className="font-medium text-foreground">{audiencePerWeek.toLocaleString("en-US")}/wk</dd></div>
@@ -60,6 +68,22 @@ export function BookingCard({ slug, pricePerWeek, audiencePerWeek, devices, type
         <div className="flex items-center justify-between"><dt className="text-muted-foreground">Type</dt><dd className="font-medium text-foreground">{type}</dd></div>
       </dl>
       <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground"><Monitor className="h-3.5 w-3.5" /> Real plays tracked and reported.</p>
+    </div>
+  );
+}
+
+// Compact sticky bar for mobile — adds to the campaign cart.
+export function MobileReserveBar({ item, rating, reviewCount }: { item: { slug: string; name: string; type: string; city?: string; state?: string; imageUrl?: string | null; pricePerWeek: number }; rating: number; reviewCount: number }) {
+  const { add, setOpen, has } = useCart();
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+        <div>
+          <p className="text-lg font-semibold text-foreground">{money(item.pricePerWeek)} <span className="text-sm font-normal text-muted-foreground">/ wk</span></p>
+          <p className="text-xs text-muted-foreground">★ {rating.toFixed(2)} · {reviewCount} reviews</p>
+        </div>
+        <Button onClick={() => { add(item); setOpen(true); }}>{has(item.slug) ? "In campaign" : "Reserve"}</Button>
+      </div>
     </div>
   );
 }
