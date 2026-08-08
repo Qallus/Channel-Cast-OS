@@ -8,6 +8,7 @@ import { ArrowRight, Building2, Handshake, Headphones, Mail, MapPin, Megaphone, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { QualificationForm } from "@/components/site/qualification-form";
+import { NicoleCallModal } from "@/components/site/nicole-voice";
 import { cn } from "@/lib/utils";
 
 type Option = { label: string; note: string; icon: typeof MapPin; href?: string; action?: "placement" };
@@ -25,6 +26,7 @@ export function SupportFab() {
   const [open, setOpen] = useState(false); // support panel
   const [drawer, setDrawer] = useState(false); // get-started slide-out
   const [modal, setModal] = useState(false); // placement form modal
+  const [nicole, setNicole] = useState(false); // voice agent call
   const pathname = usePathname();
 
   // Marketplace + listing pages have their own sticky bottom bars — keep them clear.
@@ -46,9 +48,9 @@ export function SupportFab() {
             <a href="mailto:hello@channelcast.io" className="flex items-center gap-3 border-t border-border px-5 py-3.5 transition-colors hover:bg-accent">
               <Mail className="h-4 w-4 shrink-0 text-brand-strong" /><span className="text-sm text-foreground">hello@channelcast.io</span>
             </a>
-            <a href="tel:+14809999906" className="flex items-center gap-3 border-t border-border px-5 py-3.5 transition-colors hover:bg-accent">
+            <button onClick={() => { setOpen(false); setNicole(true); }} className="flex w-full items-center gap-3 border-t border-border px-5 py-3.5 text-left transition-colors hover:bg-accent">
               <Sparkles className="h-4 w-4 shrink-0 text-brand-strong" /><span className="text-sm text-foreground">Talk to Nicole AI</span>
-            </a>
+            </button>
             <div className="border-t border-border p-4">
               <Button className="w-full" onClick={() => { setOpen(false); setDrawer(true); }}>Get started <ArrowRight className="h-4 w-4" /></Button>
             </div>
@@ -108,6 +110,9 @@ export function SupportFab() {
           })}
         </div>
       </aside>
+
+      {/* Nicole voice agent */}
+      <NicoleCallModal open={nicole} onClose={() => setNicole(false)} />
 
       {/* Placement form modal */}
       <Dialog open={modal} onOpenChange={setModal}>
