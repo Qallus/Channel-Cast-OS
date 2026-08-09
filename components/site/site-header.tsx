@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 const DISCOVER: { href: string; label: string; note: string }[][] = [
   [
     { href: "/how-it-works", label: "How it works", note: "From presence to play, measured" },
+    { href: "/audio", label: "Motion-activated audio", note: "Audio that plays on presence" },
     { href: "/advertisers", label: "Advertisers", note: "Reach a present audience" },
     { href: "/resources", label: "Resources", note: "Guides & blog archive" },
     { href: "/register", label: "Get started", note: "Create your account" },
