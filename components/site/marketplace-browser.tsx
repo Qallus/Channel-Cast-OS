@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -8,7 +8,6 @@ import { Check, MapPin, Monitor, Plus, Search, SlidersHorizontal, Store, Users, 
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { money, type Listing } from "@/lib/marketing/marketplace";
 import { useCart } from "@/components/cart/cart";
 import { CartButton } from "@/components/cart/cart-drawer";
@@ -51,55 +50,78 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
   const activeFilters = (type !== "all" ? 1 : 0) + tags.length + (priceMax != null ? 1 : 0);
   const clearAll = () => { setType("all"); setTags([]); setPriceMax(null); setMaxBudget("any"); };
 
+  // Airbnb-style search: expandable segments with animated dropdowns.
+  const [openSeg, setOpenSeg] = useState<"where" | "type" | "budget" | null>(null);
+  const searchRef = useRef<HTMLDivElement | null>(null);
+  const cities = useMemo(() => Array.from(new Set(listings.map((l) => [l.city, l.state].filter(Boolean).join(", ")).filter(Boolean))).sort(), [listings]);
+  const budgetLabel = maxBudget === "any" ? "Any budget" : `Under $${maxBudget}/wk`;
+  useEffect(() => {
+    if (!openSeg) return;
+    function onDown(e: MouseEvent) { if (searchRef.current && !searchRef.current.contains(e.target as Node)) setOpenSeg(null); }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [openSeg]);
+
   return (
     <div>
-      {/* Search combo bar */}
-      <div className="sticky top-16 z-20 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[1760px] flex-wrap items-center gap-3 px-5 py-3 sm:px-8">
-          <div className="flex flex-1 items-center rounded-full border border-border bg-card shadow-sm">
-            <label className="flex flex-1 flex-col px-4 py-1.5">
-              <span className="text-[11px] font-semibold text-foreground">Where</span>
-              <input value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Search city or space" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
-            </label>
-            <span className="h-8 w-px bg-border" />
-            <div className="hidden flex-col px-4 py-1 sm:flex">
-              <span className="text-[11px] font-semibold text-foreground">Space type</span>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-auto w-auto gap-1 border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0 [&>svg]:opacity-60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any type</SelectItem>
-                  {allTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+      {/* Search header — segmented search + filter chips (Airbnb-style) */}
+      <div ref={searchRef} className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur">
+        <div className="w-full px-5 py-3 sm:px-8">
+          <div className="relative mx-auto max-w-3xl">
+            <div className="flex items-center rounded-full border border-border bg-card shadow-sm">
+              <SegBtn label="Where" value={where || "Anywhere"} active={openSeg === "where"} onClick={() => setOpenSeg((s) => (s === "where" ? null : "where"))} />
+              <span className="h-8 w-px bg-border" />
+              <SegBtn label="Space type" value={type === "all" ? "Any type" : type} active={openSeg === "type"} onClick={() => setOpenSeg((s) => (s === "type" ? null : "type"))} />
+              <span className="h-8 w-px bg-border" />
+              <SegBtn label="Budget" value={budgetLabel} active={openSeg === "budget"} onClick={() => setOpenSeg((s) => (s === "budget" ? null : "budget"))} />
+              <button onClick={() => setOpenSeg(null)} aria-label="Search" className="m-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground transition-transform hover:scale-105">
+                <Search className="h-4 w-4" />
+              </button>
             </div>
-            <span className="hidden h-8 w-px bg-border sm:block" />
-            <div className="hidden flex-col px-4 py-1 sm:flex">
-              <span className="text-[11px] font-semibold text-foreground">Budget</span>
-              <Select value={maxBudget} onValueChange={setMaxBudget}>
-                <SelectTrigger className="h-auto w-auto gap-1 border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0 [&>svg]:opacity-60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any budget</SelectItem>
-                  <SelectItem value="100">Under $100/wk</SelectItem>
-                  <SelectItem value="200">Under $200/wk</SelectItem>
-                  <SelectItem value="500">Under $500/wk</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className={cn("absolute left-1/2 top-[calc(100%+8px)] z-40 w-[min(28rem,calc(100vw-2.5rem))] -translate-x-1/2 origin-top rounded-2xl border border-border bg-popover p-4 shadow-2xl transition-all duration-200", openSeg ? "visible translate-y-0 opacity-100" : "invisible -translate-y-1 opacity-0")}>
+              {openSeg === "where" && (
+                <div>
+                  <input autoFocus value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Search city or space" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+                  <div className="mt-2 flex flex-col">
+                    {cities.filter((c) => !where || c.toLowerCase().includes(where.toLowerCase())).slice(0, 6).map((c) => (
+                      <button key={c} onClick={() => { setWhere(c); setOpenSeg(null); }} className="flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-foreground hover:bg-accent"><MapPin className="h-4 w-4 text-muted-foreground" /> {c}</button>
+                    ))}
+                    {where && <button onClick={() => setWhere("")} className="mt-1 px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground">Clear</button>}
+                  </div>
+                </div>
+              )}
+              {openSeg === "type" && (
+                <div className="flex flex-wrap gap-2">
+                  {["all", ...allTypes].map((t) => (
+                    <button key={t} onClick={() => { setType(t); setOpenSeg(null); }} className={cn("rounded-full border px-3.5 py-1.5 text-sm transition-colors", t === type ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:border-brand-strong/40")}>{t === "all" ? "Any type" : t}</button>
+                  ))}
+                </div>
+              )}
+              {openSeg === "budget" && (
+                <div className="flex flex-col">
+                  {([["any", "Any budget"], ["100", "Under $100/wk"], ["200", "Under $200/wk"], ["500", "Under $500/wk"]] as const).map(([v, l]) => (
+                    <button key={v} onClick={() => { setMaxBudget(v); setOpenSeg(null); }} className={cn("rounded-lg px-2 py-2 text-left text-sm hover:bg-accent", maxBudget === v ? "font-semibold text-brand-strong" : "text-foreground")}>{l}</button>
+                  ))}
+                </div>
+              )}
             </div>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground"><Search className="h-4 w-4" /></span>
-            <span className="w-1" />
           </div>
-          <Button variant="outline" onClick={() => setFiltersOpen(true)} className="rounded-full">
-            <SlidersHorizontal className="h-4 w-4" /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
-          </Button>
+
+          {/* Filter chips row */}
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-0.5">
+            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="shrink-0 rounded-full"><SlidersHorizontal className="h-4 w-4" /> Filters{activeFilters ? ` · ${activeFilters}` : ""}</Button>
+            <span className="h-6 w-px shrink-0 bg-border" />
+            <button onClick={() => setType("all")} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors", type === "all" ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>All</button>
+            {allTypes.map((t) => (
+              <button key={t} onClick={() => setType((prev) => (prev === t ? "all" : t))} className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors", type === t ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>{t}</button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Split: list + map */}
-      <div className="mx-auto grid max-w-[1760px] grid-cols-1 gap-0 px-0 lg:grid-cols-[1fr_40%]">
+      {/* Split: list + map (full-bleed) */}
+      <div className="grid w-full grid-cols-1 gap-0 px-0 lg:grid-cols-[1fr_42%]">
         <div className="px-5 pb-28 pt-6 sm:px-8">
           <p className="mb-4 text-sm text-muted-foreground">{filtered.length} ad space{filtered.length === 1 ? "" : "s"}{where ? ` matching “${where}”` : ""}</p>
           {filtered.length === 0 ? (
@@ -222,6 +244,15 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function SegBtn({ label, value, active, onClick }: { label: string; value: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={cn("flex min-w-0 flex-1 flex-col items-start rounded-full px-4 py-2 text-left transition-colors", active ? "bg-accent" : "hover:bg-accent/60")}>
+      <span className="text-[11px] font-semibold text-foreground">{label}</span>
+      <span className="max-w-full truncate text-sm text-muted-foreground">{value}</span>
+    </button>
   );
 }
 

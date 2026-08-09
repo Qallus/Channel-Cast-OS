@@ -1,4 +1,3 @@
-import { PageHero } from "@/components/site/marketing";
 import { MarketplaceBrowser } from "@/components/site/marketplace-browser";
 import { getAllListings } from "@/lib/marketing/listings";
 
@@ -10,9 +9,8 @@ export default async function MarketplacePage() {
   const { listings, sample } = await getAllListings();
   return (
     <>
-      <PageHero eyebrow="Marketplace" title="Find ad space near your audience." subtitle="Browse real physical spaces by type, location, and audience. Book a campaign that plays when people are actually there." />
       {sample && (
-        <div className="mx-auto max-w-[1760px] px-5 pt-6 sm:px-8">
+        <div className="w-full px-5 pt-4 sm:px-8">
           <p className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">Showing sample spaces. As partners publish their locations, real listings appear here.</p>
         </div>
       )}
