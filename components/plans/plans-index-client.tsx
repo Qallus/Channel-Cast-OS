@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Trash2, Users } from "lucide-react";
+import { ClipboardList, Plus, Search, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageHeader } from "@/components/crm/crm-ui";
 import { CreatePlanDialog } from "./create-plan/create-plan-dialog";
 import { ProgressIndicator } from "./shared/badges";
 import { planColor, planIcon } from "@/lib/plans/constants";
@@ -65,6 +66,11 @@ export function PlansIndexClient({
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        icon={ClipboardList}
+        title="Plans"
+        description="Organize work into tasks and groups, assign your team, and track it on a board, grid, list or calendar."
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1.5">
           {(

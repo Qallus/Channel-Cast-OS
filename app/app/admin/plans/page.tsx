@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
-import { ClipboardList } from "lucide-react";
 
-import { PageHeader } from "@/components/crm/crm-ui";
 import { PlansIndexClient } from "@/components/plans/plans-index-client";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { listPeople, listPlansForActor } from "@/lib/plans/store";
@@ -20,14 +18,5 @@ export default async function PlansPage() {
   const [plans, people] = await Promise.all([listPlansForActor(actor), listPeople(actor)]);
   const owner = { id: user.id, name: user.name || user.email || "You", email: user.email || "" };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        icon={ClipboardList}
-        title="Plans"
-        description="Organize work into tasks and groups, assign your team, and track it on a board, grid, list or calendar."
-      />
-      <PlansIndexClient plans={plans} templates={APP_TEMPLATES} people={people} owner={owner} premiumAllowed={actor.isAdmin} />
-    </div>
-  );
+  return <PlansIndexClient plans={plans} templates={APP_TEMPLATES} people={people} owner={owner} premiumAllowed={actor.isAdmin} />;
 }
