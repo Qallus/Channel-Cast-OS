@@ -33,6 +33,8 @@ export type Contact = {
   createdAt: string;
   // Imported/enriched fields (e.g. from a CSV) shown as accordion categories.
   details?: Record<string, string>;
+  // Where this lead sits in the sales workflow (see lib/crm/workflow.ts).
+  workflowStage?: string;
 };
 
 export const CONTACT_TYPE: Record<ContactType, { label: string; plural: string; tone: string; description: string }> = {

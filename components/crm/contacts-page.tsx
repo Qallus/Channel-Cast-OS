@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Archive, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List,
   ListChecks, Mail, Maximize2, Minimize2, MessageSquare, Pencil, Phone, Plus, Shuffle, SquareKanban,
@@ -82,6 +84,7 @@ function blankContact(type: ContactType = "contact"): Contact {
 }
 
 export function ContactsPage() {
+  const router = useRouter();
   const { items, create, update, remove } = useCollection<Contact>("contacts", seedContacts);
   const activitiesCol = useCollection<Activity>("activities", seedActivities);
   const dealsCol = useCollection<Deal>("deals", seedDeals);
@@ -163,7 +166,8 @@ export function ContactsPage() {
   function bulkApply(fn: (c: Contact) => void, msg: string) { contacts.filter((c) => selected.has(c.id)).forEach(fn); clearSel(); flash(msg); }
 
   const rowActions = (c: Contact) => [
-    { label: "Open", icon: ExternalLink, onClick: () => setViewId(c.id) },
+    { label: "Work Lead", icon: Shuffle, onClick: () => router.push(`/app/admin/contacts/${c.id}`) },
+    { label: "Quick view", icon: ExternalLink, onClick: () => setViewId(c.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(c) },
     ...(CONTACT_TYPE_NEXT[c.type] ? [{ label: `Convert to ${CONTACT_TYPE[CONTACT_TYPE_NEXT[c.type]!].label}`, icon: Shuffle, onClick: () => setType(c, CONTACT_TYPE_NEXT[c.type]!) }] : []),
     { label: c.status === "archived" ? "Unarchive" : "Archive", icon: Archive, onClick: () => setStatus(c, c.status === "archived" ? "active" : "archived") },
@@ -333,6 +337,7 @@ function ContactProfile({
       <div className={cn("min-h-0 flex-1 overflow-y-auto p-5", expanded && "mx-auto w-full max-w-3xl")}>
         {/* Quick actions */}
         <div className="flex flex-wrap gap-1.5">
+          <Button asChild size="sm"><Link href={`/app/admin/contacts/${contact.id}`}><Shuffle className="h-3.5 w-3.5" /> Work Lead</Link></Button>
           {contact.phone && <ActionBtn href={`tel:${contact.phone}`} icon={Phone} label="Call" onLog={() => onLog("call", `Call to ${contact.phone}`)} />}
           {(contact.sms || contact.phone) && <ActionBtn href={`sms:${contact.sms || contact.phone}`} icon={MessageSquare} label="Text" onLog={() => onLog("sms", `SMS to ${contact.sms || contact.phone}`)} />}
           {contact.email && <ActionBtn href={`mailto:${contact.email}`} icon={Mail} label="Email" onLog={() => onLog("email", `Email to ${contact.email}`)} />}
