@@ -32,4 +32,27 @@ const TooltipContent = React.forwardRef<
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+// Convenience wrapper: a trigger child with a plain-text label tooltip.
+function SimpleTooltip({
+  label,
+  children,
+  side = "bottom",
+  delayDuration = 200,
+}: {
+  label: React.ReactNode;
+  children: React.ReactNode;
+  side?: "top" | "bottom" | "left" | "right";
+  delayDuration?: number;
+}) {
+  if (!label) return <>{children}</>;
+  return (
+    <TooltipProvider delayDuration={delayDuration}>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent side={side}>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, SimpleTooltip };

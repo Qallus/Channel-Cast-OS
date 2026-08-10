@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  NotebookPen,
   Megaphone,
   MessageSquare,
   Radio,
@@ -58,6 +59,7 @@ export const adminNavGroups: readonly NavGroup[] = [
       { label: "Pipeline", icon: Activity, href: "/app/admin/pipeline" },
       { label: "Projects", icon: FolderKanban, href: "/app/admin/projects" },
       { label: "Plans", icon: ListTodo, href: "/app/admin/plans" },
+      { label: "Workspace", icon: NotebookPen, href: "/app/admin/workspace" },
     ],
   },
   {
