@@ -1,0 +1,852 @@
+"use client";
+
+import * as React from "react";
+import {
+  ArrowLeft, ChevronDown, ChevronUp, ClipboardList, Copy, Eye, EyeOff,
+  GalleryHorizontal, IdCard, Image as ImageIcon, Layers, Link as LinkIcon,
+  ListChecks, Palette, PlayCircle, Plus, QrCode, Save, Settings, Smartphone,
+  Sparkles, Trash2, Upload, User, Wand2, Zap,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { CardPreview } from "@/components/business-cards/card-preview";
+import { COLOR_PRESETS, makeDefaultSections, makeNewCard, uid } from "@/lib/business-cards/defaults";
+import type {
+  Automation, AutomationAction, BusinessCard, BusinessCardLink, BusinessCardSection,
+  LinkType, MediaSettings, OwnerOption, SaveCardPayload, SlideshowSlide, StepItem, ThemeMode,
+} from "@/lib/business-cards/types";
+
+const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://os.channelcast.io").replace(/\/$/, "");
+
+type PanelKey =
+  | "sections" | "content" | "links" | "color" | "splash" | "qr"
+  | "forms" | "nfc" | "media" | "slideshow" | "steps" | "automate" | "settings" | "wizard";
+
+const PANELS: { key: PanelKey; label: string; icon: React.ElementType }[] = [
+  { key: "sections", label: "Sections", icon: Layers },
+  { key: "content", label: "Content", icon: User },
+  { key: "links", label: "Links", icon: LinkIcon },
+  { key: "color", label: "Color modes", icon: Palette },
+  { key: "splash", label: "Splash page", icon: PlayCircle },
+  { key: "qr", label: "QR code", icon: QrCode },
+  { key: "forms", label: "Forms", icon: ClipboardList },
+  { key: "nfc", label: "NFC", icon: Smartphone },
+  { key: "slideshow", label: "Slideshow", icon: GalleryHorizontal },
+  { key: "media", label: "Media", icon: ImageIcon },
+  { key: "steps", label: "Steps", icon: ListChecks },
+  { key: "automate", label: "Automations", icon: Zap },
+  { key: "settings", label: "Settings", icon: Settings },
+  { key: "wizard", label: "Setup wizard", icon: Wand2 },
+];
+
+const LINK_TYPES: LinkType[] = ["website", "social", "phone", "email", "sms", "map", "booking", "payment", "download", "video", "review", "custom"];
+
+const iCls = "h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-brand-strong";
+
+export function CardBuilder({
+  card, isAdmin, ownerOptions, currentOwner, onClose, onSaved,
+}: {
+  card: BusinessCard | null;
+  isAdmin: boolean;
+  ownerOptions: OwnerOption[];
+  currentOwner: { name: string | null; email: string | null } | null;
+  onClose: () => void;
+  onSaved: (card: BusinessCard) => void;
+}) {
+  const [draft, setDraft] = React.useState<BusinessCard>(() => card ?? makeNewCard(currentOwner ? { name: currentOwner.name ?? undefined, email: currentOwner.email ?? undefined } : undefined));
+  const [links, setLinks] = React.useState<BusinessCardLink[]>(() => (card?.links ?? []).slice().sort((a, b) => a.display_order - b.display_order));
+  const [sections, setSections] = React.useState<BusinessCardSection[]>(
+    () => (card?.sections?.length ? card.sections.slice().sort((a, b) => a.display_order - b.display_order) : makeDefaultSections()),
+  );
+  const [panel, setPanel] = React.useState<PanelKey>("content");
+  const [device, setDevice] = React.useState<"mobile" | "tablet" | "desktop">("mobile");
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
+
+  function set<K extends keyof BusinessCard>(key: K, value: BusinessCard[K]) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  const publicUrl = `${PUBLIC_BASE}/card/${draft.slug || "preview"}`;
+
+  async function persist(status?: BusinessCard["status"]) {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const payload: SaveCardPayload = { ...draft, ...(draft.id ? { id: draft.id } : {}), ...(status ? { status } : {}), links, sections };
+      if (!draft.id) delete (payload as { id?: string }).id;
+      const res = await fetch("/api/admin/business-cards", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Save failed.");
+      setDraft(json.card);
+      setLinks((json.card.links ?? []).slice().sort((a: BusinessCardLink, b: BusinessCardLink) => a.display_order - b.display_order));
+      setSections((json.card.sections ?? []).slice().sort((a: BusinessCardSection, b: BusinessCardSection) => a.display_order - b.display_order));
+      setNotice(status === "published" ? "Published!" : "Saved.");
+      onSaved(json.card);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const deviceWidth = device === "mobile" ? "max-w-[360px]" : device === "tablet" ? "max-w-[460px]" : "max-w-[560px]";
+
+  return (
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col">
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-1 pb-3">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Back</button>
+          <div className="flex items-center gap-2">
+            <IdCard className="h-4 w-4 text-brand-strong" />
+            <span className="text-lg font-semibold">{draft.id ? "Edit card" : "New card"}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {notice && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{notice}</span>}
+          {error && <span className="text-xs font-medium text-destructive">{error}</span>}
+          <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(publicUrl)}><Copy className="h-3.5 w-3.5" /> Copy URL</Button>
+          {draft.status === "published" && <a href={publicUrl} target="_blank" rel="noreferrer"><Button size="sm" variant="outline"><Eye className="h-3.5 w-3.5" /> Public page</Button></a>}
+          <Button size="sm" variant="outline" onClick={() => persist("published")} disabled={saving}>Publish &amp; save</Button>
+          <Button size="sm" onClick={() => persist()} disabled={saving}><Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Save card"}</Button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+        {/* Left rail */}
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border py-2 lg:w-[150px] lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          {PANELS.map(({ key, label, icon: Icon }) => (
+            <button key={key} onClick={() => setPanel(key)}
+              className={cn("flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-xs font-medium transition lg:w-full", panel === key ? "rounded-md bg-accent text-brand-strong" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+              <Icon className="h-4 w-4 shrink-0" /><span className="truncate">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Panel editor */}
+        <div className="shrink-0 overflow-y-auto border-b border-border p-4 lg:w-[380px] lg:border-b-0 lg:border-r">
+          <PanelBody panel={panel} draft={draft} set={set} setDraft={setDraft} links={links} setLinks={setLinks} sections={sections} setSections={setSections} isAdmin={isAdmin} ownerOptions={ownerOptions} publicUrl={publicUrl} />
+        </div>
+
+        {/* Live preview */}
+        <div className="flex flex-1 flex-col overflow-y-auto bg-muted/30 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-semibold">Live preview</div>
+            <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
+              {(["mobile", "tablet", "desktop"] as const).map((d) => (
+                <button key={d} onClick={() => setDevice(d)} className={cn("rounded-md px-3 py-1 font-medium capitalize", device === d ? "bg-accent text-brand-strong" : "text-muted-foreground")}>{d}</button>
+              ))}
+            </div>
+          </div>
+          <div className={cn("mx-auto w-full", deviceWidth)}>
+            <CardPreview card={draft} links={links} sections={sections} publicUrl={publicUrl} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Field helpers ──────────────────────────────────────────────────────────────
+
+function F({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="mb-3">
+      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+      {children}
+      {hint && <p className="mt-1 text-[10px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4">
+      <div className="mb-2 text-sm font-semibold">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <F label={label}>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-12 cursor-pointer rounded border border-border bg-background" />
+        <input value={value} onChange={(e) => onChange(e.target.value)} className={iCls} />
+      </div>
+    </F>
+  );
+}
+
+async function uploadFile(file: File): Promise<string | null> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("folder", "business-cards");
+  const res = await fetch("/api/admin/uploads", { method: "POST", body: form });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.url ?? null;
+}
+
+function ImageField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <F label={label}>
+      <div className="flex items-center gap-2">
+        {value
+          ? <img src={value} alt="" className="h-10 w-10 rounded object-cover" />
+          : <div className="grid h-10 w-10 place-items-center rounded bg-muted text-muted-foreground"><ImageIcon className="h-4 w-4" /></div>}
+        <label className="flex cursor-pointer items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted">
+          <Upload className="h-3.5 w-3.5" /> {busy ? "Uploading…" : "Upload"}
+          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+            const f = e.target.files?.[0]; if (!f) return;
+            setBusy(true); const url = await uploadFile(f); setBusy(false);
+            if (url) onChange(url);
+          }} />
+        </label>
+        {value && <button onClick={() => onChange(null)} className="text-xs text-destructive">Remove</button>}
+      </div>
+    </F>
+  );
+}
+
+// ── Panel body ─────────────────────────────────────────────────────────────────
+
+function PanelBody(props: {
+  panel: PanelKey;
+  draft: BusinessCard;
+  set: <K extends keyof BusinessCard>(k: K, v: BusinessCard[K]) => void;
+  setDraft: React.Dispatch<React.SetStateAction<BusinessCard>>;
+  links: BusinessCardLink[];
+  setLinks: React.Dispatch<React.SetStateAction<BusinessCardLink[]>>;
+  sections: BusinessCardSection[];
+  setSections: React.Dispatch<React.SetStateAction<BusinessCardSection[]>>;
+  isAdmin: boolean;
+  ownerOptions: OwnerOption[];
+  publicUrl: string;
+}) {
+  const { panel, draft, set, setDraft, links, setLinks, sections, setSections, isAdmin, ownerOptions, publicUrl } = props;
+
+  if (panel === "sections") {
+    function move(i: number, dir: -1 | 1) {
+      const j = i + dir;
+      if (j < 0 || j >= sections.length) return;
+      const next = sections.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      setSections(next.map((s, idx) => ({ ...s, display_order: idx + 1 })));
+    }
+    return (
+      <Section title="Sections & layers">
+        <p className="mb-3 text-xs text-muted-foreground">Toggle, reorder, and space the sections shown on your public card.</p>
+        {sections.map((s, i) => (
+          <div key={s.id} className="mb-2 rounded-lg border border-border bg-card p-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-sm font-medium">{s.label}</span>
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="text-muted-foreground disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+              <button onClick={() => move(i, 1)} disabled={i === sections.length - 1} className="text-muted-foreground disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
+              <button onClick={() => setSections(sections.map((x) => x.id === s.id ? { ...x, is_visible: !x.is_visible } : x))} className={cn(s.is_visible ? "text-brand-strong" : "text-muted-foreground")}>
+                {s.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">Bottom space</span>
+              <input type="range" min={0} max={48} value={s.margin_bottom} onChange={(e) => setSections(sections.map((x) => x.id === s.id ? { ...x, margin_bottom: Number(e.target.value) } : x))} className="flex-1" />
+              <span className="w-8 text-right text-[10px] text-muted-foreground">{s.margin_bottom}</span>
+            </div>
+          </div>
+        ))}
+      </Section>
+    );
+  }
+
+  if (panel === "content") {
+    return (
+      <>
+        <Section title="Profile">
+          <ImageField label="Profile photo" value={draft.profile_photo_url} onChange={(v) => set("profile_photo_url", v)} />
+          <ImageField label="Logo (optional)" value={draft.logo_url} onChange={(v) => set("logo_url", v)} />
+          <F label="Display name"><input className={iCls} value={draft.display_name ?? ""} onChange={(e) => set("display_name", e.target.value)} /></F>
+          <div className="grid grid-cols-2 gap-2">
+            <F label="First name"><input className={iCls} value={draft.first_name ?? ""} onChange={(e) => set("first_name", e.target.value)} /></F>
+            <F label="Last name"><input className={iCls} value={draft.last_name ?? ""} onChange={(e) => set("last_name", e.target.value)} /></F>
+          </div>
+          <F label="Job title"><input className={iCls} value={draft.job_title ?? ""} onChange={(e) => set("job_title", e.target.value)} /></F>
+          <F label="Company"><input className={iCls} value={draft.company_name ?? ""} onChange={(e) => set("company_name", e.target.value)} /></F>
+          <F label="Department"><input className={iCls} value={draft.department ?? ""} onChange={(e) => set("department", e.target.value)} /></F>
+          <F label="Bio"><textarea className={cn(iCls, "h-20 resize-none py-2")} value={draft.bio ?? ""} onChange={(e) => set("bio", e.target.value)} /></F>
+        </Section>
+        <Section title="Contact">
+          <F label="Phone"><input className={iCls} value={draft.primary_phone ?? ""} onChange={(e) => set("primary_phone", e.target.value)} placeholder="+1 480 555 0100" /></F>
+          <F label="SMS number"><input className={iCls} value={draft.sms_phone ?? ""} onChange={(e) => set("sms_phone", e.target.value)} /></F>
+          <F label="Email"><input className={iCls} value={draft.primary_email ?? ""} onChange={(e) => set("primary_email", e.target.value)} /></F>
+          <F label="Website"><input className={iCls} value={draft.website_url ?? ""} onChange={(e) => set("website_url", e.target.value)} /></F>
+          <F label="Map / address URL"><input className={iCls} value={draft.maps_url ?? ""} onChange={(e) => set("maps_url", e.target.value)} /></F>
+          <F label="Intro video URL"><input className={iCls} value={draft.intro_video_url ?? ""} onChange={(e) => set("intro_video_url", e.target.value)} placeholder="YouTube / Vimeo link" /></F>
+        </Section>
+      </>
+    );
+  }
+
+  if (panel === "links") {
+    function add() {
+      setLinks([...links, { id: uid(), label: "New link", url: "", link_type: "custom", icon: null, display_order: links.length + 1, is_visible: true, open_in_new_tab: true, click_count: 0 }]);
+    }
+    function update(id: string, patch: Partial<BusinessCardLink>) {
+      setLinks(links.map((l) => l.id === id ? { ...l, ...patch } : l));
+    }
+    return (
+      <Section title="Links & socials">
+        <p className="mb-3 text-xs text-muted-foreground">Buttons shown in the Links section of your card.</p>
+        {links.map((l) => (
+          <div key={l.id} className="mb-2 rounded-lg border border-border bg-card p-2.5">
+            <div className="mb-2 flex items-center gap-2">
+              <input className={cn(iCls, "h-8")} value={l.label} onChange={(e) => update(l.id, { label: e.target.value })} placeholder="Label" />
+              <button onClick={() => update(l.id, { is_visible: !l.is_visible })} className={cn(l.is_visible ? "text-brand-strong" : "text-muted-foreground")}>{l.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button>
+              <button onClick={() => setLinks(links.filter((x) => x.id !== l.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+            </div>
+            <input className={cn(iCls, "mb-2 h-8")} value={l.url} onChange={(e) => update(l.id, { url: e.target.value })} placeholder="https://…" />
+            <select className={cn(iCls, "h-8")} value={l.link_type} onChange={(e) => update(l.id, { link_type: e.target.value as LinkType })}>
+              {LINK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        ))}
+        <Button size="sm" variant="outline" onClick={add}><Plus className="h-3.5 w-3.5" /> Add link</Button>
+      </Section>
+    );
+  }
+
+  if (panel === "color") {
+    return (
+      <Section title="Colors & theme">
+        <F label="Theme mode">
+          <select className={iCls} value={draft.theme_mode} onChange={(e) => set("theme_mode", e.target.value as ThemeMode)}>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="both">Both (visitor toggle)</option>
+          </select>
+        </F>
+        <div className="mb-3">
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">Presets</div>
+          <div className="flex flex-wrap gap-2">
+            {COLOR_PRESETS.map((p) => (
+              <button key={p.name} onClick={() => setDraft((d) => ({ ...d, background_color: p.bg, accent_color: p.accent, text_color: p.text }))} className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 text-[11px] hover:bg-muted">
+                <span className="h-3 w-3 rounded-full" style={{ background: p.bg, border: `1px solid ${p.accent}` }} />{p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <ColorField label="Background" value={draft.background_color} onChange={(v) => set("background_color", v)} />
+        <ColorField label="Accent" value={draft.accent_color} onChange={(v) => set("accent_color", v)} />
+        <ColorField label="Text" value={draft.text_color} onChange={(v) => set("text_color", v)} />
+      </Section>
+    );
+  }
+
+  if (panel === "splash") return <SplashPanel sections={sections} setSections={setSections} />;
+
+  if (panel === "qr") {
+    const qr = draft.qr_settings || {};
+    const fg = qr.foreground || draft.background_color;
+    return (
+      <Section title="QR code">
+        <div className="mb-3 flex justify-center rounded-lg border border-border bg-white p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=320&fg=${encodeURIComponent(fg)}`} alt="QR" className="h-40 w-40" />
+        </div>
+        <ColorField label="QR foreground" value={fg} onChange={(v) => set("qr_settings", { ...qr, foreground: v })} />
+        <a href={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=1024&fg=${encodeURIComponent(fg)}`} download={`${draft.slug || "card"}-qr.png`}>
+          <Button size="sm" variant="outline" className="w-full"><QrCode className="h-3.5 w-3.5" /> Download PNG</Button>
+        </a>
+        <p className="mt-2 text-[10px] text-muted-foreground">QR encodes the public card URL. Save the card first to lock in the final slug.</p>
+      </Section>
+    );
+  }
+
+  if (panel === "forms") {
+    const lf = draft.lead_form_settings;
+    function setLF(patch: Partial<typeof lf>) { set("lead_form_settings", { ...lf, ...patch }); }
+    return (
+      <Section title="Lead capture form">
+        <F label="Enable “Send me your info”">
+          <button onClick={() => setLF({ enabled: !lf.enabled })} className={cn("flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm", lf.enabled ? "text-brand-strong" : "text-muted-foreground")}>
+            {lf.enabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}{lf.enabled ? "Enabled" : "Disabled"}
+          </button>
+        </F>
+        <F label="Title"><input className={iCls} value={lf.title} onChange={(e) => setLF({ title: e.target.value })} /></F>
+        <F label="Description"><input className={iCls} value={lf.description} onChange={(e) => setLF({ description: e.target.value })} /></F>
+        <F label="Button label"><input className={iCls} value={lf.button_label} onChange={(e) => setLF({ button_label: e.target.value })} /></F>
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">Fields</div>
+        {lf.fields.map((field, i) => (
+          <div key={field.key} className="mb-1.5 flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm">
+            <span className="flex-1 capitalize">{field.label}</span>
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground"><input type="checkbox" checked={field.enabled} onChange={(e) => setLF({ fields: lf.fields.map((f, j) => j === i ? { ...f, enabled: e.target.checked } : f) })} /> on</label>
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground"><input type="checkbox" checked={field.required} onChange={(e) => setLF({ fields: lf.fields.map((f, j) => j === i ? { ...f, required: e.target.checked } : f) })} /> req</label>
+          </div>
+        ))}
+      </Section>
+    );
+  }
+
+  if (panel === "nfc") return <NfcPanel draft={draft} set={set} sections={sections} setSections={setSections} nfcUrl={`${publicUrl}?source=nfc`} />;
+  if (panel === "slideshow") return <SlideshowPanel sections={sections} setSections={setSections} />;
+  if (panel === "automate") return <AutomationsPanel draft={draft} set={set} />;
+  if (panel === "media") return <MediaPanel draft={draft} set={set} setDraft={setDraft} />;
+  if (panel === "steps") return <StepsPanel sections={sections} setSections={setSections} />;
+
+  if (panel === "settings") {
+    return (
+      <Section title="Card settings">
+        <F label="Card name (internal)"><input className={iCls} value={draft.card_name} onChange={(e) => set("card_name", e.target.value)} /></F>
+        <F label="Public slug" hint="Used in the public URL. Leave blank to auto-generate from the name.">
+          <div className="flex items-center gap-1 text-sm">
+            <span className="text-muted-foreground">/card/</span>
+            <input className={iCls} value={draft.slug} onChange={(e) => set("slug", e.target.value)} placeholder="auto" />
+          </div>
+        </F>
+        <F label="Status">
+          <select className={iCls} value={draft.status} onChange={(e) => set("status", e.target.value as BusinessCard["status"])}>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="unpublished">Unpublished</option>
+          </select>
+        </F>
+        {isAdmin && (
+          <F label="Assign to team member" hint="Admins can assign this card to any team member.">
+            <select className={iCls} value={draft.owner_id ?? ""} onChange={(e) => {
+              const opt = ownerOptions.find((o) => o.id === e.target.value);
+              setDraft((d) => ({ ...d, owner_id: e.target.value || null, owner_name: opt?.name ?? null, owner_email: opt?.email ?? null }));
+            }}>
+              <option value="">Me (unassigned)</option>
+              {ownerOptions.map((o) => <option key={o.id} value={o.id}>{o.name}{o.email ? ` (${o.email})` : ""}</option>)}
+            </select>
+          </F>
+        )}
+      </Section>
+    );
+  }
+
+  if (panel === "wizard") {
+    const steps = [
+      { done: Boolean(draft.display_name), label: "Add your name & title" },
+      { done: Boolean(draft.profile_photo_url), label: "Upload a profile photo" },
+      { done: Boolean(draft.primary_phone || draft.primary_email), label: "Add contact details" },
+      { done: links.length > 0 || Boolean(draft.website_url), label: "Add at least one link" },
+      { done: draft.lead_form_settings.enabled, label: "Enable lead capture" },
+      { done: draft.status === "published", label: "Publish your card" },
+    ];
+    return (
+      <Section title="Setup wizard">
+        <p className="mb-3 text-xs text-muted-foreground">Finish these to get a polished, shareable card.</p>
+        {steps.map((s, i) => (
+          <div key={i} className="mb-2 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm">
+            <span className={cn("grid h-4 w-4 place-items-center rounded-full text-[10px]", s.done ? "bg-emerald-500 text-white" : "border border-border text-muted-foreground")}>{s.done ? "✓" : i + 1}</span>
+            <span className={cn(s.done && "text-muted-foreground line-through")}>{s.label}</span>
+          </div>
+        ))}
+      </Section>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <Sparkles className="mb-3 h-8 w-8 text-muted-foreground" />
+      <div className="text-sm font-semibold capitalize">{panel}</div>
+      <p className="mt-1 max-w-[240px] text-xs text-muted-foreground">This panel is coming in a later phase.</p>
+    </div>
+  );
+}
+
+// ── NFC panel ──────────────────────────────────────────────────────────────────
+
+function NfcPanel({
+  draft, set, sections, setSections, nfcUrl,
+}: {
+  draft: BusinessCard;
+  set: <K extends keyof BusinessCard>(k: K, v: BusinessCard[K]) => void;
+  sections: BusinessCardSection[];
+  setSections: React.Dispatch<React.SetStateAction<BusinessCardSection[]>>;
+  nfcUrl: string;
+}) {
+  const [writeState, setWriteState] = React.useState<"idle" | "writing" | "done" | "error" | "unsupported">("idle");
+  const [writeMsg, setWriteMsg] = React.useState("");
+  const nfcSection = sections.find((s) => s.section_type === "nfc");
+
+  async function writeTag() {
+    if (typeof window === "undefined" || !("NDEFReader" in window)) {
+      setWriteState("unsupported");
+      setWriteMsg("Web NFC works on Chrome for Android. Open this builder on an Android phone to write tags from the browser.");
+      return;
+    }
+    try {
+      setWriteState("writing");
+      setWriteMsg("Hold an NFC tag to the back of your phone…");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ndef = new (window as any).NDEFReader();
+      await ndef.write({ records: [{ recordType: "url", data: nfcUrl }] });
+      setWriteState("done");
+      setWriteMsg("Tag written! Tapping it now opens this card.");
+    } catch (err) {
+      setWriteState("error");
+      setWriteMsg(err instanceof Error ? err.message : "Could not write the tag.");
+    }
+  }
+
+  return (
+    <Section title="NFC tap-to-share">
+      <F label="NFC status">
+        <select className={iCls} value={draft.nfc_status} onChange={(e) => set("nfc_status", e.target.value)}>
+          <option value="not_ordered">Not ordered</option>
+          <option value="ordered">Ordered</option>
+          <option value="assigned">Assigned to a tag</option>
+          <option value="active">Active</option>
+        </select>
+      </F>
+      <F label="Tag destination URL" hint="Program your NFC tag/card to open this URL. Taps are tracked as NFC scans.">
+        <div className="flex items-center gap-2">
+          <input readOnly value={nfcUrl} className={cn(iCls, "font-mono text-xs")} />
+          <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(nfcUrl)}><Copy className="h-3.5 w-3.5" /></Button>
+        </div>
+      </F>
+      <Button size="sm" className="w-full" onClick={writeTag} disabled={writeState === "writing"}>
+        <Smartphone className="h-3.5 w-3.5" /> {writeState === "writing" ? "Waiting for tag…" : "Write to NFC tag"}
+      </Button>
+      {writeMsg && <p className={cn("mt-2 text-xs", writeState === "error" ? "text-destructive" : writeState === "done" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>{writeMsg}</p>}
+      <div className="mt-4">
+        <button onClick={() => setSections(sections.map((s) => s.section_type === "nfc" ? { ...s, is_visible: !s.is_visible } : s))} className={cn("flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm", nfcSection?.is_visible ? "text-brand-strong" : "text-muted-foreground")}>
+          {nfcSection?.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          {nfcSection?.is_visible ? "Showing NFC note on card" : "Show NFC note on card"}
+        </button>
+      </div>
+    </Section>
+  );
+}
+
+// ── Slideshow panel ─────────────────────────────────────────────────────────────
+
+function SlideEditor({ slides, onChange }: { slides: SlideshowSlide[]; onChange: (next: SlideshowSlide[]) => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [urlText, setUrlText] = React.useState("");
+
+  async function addFiles(files: FileList) {
+    setBusy(true);
+    const added: SlideshowSlide[] = [];
+    for (const f of Array.from(files)) {
+      const url = await uploadFile(f);
+      if (url) added.push({ id: uid(), image_url: url, caption: "" });
+    }
+    setBusy(false);
+    if (added.length) onChange([...slides, ...added]);
+  }
+  function addUrls() {
+    const urls = urlText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+    if (!urls.length) return;
+    onChange([...slides, ...urls.map((u) => ({ id: uid(), image_url: u, caption: "" }))]);
+    setUrlText("");
+  }
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= slides.length) return;
+    const next = slides.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <label className="flex cursor-pointer items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted">
+          <Upload className="h-3.5 w-3.5" /> {busy ? "Uploading…" : "Upload images"}
+          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ""; }} />
+        </label>
+        <span className="text-[11px] text-muted-foreground">{slides.length} image{slides.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="mb-3 flex gap-2">
+        <input className={cn(iCls, "h-8")} placeholder="Paste image URL(s) — comma/space separated" value={urlText}
+          onChange={(e) => setUrlText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUrls(); } }} />
+        <Button size="sm" variant="outline" onClick={addUrls} disabled={!urlText.trim()}><Plus className="h-3.5 w-3.5" /> Add</Button>
+      </div>
+      {slides.length === 0 && <p className="text-xs text-muted-foreground">No images yet — upload files or paste URLs.</p>}
+      {slides.map((sl, i) => (
+        <div key={sl.id} className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-card p-2">
+          <img src={sl.image_url} alt="" className="h-12 w-12 rounded object-cover" />
+          <input className={cn(iCls, "h-8")} placeholder="Caption (optional)" value={sl.caption || ""} onChange={(e) => onChange(slides.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} />
+          <div className="flex flex-col">
+            <button onClick={() => move(i, -1)} disabled={i === 0} className="text-muted-foreground disabled:opacity-30"><ChevronUp className="h-3.5 w-3.5" /></button>
+            <button onClick={() => move(i, 1)} disabled={i === slides.length - 1} className="text-muted-foreground disabled:opacity-30"><ChevronDown className="h-3.5 w-3.5" /></button>
+          </div>
+          <button onClick={() => onChange(slides.filter((_, j) => j !== i))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SlideshowPanel({ sections, setSections }: { sections: BusinessCardSection[]; setSections: React.Dispatch<React.SetStateAction<BusinessCardSection[]>> }) {
+  const section = sections.find((s) => s.section_type === "slideshow");
+  const slides = (Array.isArray(section?.content?.slides) ? section!.content.slides : []) as SlideshowSlide[];
+
+  function setSlides(next: SlideshowSlide[]) {
+    setSections((prev) => {
+      if (!prev.some((s) => s.section_type === "slideshow")) {
+        return [...prev, { id: uid(), section_type: "slideshow", label: "Slideshow", content: { slides: next }, display_order: prev.length + 1, is_visible: true, margin_top: 0, margin_bottom: 16, padding_top: 0, padding_bottom: 0 }];
+      }
+      return prev.map((s) => s.section_type === "slideshow" ? { ...s, content: { ...s.content, slides: next } } : s);
+    });
+  }
+
+  return (
+    <Section title="Slideshow">
+      <p className="mb-3 text-xs text-muted-foreground">A swipeable image gallery on your card — upload files or paste image URLs.</p>
+      {section && (
+        <div className="mb-3">
+          <button onClick={() => setSections(sections.map((s) => s.section_type === "slideshow" ? { ...s, is_visible: !s.is_visible } : s))} className={cn("flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm", section.is_visible ? "text-brand-strong" : "text-muted-foreground")}>
+            {section.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}{section.is_visible ? "Visible on card" : "Hidden"}
+          </button>
+        </div>
+      )}
+      <SlideEditor slides={slides} onChange={setSlides} />
+    </Section>
+  );
+}
+
+function SplashPanel({ sections, setSections }: { sections: BusinessCardSection[]; setSections: React.Dispatch<React.SetStateAction<BusinessCardSection[]>> }) {
+  const opener = sections.find((s) => s.section_type === "opener");
+  const content = (opener?.content || {}) as Record<string, unknown>;
+  const mode = (content.mode as string) || "standard";
+  const str = (k: string) => (content[k] as string) ?? "";
+  const slides = (Array.isArray(content.slides) ? content.slides : []) as SlideshowSlide[];
+  const enabled = opener?.is_visible ?? false;
+
+  function withOpener(list: BusinessCardSection[]): BusinessCardSection[] {
+    if (list.some((s) => s.section_type === "opener")) return list;
+    return [{ id: uid(), section_type: "opener", label: "Opener / splash", content: { mode: "standard" }, display_order: 1, is_visible: true, margin_top: 0, margin_bottom: 16, padding_top: 0, padding_bottom: 0 }, ...list];
+  }
+  function setContent(patch: Record<string, unknown>) {
+    setSections((prev) => withOpener(prev).map((s) => s.section_type === "opener" ? { ...s, content: { ...(s.content as Record<string, unknown>), ...patch } } : s));
+  }
+  function toggle() {
+    setSections((prev) => withOpener(prev).map((s) => s.section_type === "opener" ? { ...s, is_visible: !s.is_visible } : s));
+  }
+
+  const tabs: [string, string, React.ElementType][] = [["standard", "Standard", User], ["video", "Video", PlayCircle], ["slideshow", "Slideshow", GalleryHorizontal]];
+
+  return (
+    <Section title="Splash / opener page">
+      <F label="Show splash before card">
+        <button onClick={toggle} className={cn("flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm", enabled ? "text-brand-strong" : "text-muted-foreground")}>
+          {enabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}{enabled ? "Enabled" : "Disabled"}
+        </button>
+      </F>
+      <div className="grid grid-cols-2 gap-2">
+        <F label="Auto-dismiss after (sec)" hint="0 = stay until tapped">
+          <input type="number" min={0} className={iCls} value={(content.duration_seconds as number) ?? 0} onChange={(e) => setContent({ duration_seconds: Number(e.target.value) })} />
+        </F>
+        <F label="Transition">
+          <select className={iCls} value={(content.transition as string) || "fade"} onChange={(e) => setContent({ transition: e.target.value })}>
+            <option value="none">None</option><option value="fade">Fade</option><option value="slide-up">Slide up</option><option value="slide-down">Slide down</option><option value="zoom">Zoom</option>
+          </select>
+        </F>
+      </div>
+      <div className="mb-3 mt-1 flex gap-1 rounded-lg border border-border bg-muted/40 p-1">
+        {tabs.map(([key, label, Icon]) => (
+          <button key={key} onClick={() => setContent({ mode: key })} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition", mode === key ? "bg-card text-brand-strong shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+            <Icon className="h-3.5 w-3.5" />{label}
+          </button>
+        ))}
+      </div>
+      {mode === "standard" && (
+        <>
+          <ImageField label="Logo / photo" value={str("logo_url") || null} onChange={(v) => setContent({ logo_url: v || "" })} />
+          <F label="…or paste a logo/photo URL"><input className={iCls} value={str("logo_url")} onChange={(e) => setContent({ logo_url: e.target.value })} placeholder="https://…" /></F>
+          <F label="Eyebrow"><input className={iCls} value={str("eyebrow")} onChange={(e) => setContent({ eyebrow: e.target.value })} placeholder="Digital Card" /></F>
+          <F label="Title"><input className={iCls} value={str("title")} onChange={(e) => setContent({ title: e.target.value })} placeholder="Welcome" /></F>
+          <F label="Subtitle"><input className={iCls} value={str("subtitle")} onChange={(e) => setContent({ subtitle: e.target.value })} placeholder="Tap to view my digital business card." /></F>
+          <F label="Primary button"><input className={iCls} value={str("primary_label")} onChange={(e) => setContent({ primary_label: e.target.value })} placeholder="View card" /></F>
+          <F label="Secondary button"><input className={iCls} value={str("secondary_label")} onChange={(e) => setContent({ secondary_label: e.target.value })} placeholder="Call me" /></F>
+        </>
+      )}
+      {mode === "video" && <VideoSplashFields content={content} setContent={setContent} />}
+      {mode === "slideshow" && (
+        <>
+          <p className="mb-2 text-xs text-muted-foreground">Full-screen image slideshow as the opener.</p>
+          <SlideEditor slides={slides} onChange={(n) => setContent({ slides: n })} />
+        </>
+      )}
+    </Section>
+  );
+}
+
+function VideoSplashFields({ content, setContent }: { content: Record<string, unknown>; setContent: (patch: Record<string, unknown>) => void }) {
+  const url = (content.video_url as string) || "";
+  const start = (content.video_start as number) ?? 0;
+  const end = (content.video_end as number) ?? 0;
+  const muted = (content.video_muted as boolean) ?? true;
+  const isFile = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+  const ref = React.useRef<HTMLVideoElement>(null);
+
+  return (
+    <>
+      <F label="Video URL" hint="YouTube, Vimeo, or a direct .mp4/.webm link">
+        <input className={iCls} value={url} onChange={(e) => setContent({ video_url: e.target.value })} placeholder="https://…" />
+      </F>
+      {isFile && url && (
+        <div className="mb-3">
+          <video ref={ref} src={url} controls className="w-full rounded-lg border border-border" />
+          <div className="mt-1.5 flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setContent({ video_start: Math.floor(ref.current?.currentTime || 0) })}>Set start to ⏱</Button>
+            <Button size="sm" variant="outline" onClick={() => setContent({ video_end: Math.floor(ref.current?.currentTime || 0) })}>Set end to ⏱</Button>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <F label="Start (seconds)"><input type="number" min={0} className={iCls} value={start} onChange={(e) => setContent({ video_start: Number(e.target.value) })} /></F>
+        <F label="End (seconds)" hint="0 = play to end"><input type="number" min={0} className={iCls} value={end} onChange={(e) => setContent({ video_end: Number(e.target.value) })} /></F>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={!muted} onChange={(e) => setContent({ video_muted: !e.target.checked })} /> Play with audio
+      </label>
+      <p className="mt-1 text-[10px] text-muted-foreground">Browsers require muted autoplay; with audio on, the visitor may need to tap to start sound.</p>
+    </>
+  );
+}
+
+// ── Automations panel ───────────────────────────────────────────────────────────
+
+const AUTOMATION_ACTIONS: { action: AutomationAction; label: string; desc: string; hasMessage?: boolean }[] = [
+  { action: "notify_owner_email", label: "Email me on new lead", desc: "Send the card owner an email when someone submits the lead form." },
+  { action: "notify_owner_sms", label: "Text me on new lead", desc: "Send an SMS to the card owner's phone when a new lead comes in." },
+  { action: "autoreply_email", label: "Auto-reply to the lead", desc: "Send an automatic thank-you email to the lead (when they leave an email).", hasMessage: true },
+];
+
+function AutomationsPanel({ draft, set }: { draft: BusinessCard; set: <K extends keyof BusinessCard>(k: K, v: BusinessCard[K]) => void }) {
+  const list = draft.automations ?? [];
+  function ruleFor(action: AutomationAction): Automation | undefined { return list.find((a) => a.action === action); }
+  function setRule(action: AutomationAction, patch: Partial<Automation>) {
+    const existing = ruleFor(action);
+    const next: Automation[] = existing ? list.map((a) => a.action === action ? { ...a, ...patch } : a) : [...list, { id: uid(), trigger: "lead_submit", action, enabled: false, ...patch }];
+    set("automations", next);
+  }
+
+  return (
+    <Section title="Automations">
+      <p className="mb-3 text-xs text-muted-foreground">Run actions automatically when someone submits your lead form.</p>
+      {AUTOMATION_ACTIONS.map((a) => {
+        const rule = ruleFor(a.action);
+        const on = rule?.enabled ?? false;
+        return (
+          <div key={a.action} className="mb-2 rounded-lg border border-border bg-card p-3">
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <div className="text-sm font-medium">{a.label}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">{a.desc}</div>
+              </div>
+              <button onClick={() => setRule(a.action, { enabled: !on })} className={cn("relative h-5 w-9 shrink-0 rounded-full transition", on ? "bg-brand" : "bg-muted")}>
+                <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all", on ? "left-[18px]" : "left-0.5")} />
+              </button>
+            </div>
+            {a.hasMessage && on && (
+              <textarea className={cn(iCls, "mt-2 h-16 resize-none py-2")} placeholder="Thanks for reaching out! I'll be in touch shortly." value={rule?.message || ""} onChange={(e) => setRule(a.action, { message: e.target.value })} />
+            )}
+          </div>
+        );
+      })}
+      <p className="mt-2 text-[10px] text-muted-foreground">Email uses Resend; SMS uses Twilio (when configured). The owner&apos;s email/phone come from the card&apos;s contact details.</p>
+    </Section>
+  );
+}
+
+// ── Media panel ─────────────────────────────────────────────────────────────────
+
+function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K extends keyof BusinessCard>(k: K, v: BusinessCard[K]) => void; setDraft: React.Dispatch<React.SetStateAction<BusinessCard>> }) {
+  const media = (draft.media_settings || {}) as MediaSettings;
+  function setMedia(patch: Partial<MediaSettings>) {
+    setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), ...patch } }));
+  }
+  return (
+    <>
+      <Section title="Background">
+        <ImageField label="Background image" value={draft.background_image_url} onChange={(v) => set("background_image_url", v)} />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={Boolean(media.use_background_image)} onChange={(e) => setMedia({ use_background_image: e.target.checked })} />
+          Use background image (with a dark overlay)
+        </label>
+      </Section>
+      <Section title="Profile image">
+        <F label="Shape">
+          <select className={iCls} value={media.profile_shape || "circle"} onChange={(e) => setMedia({ profile_shape: e.target.value as MediaSettings["profile_shape"] })}>
+            <option value="circle">Circle</option><option value="rounded">Rounded</option><option value="square">Square</option>
+          </select>
+        </F>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={Boolean(media.profile_outline)} onChange={(e) => setMedia({ profile_outline: e.target.checked })} />
+          Accent outline around photo
+        </label>
+      </Section>
+      <Section title="Layout">
+        <F label="Content alignment">
+          <select className={iCls} value={media.content_align || "center"} onChange={(e) => setMedia({ content_align: e.target.value as MediaSettings["content_align"] })}>
+            <option value="center">Centered</option><option value="left">Left aligned</option>
+          </select>
+        </F>
+      </Section>
+    </>
+  );
+}
+
+// ── Steps panel ─────────────────────────────────────────────────────────────────
+
+function StepsPanel({ sections, setSections }: { sections: BusinessCardSection[]; setSections: React.Dispatch<React.SetStateAction<BusinessCardSection[]>> }) {
+  const section = sections.find((s) => s.section_type === "steps");
+  const steps = (Array.isArray(section?.content?.steps) ? section!.content.steps : []) as StepItem[];
+
+  function ensureSection() {
+    if (section) return;
+    setSections([...sections, { id: uid(), section_type: "steps", label: "Steps / how it works", content: { steps: [] }, display_order: sections.length + 1, is_visible: true, margin_top: 0, margin_bottom: 16, padding_top: 0, padding_bottom: 0 }]);
+  }
+  function setSteps(next: StepItem[]) {
+    setSections((prev) => prev.map((s) => s.section_type === "steps" ? { ...s, content: { ...s.content, steps: next } } : s));
+  }
+  function addStep() {
+    ensureSection();
+    const current = (Array.isArray(section?.content?.steps) ? section!.content.steps : []) as StepItem[];
+    setSteps([...current, { id: uid(), title: "New step", description: "" }]);
+  }
+
+  if (!section) {
+    return (
+      <Section title="Steps / how it works">
+        <p className="mb-3 text-xs text-muted-foreground">Add an ordered list — e.g. your process, “how to work with me”, or next steps.</p>
+        <Button size="sm" variant="outline" onClick={addStep}><Plus className="h-3.5 w-3.5" /> Add first step</Button>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="Steps / how it works">
+      <div className="mb-3 flex items-center justify-between">
+        <button onClick={() => setSections(sections.map((s) => s.section_type === "steps" ? { ...s, is_visible: !s.is_visible } : s))} className={cn("flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm", section.is_visible ? "text-brand-strong" : "text-muted-foreground")}>
+          {section.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}{section.is_visible ? "Visible" : "Hidden"}
+        </button>
+        <Button size="sm" variant="outline" onClick={addStep}><Plus className="h-3.5 w-3.5" /> Add step</Button>
+      </div>
+      {steps.map((st, i) => (
+        <div key={st.id} className="mb-2 rounded-lg border border-border bg-card p-2.5">
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-[11px] font-bold text-brand-strong">{i + 1}</span>
+            <input className={cn(iCls, "h-8")} placeholder="Step title" value={st.title} onChange={(e) => setSteps(steps.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} />
+            <button onClick={() => setSteps(steps.filter((_, j) => j !== i))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+          </div>
+          <textarea className={cn(iCls, "h-14 resize-none py-2")} placeholder="Description (optional)" value={st.description || ""} onChange={(e) => setSteps(steps.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} />
+        </div>
+      ))}
+    </Section>
+  );
+}

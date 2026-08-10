@@ -6,6 +6,7 @@ import {
   CircleUserRound,
   ClipboardList,
   Cpu,
+  IdCard,
   CreditCard,
   FileBarChart,
   FileText,
@@ -76,6 +77,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     label: "Operations",
     items: [
       { label: "Clients", icon: Building2, href: "/app/admin/clients" },
+      { label: "Business Cards", icon: IdCard, href: "/app/admin/business-cards" },
       { label: "Advertisers", icon: Radio, href: "/app/admin/advertisers" },
       { label: "Quote Requests", icon: ClipboardList, href: "/app/admin/quote-requests" },
       { label: "Billing", icon: CreditCard, href: "/app/admin/billing" },
