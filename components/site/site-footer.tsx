@@ -13,6 +13,15 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
     ],
   },
   {
+    title: "Media",
+    links: [
+      { href: "/audio", label: "Motion-activated audio" },
+      { href: "/digital-displays", label: "Digital displays" },
+      { href: "/wall-space", label: "Wall space" },
+      { href: "/street-furniture", label: "Street furniture" },
+    ],
+  },
+  {
     title: "Solutions",
     links: [
       { href: "/advertisers", label: "For advertisers" },
@@ -34,7 +43,7 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card/40">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
         <div>
           <Link href="/" className="flex items-center gap-2.5">
             <AppIcon className="h-9 w-9 rounded-lg" />

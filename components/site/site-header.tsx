@@ -14,15 +14,16 @@ const DISCOVER: { href: string; label: string; note: string }[][] = [
   [
     { href: "/how-it-works", label: "How it works", note: "From presence to play, measured" },
     { href: "/audio", label: "Motion-activated audio", note: "Audio that plays on presence" },
-    { href: "/advertisers", label: "Advertisers", note: "Reach a present audience" },
-    { href: "/resources", label: "Resources", note: "Guides & blog archive" },
-    { href: "/register", label: "Get started", note: "Create your account" },
+    { href: "/digital-displays", label: "Digital displays", note: "Every screen you own is ad space" },
+    { href: "/wall-space", label: "Wall space", note: "Building sides & fence runs" },
+    { href: "/street-furniture", label: "Street furniture", note: "Shelters, kiosks & benches" },
   ],
   [
+    { href: "/advertisers", label: "Advertisers", note: "Reach a present audience" },
     { href: "/businesses", label: "Businesses", note: "Monetize your space" },
     { href: "/placement", label: "Placement Sites", note: "Free or paid — see if you qualify" },
     { href: "/partners", label: "Partners", note: "Build on the network" },
-    { href: "/faq", label: "FAQ", note: "Answers to common questions" },
+    { href: "/register", label: "Get started", note: "Create your account" },
   ],
 ];
 

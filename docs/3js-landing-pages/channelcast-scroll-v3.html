@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Channel Cast — scroll scenes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* dark is the default; .light mirrors the :root tokens in the repo's globals.css */
+  :root{
+    --bg:#050904;
+    --scrim-a:rgba(5,9,4,.93); --scrim-b:rgba(5,9,4,.78);
+    --border:#2A3826;
+    --brand:#C6FF00;        /* fills */
+    --ink:#C6FF00;          /* brand used as text */
+    --fg:#F6FAF0;
+    --muted:#B9C4AE;
+    --chip:rgba(16,24,14,.85);
+    --fine:#8A947F;
+    --btn-fg:#0B1206;
+    --veil:radial-gradient(70% 55% at 50% 0%, rgba(198,255,0,.07), transparent 70%),
+           radial-gradient(110% 90% at 50% 105%, rgba(0,0,0,.9), transparent 55%);
+    --radius:.7rem;
+  }
+  body.light{
+    --bg:#F7F9F2;
+    --scrim-a:rgba(255,255,255,.94); --scrim-b:rgba(247,249,242,.82);
+    --border:#DCE3D2;
+    --brand:#C6FF00;
+    --ink:#456F1C;          /* readable brand ink on light */
+    --fg:#141C13;
+    --muted:#5D6857;
+    --chip:rgba(255,255,255,.9);
+    --fine:#79836F;
+    --btn-fg:#101806;
+    --veil:radial-gradient(70% 55% at 50% 0%, rgba(198,255,0,.16), transparent 70%),
+           radial-gradient(110% 90% at 50% 105%, rgba(200,214,186,.5), transparent 55%);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;transition:background .35s,color .35s}
+  canvas#gl{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;display:block;pointer-events:none}
+  .veil{position:fixed;inset:0;z-index:1;pointer-events:none;background:var(--veil)}
+  .bar{position:fixed;top:0;left:0;height:2px;background:var(--ink);z-index:60;width:0}
+
+  header{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;
+    justify-content:space-between;gap:10px;padding:14px clamp(14px,4vw,40px)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:12.5px;
+    letter-spacing:.15em;text-transform:uppercase}
+  .mark{width:28px;height:28px;border-radius:9px;background:var(--brand);color:#0B1206;
+    display:grid;place-items:center;font-size:14px}
+  .hright{display:flex;align-items:center;gap:12px}
+  .scene-name{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink)}
+  .theme{width:38px;height:38px;border-radius:999px;border:1px solid var(--border);
+    background:var(--chip);color:var(--fg);font-size:15px;cursor:pointer;display:grid;place-items:center}
+  .theme:focus-visible,.switch button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  .switch{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:55;
+    display:flex;gap:4px;padding:5px;border:1px solid var(--border);border-radius:999px;
+    background:var(--scrim-a);backdrop-filter:blur(14px);max-width:calc(100vw - 24px);
+    overflow-x:auto;scrollbar-width:none;box-shadow:0 18px 40px -16px rgba(0,0,0,.55)}
+  .switch::-webkit-scrollbar{display:none}
+  .switch button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;
+    font-weight:500;padding:9px 15px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .switch button.on{background:var(--brand);color:var(--btn-fg);font-weight:600}
+
+  main{position:relative;z-index:10}
+  section{min-height:100svh;display:flex;align-items:center;padding:110px clamp(16px,5vw,80px) 130px}
+  .col{max-width:560px;padding:30px clamp(18px,3vw,34px);border-radius:20px;
+    background:linear-gradient(135deg,var(--scrim-a),var(--scrim-b));
+    border:1px solid var(--border);backdrop-filter:blur(10px);
+    box-shadow:0 30px 70px -32px rgba(0,0,0,.6)}
+  .col.right{margin-left:auto}
+  .col.center{margin:0 auto;text-align:center;max-width:640px}
+  .eyebrow{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--ink);margin-bottom:16px;display:block}
+  h1{font-size:clamp(36px,5.6vw,62px);font-weight:800;letter-spacing:-.035em;line-height:1.02;margin-bottom:18px}
+  h2{font-size:clamp(29px,4.2vw,46px);font-weight:700;letter-spacing:-.03em;line-height:1.07;margin-bottom:16px}
+  em{font-style:normal;color:var(--ink)}
+  p.lede{font-size:clamp(15.5px,1.25vw,18px);line-height:1.65;color:var(--muted);max-width:48ch}
+  .center p.lede{margin:0 auto}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .center .actions{justify-content:center}
+  .btn{font-size:14px;font-weight:500;border-radius:var(--radius);padding:11px 18px;
+    border:1px solid var(--border);background:var(--chip);color:var(--fg);
+    text-decoration:none;display:inline-flex;align-items:center;gap:7px;transition:transform .18s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.primary{background:var(--brand);color:var(--btn-fg);border-color:var(--brand);font-weight:600}
+  .fine{font-family:'JetBrains Mono';font-size:11px;color:var(--fine);margin-top:18px;line-height:1.5}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .chip{font-family:'JetBrains Mono';font-size:11px;color:var(--muted);border:1px solid var(--border);
+    border-radius:9px;padding:8px 11px;background:var(--chip)}
+  .chip b{color:var(--ink);font-weight:500}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:26px}
+  .c{border:1px solid var(--border);border-radius:14px;padding:16px;background:var(--chip)}
+  .c span{font-family:'JetBrains Mono';font-size:10.5px;color:var(--ink);letter-spacing:.1em;text-transform:uppercase}
+  .c h5{font-size:15.5px;font-weight:600;margin:8px 0 6px}
+  .c p{font-size:13px;line-height:1.55;color:var(--muted)}
+  .wide{max-width:880px}
+
+  .reveal{opacity:0;transform:translateY(22px);
+    transition:opacity .75s cubic-bezier(.2,.7,.2,1),transform .75s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="veil"></div>
+<div class="bar" id="bar"></div>
+
+<header>
+  <div class="brand"><span class="mark">◗</span> Channel Cast</div>
+  <div class="hright">
+    <div class="scene-name" id="sceneName">Audio device</div>
+    <button class="theme" id="themeBtn" aria-label="Switch theme">☀</button>
+  </div>
+</header>
+
+<main id="main"></main>
+<nav class="switch" id="switch" aria-label="Choose landing page"></nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const smooth=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>Math.min(1,Math.max(0,(p-a)/(b-a)));
+
+/* ================= THEME ================= */
+const THEMES={
+  dark:{
+    bg:0x050904, amb:0x2C3A26, ambI:1.2, dirI:1.05, rimI:3,
+    grid:[0x243019,0x131C0E], gridOp:.28,
+    dust:0x9FCB5A, dustOp:.4,
+    struct:0x161C13, structRough:.5, structMetal:.6,
+    concrete:0x11170F, glassOp:.35,
+    face:0xC6FF00, faceFill:.13, faceEdge:.42,
+    sweep:0xC6FF00, sweepOp:.42, sweepBlend:2 /* additive */,
+    ground:0x0A0F08, groundOp:.8
+  },
+  light:{
+    bg:0xF7F9F2, amb:0xFFFFFF, ambI:1.55, dirI:1.35, rimI:1.1,
+    grid:[0xC4CFB6, 0xE0E6D6], gridOp:.55,
+    dust:0x8AA65B, dustOp:.3,
+    struct:0xCBD3C0, structRough:.75, structMetal:.15,
+    concrete:0xDDE3D4, glassOp:.22,
+    face:0x4E8218, faceFill:.88, faceEdge:.7,
+    sweep:0xFFFFFF, sweepOp:.3, sweepBlend:1 /* normal */,
+    ground:0xE6EBDE, groundOp:.75
+  }
+};
+let mode = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+let TH = THEMES[mode];
+
+/* ================= COPY ================= */
+const PAGES={
+audio:{name:"Audio device",fog:.05,kf:[
+  {p:[0.4,1.4,6.6],t:[0,0.35,0]},{p:[1.5,0.95,2.6],t:[0,0.45,0.5]},
+  {p:[-2.8,1.2,4.8],t:[0,0.2,0]},{p:[0,13.5,15.5],t:[0,-0.4,0]},{p:[0,1.8,6.4],t:[0,0.3,0]}],
+beats:[
+ {side:"left",eyebrow:"Motion-activated audio",h1:'Turn physical spaces into <em>smart audio channels.</em>',
+  sub:"Channel Cast plays the right spot the moment someone walks by — powered by motion and on-device vision. Book ad space, create the audio, and run the network from one dashboard.",
+  actions:[["View ad space →",1],["Advertise with us",0]],
+  fine:"No credit card to explore the marketplace · Runs on any Windows mini-PC + USB webcam"},
+ {side:"left",eyebrow:"The sensor",h:"It watches the doorway, not the person.",
+  sub:"A USB webcam clipped to the mini-PC runs the vision model locally. Footfall and dwell time are read at the edge — no faces stored, no video leaves the building.",
+  chips:[["Processing","on-device"],["Faces stored","0"],["Upload","events only"]]},
+ {side:"right",eyebrow:"The trigger",h:"Footfall in. The right 15 seconds out.",
+  sub:"Every play is a decision: who booked this daypart, how long since the last spot, how many people are actually there.",
+  chips:[["Trigger to audio","180 ms"],["Cooldown","per zone"],["Dayparting","on"]]},
+ {side:"left",wide:1,eyebrow:"The network",h:"One dashboard. Every location.",
+  sub:"Each mini-PC is a node. Group by store, city, or advertiser, push a campaign to all of them at once, and get proof of play back the same minute.",
+  cards:[["Locations","List your space","Publish your zones and set your own rate card."],
+         ["Advertisers","Book a daypart","Pick zones, upload the spot, go live the same day."],
+         ["Everyone","See proof of play","Timestamped plays, motion counts, and spend."]]},
+ {side:"center",eyebrow:"Early access",h:"Your entrance already has an audience.",
+  sub:"Plug in a mini-PC and a webcam. We'll handle the rest.",
+  actions:[["Request access",1],["Schedule a demo",0]]}
+]},
+
+displays:{name:"Digital displays",fog:.05,kf:[
+  {p:[0,0.7,6.6],t:[0,0.75,0]},{p:[0,0.7,2.4],t:[0,0.75,0]},
+  {p:[-6.8,1.7,7.6],t:[0,0.75,0]},{p:[0,10,13.5],t:[0,0.4,0]},{p:[0,0.9,7.2],t:[0,0.75,0]}],
+beats:[
+ {side:"left",eyebrow:"Digital displays",h1:'Every screen you own is <em>ad space.</em>',
+  sub:"Menu boards, window displays, lobby screens. Schedule your own content, sell the gaps to advertisers, and change all of it from one place.",
+  actions:[["See the marketplace →",1],["List your screens",0]],
+  fine:"Runs on any Windows or Android player · No proprietary hardware"},
+ {side:"left",eyebrow:"The player",h:"Plug in. It's already on air.",
+  sub:"Pair a screen with a six-digit code and the player pulls its playlist and starts. If the network drops, it keeps playing from cache and reports back when it returns.",
+  chips:[["Pairing","6-digit code"],["Offline","plays from cache"],["Uptime","reported hourly"]]},
+ {side:"right",eyebrow:"The wall",h:"One playlist across every screen in the room.",
+  sub:"Group screens into a zone and they play in sync — or split them so the menu board runs pricing while the window runs the promo.",
+  chips:[["Sync","frame-aligned"],["Zones","unlimited"],["Menus","live pricing"]]},
+ {side:"left",wide:1,eyebrow:"The network",h:"Monetize the screens you already have.",
+  sub:"Open your unsold slots to the marketplace. Advertisers book by location and daypart, your own content stays in rotation, and revenue splits automatically.",
+  cards:[["Venues","Sell your gaps","Set a floor price and which categories you accept."],
+         ["Advertisers","Buy by daypart","Filter by neighborhood, foot traffic, screen size."],
+         ["Everyone","Proof of display","Screenshots and play logs, timestamped per screen."]]},
+ {side:"center",eyebrow:"Get started",h:"Your screens are running ads for nobody.",
+  sub:"Pair the first one in about five minutes.",
+  actions:[["Add a screen",1],["Talk to us",0]]}
+]},
+
+wall:{name:"Wall space",fog:.016,kf:[
+  {p:[13,4.5,17],t:[0,5,-1]},{p:[5.2,4.6,7.6],t:[0.5,5.2,-2]},
+  {p:[-13,2.6,13],t:[-16,2.2,-2]},{p:[0,30,34],t:[-4,0,-10]},{p:[12,5.5,18],t:[0,4.6,-1]}],
+beats:[
+ {side:"left",eyebrow:"Wall space",h1:'The side of your building is <em>unsold inventory.</em>',
+  sub:"Blank walls, warehouse sides, and long construction fences — large-format ad space that isn't a billboard and doesn't need a billboard permit. Own the wall, set the rate, keep the revenue.",
+  actions:[["List a wall →",1],["Find wall space",0]],
+  fine:"Painted walls, vinyl and mesh wraps, fence banners · Surveyed, permitted, and installed by Channel Cast"},
+ {side:"right",eyebrow:"The wall",h:"Print at building scale.",
+  sub:"We survey the wall, pull the permit, print on vinyl or mesh, and rig the install. You approve one proof and get photos when it's up. Walls hold a campaign for months, not eight seconds.",
+  chips:[["Survey","included"],["Permitting","handled"],["Term","monthly or seasonal"]]},
+ {side:"left",eyebrow:"The fence line",h:"Construction fence is the cheapest reach in the city.",
+  sub:"A block of site fencing sits in front of the same commuters every morning for a year. Mesh banners go up in an afternoon and come down without a mark.",
+  chips:[["Material","printed mesh"],["Wind","rated & vented"],["Install","half a day"]]},
+ {side:"left",wide:1,eyebrow:"The block",h:"Buy a corridor, not a single wall.",
+  sub:"Group walls and fence runs by street so a campaign follows the route instead of sitting on one facade. Filter by traffic count, sightline, and how long the space is available.",
+  cards:[["Owners","List the surface","Send a photo and dimensions — we price it."],
+         ["Advertisers","Buy the block","Every wall and fence on a corridor, one line item."],
+         ["Everyone","Photo verified","Install and quarterly condition photos per surface."]]},
+ {side:"center",eyebrow:"Get listed",h:"That wall has been advertising for the weather.",
+  sub:"Send us a photo and the address. We'll tell you what it's worth.",
+  actions:[["Get a wall assessed",1],["See available walls",0]]}
+]},
+
+street:{name:"Street furniture",fog:.03,kf:[
+  {p:[3.4,1.6,7.4],t:[0,1.3,0]},{p:[1.0,1.5,3.0],t:[-0.4,1.4,0]},
+  {p:[-4.6,2.2,6.0],t:[0,1.2,0]},{p:[0,17,20],t:[0,0,-2]},{p:[2.6,1.8,8.0],t:[0,1.3,0]}],
+beats:[
+ {side:"left",eyebrow:"Street furniture",h1:'Advertising at <em>eye level.</em>',
+  sub:"Bus shelters, transit kiosks, and bench backs — the formats people stand in front of for four minutes at a time. Illuminated, weather-rated, and bookable by the week.",
+  actions:[["Find street inventory →",1],["Partner with us",0]],
+  fine:"Backlit and digital faces · Municipal permitting handled per city"},
+ {side:"right",eyebrow:"The shelter",h:"Four minutes of undivided attention.",
+  sub:"A rider waiting for the bus is a captive audience with nothing else to look at. Backlit shelter panels run day and night without a power run to each face.",
+  chips:[["Dwell","≈4 min"],["Faces","2 per shelter"],["Lighting","solar backlit"]]},
+ {side:"left",eyebrow:"The kiosk",h:"Two-sided, both directions of foot traffic.",
+  sub:"Freestanding kiosks catch pedestrians coming and going. Digital versions swap creative on a schedule; printed versions change over in one visit.",
+  chips:[["Format","two-sided"],["Change over","weekly"],["Rating","IP65"]]},
+ {side:"left",wide:1,eyebrow:"The district",h:"Book a neighborhood, block by block.",
+  sub:"Group shelters, kiosks, and benches into districts so a campaign covers a whole retail corridor instead of one intersection.",
+  cards:[["Cities","Shelter partnerships","Revenue share on transit stops you already maintain."],
+         ["Advertisers","Buy a district","Every face on a corridor, one line item."],
+         ["Everyone","Verified installs","Photo proof and GPS per face, every cycle."]]},
+ {side:"center",eyebrow:"Get started",h:"The bus stop outside is unsold.",
+  sub:"Tell us the cross streets and we'll show you what's available.",
+  actions:[["Check availability",1],["Become a partner",0]]}
+]}
+};
+
+/* ================= DOM ================= */
+const main=document.getElementById('main');
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.15});
+function el(tag,cls,html){const n=document.createElement(tag);if(cls)n.className=cls;if(html!=null)n.innerHTML=html;return n;}
+
+function renderBeats(key){
+  main.innerHTML='';
+  PAGES[key].beats.forEach(b=>{
+    const s=el('section');
+    const col=el('div','col reveal '+(b.side==='right'?'right':b.side==='center'?'center':'')+(b.wide?' wide':''));
+    col.appendChild(el('span','eyebrow',b.eyebrow));
+    col.appendChild(el(b.h1?'h1':'h2',null,b.h1||b.h));
+    col.appendChild(el('p','lede',b.sub));
+    if(b.chips){const w=el('div','chips');b.chips.forEach(([l,v])=>w.appendChild(el('span','chip',l+' <b>'+v+'</b>')));col.appendChild(w);}
+    if(b.cards){const w=el('div','cards');b.cards.forEach(([t,h,p])=>w.appendChild(el('div','c','<span>'+t+'</span><h5>'+h+'</h5><p>'+p+'</p>')));col.appendChild(w);}
+    if(b.actions){const w=el('div','actions');b.actions.forEach(([l,pri])=>{const a=el('a','btn'+(pri?' primary':''),l);a.href='#';w.appendChild(a);});col.appendChild(w);}
+    if(b.fine)col.appendChild(el('div','fine',b.fine));
+    s.appendChild(col); main.appendChild(s); io.observe(col);
+  });
+}
+
+const sw=document.getElementById('switch');
+Object.keys(PAGES).forEach(k=>{
+  const b=el('button',null,PAGES[k].name); b.dataset.k=k; b.onclick=()=>mount(k); sw.appendChild(b);
+});
+
+/* ================= THREE ================= */
+const canvas=document.getElementById('gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+const camera=new THREE.PerspectiveCamera(44,innerWidth/innerHeight,0.1,320);
+const look=new THREE.Vector3();
+let scene,update,current='audio';
+
+const planeG=new THREE.PlaneGeometry(1,1);
+const boxG=new THREE.BoxGeometry(1,1,1);
+
+function baseScene(fog){
+  const s=new THREE.Scene();
+  s.fog=new THREE.FogExp2(TH.bg,fog);
+  s.add(new THREE.AmbientLight(TH.amb,TH.ambI));
+  const k=new THREE.DirectionalLight(0xffffff,TH.dirI); k.position.set(5,11,7); s.add(k);
+  const f=new THREE.DirectionalLight(0xffffff,TH.dirI*.4); f.position.set(-6,4,-5); s.add(f);
+  const r=new THREE.PointLight(TH.face,TH.rimI,22); r.position.set(-3,2,3); s.add(r);
+  const N=1000,pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++){pos[i*3]=(Math.random()-.5)*70;pos[i*3+1]=(Math.random()-.5)*34;pos[i*3+2]=(Math.random()-.5)*70;}
+  const dg=new THREE.BufferGeometry(); dg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const dust=new THREE.Points(dg,new THREE.PointsMaterial({color:TH.dust,size:.045,transparent:true,opacity:TH.dustOp,depthWrite:false}));
+  s.add(dust);
+  const grid=new THREE.GridHelper(220,110,TH.grid[0],TH.grid[1]);
+  grid.position.y=-.02; grid.material.transparent=true; grid.material.opacity=TH.gridOp; s.add(grid);
+  s.userData={dust,grid};
+  return s;
+}
+
+/* an ad face: fill + sweeping sheen + edge */
+function makePanel(w,h){
+  const g=new THREE.Group();
+  const glowM=new THREE.MeshBasicMaterial({color:TH.face,transparent:true,opacity:TH.faceFill,side:THREE.DoubleSide});
+  const glow=new THREE.Mesh(planeG,glowM); glow.scale.set(w,h,1); g.add(glow);
+  const lineM=new THREE.MeshBasicMaterial({color:TH.sweep,transparent:true,opacity:TH.sweepOp,
+    blending:TH.sweepBlend===2?THREE.AdditiveBlending:THREE.NormalBlending,depthWrite:false,side:THREE.DoubleSide});
+  const line=new THREE.Mesh(planeG,lineM); line.scale.set(w,h*.07,1); line.position.z=.008; g.add(line);
+  const edgeM=new THREE.LineBasicMaterial({color:TH.face,transparent:true,opacity:TH.faceEdge});
+  const edges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(w,h)),edgeM);
+  edges.position.z=.012; g.add(edges);
+  g.userData={glowM,lineM,edgeM,line,h,ph:Math.random()*6.28,base:TH.faceFill};
+  return g;
+}
+function drivePanel(g,t,vis,speed){
+  const u=g.userData;
+  u.glowM.opacity=vis*(u.base*.75+Math.max(0,Math.sin(t*.9+u.ph))*u.base*.6);
+  u.edgeM.opacity=vis*TH.faceEdge;
+  u.lineM.opacity=vis*TH.sweepOp;
+  u.line.position.y=(((t*(speed||.5)+u.ph)%1)-.5)*u.h*.94;
+}
+function structMat(){return new THREE.MeshStandardMaterial({color:TH.struct,roughness:TH.structRough,metalness:TH.structMetal});}
+function concreteMat(){return new THREE.MeshStandardMaterial({color:TH.concrete,roughness:.95,metalness:.02});}
+
+/* ---------- AUDIO ---------- */
+function buildAudio(s){
+  const dev=new THREE.Group(); s.add(dev);
+  const shell=structMat();
+  const body=new THREE.Mesh(boxG,shell); body.scale.set(2.2,.6,2.2); body.position.y=.3; dev.add(body);
+  const edge=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.21,.61,2.21)),
+    new THREE.LineBasicMaterial({color:TH.face,transparent:true,opacity:TH.faceEdge*.8}));
+  edge.position.y=.3; dev.add(edge);
+  const slotG=new THREE.BoxGeometry(1.3,.02,.04), slotM=new THREE.MeshBasicMaterial({color:mode==='light'?0x9AA78C:0x0A0D08});
+  for(let i=-3;i<=3;i++){const m=new THREE.Mesh(slotG,slotM);m.position.set(.2,.605,i*.16);dev.add(m);}
+  const ledM=new THREE.MeshBasicMaterial({color:TH.face});
+  const led=new THREE.Mesh(new THREE.SphereGeometry(.05,14,14),ledM); led.position.set(-.82,.16,1.11); dev.add(led);
+
+  const cam=new THREE.Group(); cam.position.set(-.05,.72,.62); dev.add(cam);
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.34,28),shell); barrel.rotation.x=Math.PI/2; cam.add(barrel);
+  const foot=new THREE.Mesh(boxG,shell); foot.scale.set(.34,.14,.5); foot.position.set(0,-.19,-.1); cam.add(foot);
+  const lens=new THREE.Mesh(new THREE.CylinderGeometry(.105,.115,.09,28),
+    new THREE.MeshStandardMaterial({color:mode==='light'?0x2A3226:0x040603,roughness:.12,metalness:.95}));
+  lens.rotation.x=Math.PI/2; lens.position.z=.2; cam.add(lens);
+  const iris=new THREE.Mesh(new THREE.TorusGeometry(.135,.014,10,36),new THREE.MeshBasicMaterial({color:TH.face}));
+  iris.position.z=.2; cam.add(iris);
+
+  const coneM=new THREE.MeshBasicMaterial({color:TH.face,transparent:true,opacity:0,side:THREE.DoubleSide,
+    depthWrite:false,blending:mode==='light'?THREE.NormalBlending:THREE.AdditiveBlending});
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(1.3,3.2,32,1,true),coneM);
+  cone.rotation.x=-Math.PI/2; cone.position.set(0,0,1.8); cam.add(cone);
+
+  const ringG=new THREE.TorusGeometry(1,.013,10,90),rings=[];
+  for(let i=0;i<5;i++){
+    const m=new THREE.MeshBasicMaterial({color:TH.face,transparent:true,opacity:0});
+    const r=new THREE.Mesh(ringG,m); r.rotation.x=-Math.PI/2; r.position.y=.08; r.userData.off=i/5;
+    dev.add(r); rings.push(r);
+  }
+  const wave=new THREE.Group(); wave.position.y=.08; dev.add(wave);
+  const barG=new THREE.BoxGeometry(.045,1,.045),bars=[];
+  for(let i=0;i<44;i++){
+    const m=new THREE.MeshBasicMaterial({color:TH.face,transparent:true,opacity:0});
+    const b=new THREE.Mesh(barG,m),a=(i/44)*6.283;
+    b.position.set(Math.cos(a)*2.6,0,Math.sin(a)*2.6); wave.add(b); bars.push(b);
+  }
+  const net=new THREE.Group(); s.add(net);
+  const nM=new THREE.MeshStandardMaterial({color:TH.struct,roughness:.6,metalness:.4,transparent:true,opacity:0});
+  const dM=new THREE.MeshBasicMaterial({color:TH.face,transparent:true,opacity:0});
+  const nG=new THREE.BoxGeometry(.5,.16,.5),dG=new THREE.SphereGeometry(.05,10,10),nodes=[];
+  for(let x=-3;x<=3;x++)for(let z=-3;z<=3;z++){
+    if(!x&&!z)continue;
+    const g=new THREE.Group();
+    g.position.set(x*3.1+(Math.random()-.5)*.7,.08,z*3.1+(Math.random()-.5)*.7);
+    g.add(new THREE.Mesh(nG,nM));
+    const d=new THREE.Mesh(dG,dM); d.position.y=.16; g.add(d);
+    g.userData.ph=Math.random()*6.28; net.add(g); nodes.push(g);
+  }
+  return (t,p)=>{
+    dev.rotation.y=reduce?.45:.45+t*.1;
+    dev.position.y=reduce?0:Math.sin(t*.8)*.05;
+    const scan=seg(p,.1,.32)*(1-seg(p,.42,.55));
+    coneM.opacity=scan*(mode==='light'?.09:.12);
+    iris.scale.setScalar(1+scan*Math.sin(t*3.4)*.16);
+    const aud=seg(p,.33,.5)*(1-seg(p,.6,.72));
+    rings.forEach(r=>{const ph=(t*.42+r.userData.off)%1,sc=.6+ph*5.4;
+      r.scale.set(sc,sc,1); r.material.opacity=aud*(1-ph)*.7;});
+    wave.rotation.y=-t*.26;
+    bars.forEach((b,i)=>{const h=.18+Math.abs(Math.sin(t*2.6+i*.42))*.95;
+      b.scale.y=h; b.position.y=h/2; b.material.opacity=aud*.8;});
+    const nw=seg(p,.6,.78)*(1-seg(p,.88,1));
+    nM.opacity=nw*.95; dM.opacity=nw;
+    nodes.forEach(g=>g.children[1].scale.setScalar(1+Math.sin(t*3+g.userData.ph)*.5*nw));
+    net.rotation.y=t*.02;
+  };
+}
+
+/* ---------- DIGITAL DISPLAYS ---------- */
+function buildDisplays(s){
+  const bezel=structMat();
+  function screen(w,h){
+    const g=new THREE.Group();
+    const f=new THREE.Mesh(boxG,bezel); f.scale.set(w,h,.08); g.add(f);
+    const p=makePanel(w*.92,h*.9); p.position.z=.045; g.add(p);
+    g.userData.panel=p; return g;
+  }
+  const hero=screen(3.4,2.0); hero.position.set(0,.75,0); s.add(hero);
+
+  const wall=new THREE.Group(); wall.position.y=.75; s.add(wall);
+  const ws=[],COLS=9,R=7.5;
+  for(let c=0;c<COLS;c++)for(let r=-1;r<=1;r++){
+    if(c===4&&r===0)continue;
+    const sc=screen(1.5,.92),a=(c-4)*.26;
+    sc.position.set(Math.sin(a)*R,r*1.12,-R+Math.cos(a)*R);
+    sc.rotation.y=-a; wall.add(sc); ws.push(sc);
+  }
+
+  // network beat: little standing screens on slim mounts (not spikes)
+  const net=new THREE.Group(); s.add(net);
+  const mountM=new THREE.MeshStandardMaterial({color:TH.struct,roughness:.6,metalness:.45,transparent:true,opacity:0});
+  const markers=[],mPanels=[];
+  const postG=new THREE.CylinderGeometry(.05,.06,.85,10);
+  const footG=new THREE.CylinderGeometry(.26,.3,.07,16);
+  for(let i=0;i<40;i++){
+    const g=new THREE.Group();
+    const ang=(i/40)*6.283+Math.random()*.2, rad=3.5+Math.random()*12;
+    g.position.set(Math.cos(ang)*rad,0,Math.sin(ang)*rad);
+    g.rotation.y=-ang+Math.PI/2;
+    const foot=new THREE.Mesh(footG,mountM); foot.position.y=.035; g.add(foot);
+    const post=new THREE.Mesh(postG,mountM); post.position.y=.45; g.add(post);
+    const body=new THREE.Mesh(boxG,mountM); body.scale.set(.95,.58,.06); body.position.y=1.15; g.add(body);
+    const pn=makePanel(.86,.5); pn.position.set(0,1.15,.04); g.add(pn);
+    net.add(g); markers.push(g); mPanels.push(pn);
+  }
+
+  return (t,p)=>{
+    const intro=1-seg(p,.42,.58);
+    hero.rotation.y=reduce?0:Math.sin(t*.35)*.13;
+    hero.position.y=.75+(reduce?0:Math.sin(t*.7)*.04);
+    drivePanel(hero.userData.panel,t,intro,.5);
+    const w=seg(p,.36,.6)*(1-seg(p,.68,.84));
+    ws.forEach((sc,i)=>drivePanel(sc.userData.panel,t-i*.12,w,.7));
+    wall.rotation.y=reduce?0:Math.sin(t*.2)*.03;
+    const n=seg(p,.66,.84)*(1-seg(p,.92,1));
+    mountM.opacity=n*.95;
+    mPanels.forEach((pn,i)=>drivePanel(pn,t-i*.16,n,.55));
+    net.rotation.y=t*.012;
+  };
+}
+
+/* ---------- WALL SPACE (building sides + fence runs, no billboards) ---------- */
+function buildWall(s){
+  const bMat=concreteMat(), fMat=structMat();
+
+  function building(w,h,d,x,z,ry){
+    const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=ry||0;
+    const b=new THREE.Mesh(boxG,bMat); b.scale.set(w,h,d); b.position.y=h/2; g.add(b);
+    // parapet cap reads as a real roofline
+    const cap=new THREE.Mesh(boxG,fMat); cap.scale.set(w*1.02,.22,d*1.02); cap.position.y=h+.11; g.add(cap);
+    // punched windows on the short face so it isn't a blank slab
+    const winM=new THREE.MeshBasicMaterial({color:mode==='light'?0xB3BEA6:0x0B1109});
+    for(let fy=1;fy<h-1.4;fy+=2.1)for(let fx=-d/2+1;fx<d/2-.6;fx+=1.7){
+      const wdw=new THREE.Mesh(boxG,winM); wdw.scale.set(.06,1.1,.85);
+      wdw.position.set(w/2+.02,fy,fx); g.add(wdw);
+    }
+    return g;
+  }
+
+  // hero: big painted/wrapped wall on the long side of a warehouse
+  const hero=building(11,15,20,0,-4,0); s.add(hero);
+  const heroWall=makePanel(15,10); heroWall.rotation.y=Math.PI/2;
+  heroWall.position.set(-5.55,7.4,-4); s.add(heroWall);
+
+  // second, smaller wall across the street
+  const b2=building(8,9,12,17,0,0); s.add(b2);
+  const wall2=makePanel(8.5,5.5); wall2.rotation.y=-Math.PI/2;
+  wall2.position.set(13.04,5,0); s.add(wall2);
+
+  // fence run: posts + a continuous banner along the sidewalk
+  const fence=new THREE.Group(); fence.position.set(-17,0,4); fence.rotation.y=.06; s.add(fence);
+  const fencePanels=[];
+  for(let i=0;i<9;i++){
+    const seg2=new THREE.Group(); seg2.position.z=-i*4.2;
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,2.6,8),fMat);
+    post.position.set(0,1.3,2.1); seg2.add(post);
+    const rail=new THREE.Mesh(boxG,fMat); rail.scale.set(.06,.07,4.2); rail.position.set(0,2.5,0); seg2.add(rail);
+    const banner=makePanel(4.05,2.1); banner.rotation.y=Math.PI/2; banner.position.set(.05,1.35,0);
+    seg2.add(banner); fencePanels.push(banner);
+    fence.add(seg2);
+  }
+  const endPost=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,2.6,8),fMat);
+  endPost.position.set(0,1.3,-9*4.2+2.1); fence.add(endPost);
+
+  // the block: more walls + fence runs scattered down the corridor
+  const block=new THREE.Group(); s.add(block);
+  const blockPanels=[];
+  for(let i=0;i<10;i++){
+    const side=i%2?1:-1;
+    const bw=6+Math.random()*6, bh=7+Math.random()*9, bd=9+Math.random()*7;
+    const g=building(bw,bh,bd, side*(15+Math.random()*10), -22-i*15, 0);
+    block.add(g);
+    const pn=makePanel(bd*.72,bh*.5);
+    pn.rotation.y=side>0?-Math.PI/2:Math.PI/2;
+    pn.position.set(side*(15+ (side>0?-bw/2-.04:bw/2+.04)) + (side>0?0:0), bh*.55, -22-i*15);
+    // sit the face flush on the inward-facing wall
+    pn.position.x = side*(15+Math.random()*10) + (side>0 ? -bw/2-.05 : bw/2+.05);
+    block.add(pn); blockPanels.push(pn);
+  }
+
+  const road=new THREE.Mesh(planeG,new THREE.MeshBasicMaterial({color:TH.ground,transparent:true,opacity:TH.groundOp}));
+  road.rotation.x=-Math.PI/2; road.scale.set(22,240,1); road.position.set(0,.01,-90); s.add(road);
+
+  return (t,p)=>{
+    const near=1-seg(p,.62,.8)*.7;
+    drivePanel(heroWall,t,near,.28);
+    drivePanel(wall2,t+1.2,near*.85,.28);
+    const fen=seg(p,.36,.58)*(1-seg(p,.74,.88));
+    fencePanels.forEach((b,i)=>drivePanel(b,t-i*.22,Math.max(.25*near,fen),.4));
+    const blk=seg(p,.62,.82)*(1-seg(p,.92,1));
+    blockPanels.forEach((b,i)=>drivePanel(b,t-i*.3,blk,.35));
+  };
+}
+
+/* ---------- STREET FURNITURE ---------- */
+function buildStreet(s){
+  const metal=structMat();
+  const glass=new THREE.MeshStandardMaterial({color:mode==='light'?0xC9D6C2:0x0C120A,
+    roughness:.1,metalness:.2,transparent:true,opacity:TH.glassOp});
+
+  const shelter=new THREE.Group(); shelter.position.set(-1.4,0,0); s.add(shelter);
+  const roof=new THREE.Mesh(boxG,metal); roof.scale.set(4.4,.13,1.8); roof.position.y=2.6; shelter.add(roof);
+  [-2.1,2.1].forEach(x=>{
+    const col=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,2.6,10),metal);
+    col.position.set(x,1.3,-.8); shelter.add(col);
+    const c2=col.clone(); c2.position.z=.8; shelter.add(c2);
+  });
+  const back=new THREE.Mesh(boxG,glass); back.scale.set(4.3,2.2,.05); back.position.set(0,1.35,-.87); shelter.add(back);
+  const bench=new THREE.Mesh(boxG,metal); bench.scale.set(3,.12,.5); bench.position.set(0,.5,-.5); shelter.add(bench);
+  [-.9,.9].forEach(x=>{const l=new THREE.Mesh(boxG,metal);l.scale.set(.1,.5,.45);l.position.set(x,.25,-.5);shelter.add(l);});
+  const endFrame=new THREE.Mesh(boxG,metal); endFrame.scale.set(.14,2.4,1.6); endFrame.position.set(2.28,1.25,0); shelter.add(endFrame);
+  const adA=makePanel(1.35,2.1); adA.rotation.y=Math.PI/2; adA.position.set(2.37,1.25,0); shelter.add(adA);
+  const adB=makePanel(1.35,2.1); adB.rotation.y=-Math.PI/2; adB.position.set(2.19,1.25,0); shelter.add(adB);
+
+  const kiosk=new THREE.Group(); kiosk.position.set(3.1,0,1.2); s.add(kiosk);
+  const kBody=new THREE.Mesh(boxG,metal); kBody.scale.set(1.35,2.8,.42); kBody.position.y=1.4; kiosk.add(kBody);
+  const kBase=new THREE.Mesh(new THREE.CylinderGeometry(.55,.62,.18,20),metal); kBase.position.y=.09; kiosk.add(kBase);
+  const kA=makePanel(1.1,2.2); kA.position.set(0,1.5,.22); kiosk.add(kA);
+  const kB=makePanel(1.1,2.2); kB.rotation.y=Math.PI; kB.position.set(0,1.5,-.22); kiosk.add(kB);
+
+  const district=new THREE.Group(); s.add(district);
+  const dPanels=[];
+  for(let i=0;i<26;i++){
+    const g=new THREE.Group();
+    const ang=(i/26)*6.283,rad=9+Math.random()*13;
+    g.position.set(Math.cos(ang)*rad,0,Math.sin(ang)*rad);
+    g.rotation.y=-ang+Math.PI/2;
+    const post=new THREE.Mesh(boxG,metal); post.scale.set(1.1,2.4,.35); post.position.y=1.2; g.add(post);
+    const pn=makePanel(.9,1.9); pn.position.set(0,1.3,.19); g.add(pn);
+    district.add(g); dPanels.push(pn);
+  }
+  const walk=new THREE.Mesh(planeG,new THREE.MeshBasicMaterial({color:TH.ground,transparent:true,opacity:TH.groundOp}));
+  walk.rotation.x=-Math.PI/2; walk.scale.set(70,70,1); walk.position.y=.005; s.add(walk);
+
+  return (t,p)=>{
+    const near=1-seg(p,.62,.78);
+    drivePanel(adA,t,near,.45);
+    drivePanel(adB,t+.4,near*.8,.45);
+    const kv=seg(p,.3,.5)*near;
+    drivePanel(kA,t,Math.max(near*.35,kv),.6);
+    drivePanel(kB,t+.5,Math.max(near*.35,kv),.6);
+    const dv=seg(p,.62,.82)*(1-seg(p,.9,1));
+    dPanels.forEach((pn,i)=>drivePanel(pn,t-i*.18,dv,.5));
+    district.rotation.y=t*.012;
+  };
+}
+
+const BUILD={audio:buildAudio,displays:buildDisplays,wall:buildWall,street:buildStreet};
+
+function mount(k){
+  current=k;
+  scene=baseScene(PAGES[k].fog);
+  update=BUILD[k](scene);
+  renderBeats(k);
+  document.getElementById('sceneName').textContent=PAGES[k].name;
+  [...sw.children].forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  scrollTo(0,0); raw=0; eased=0;
+}
+
+function applyTheme(){
+  TH=THEMES[mode];
+  document.body.classList.toggle('light',mode==='light');
+  document.getElementById('themeBtn').textContent = mode==='light' ? '☾' : '☀';
+  renderer.setClearColor(TH.bg,0);
+  const y=scrollY; mount(current); scrollTo(0,y); // rebuild scene with new materials
+}
+document.getElementById('themeBtn').onclick=()=>{mode=mode==='light'?'dark':'light';applyTheme();};
+
+let raw=0,eased=0;
+function onScroll(){
+  const max=document.body.scrollHeight-innerHeight;
+  raw=max>0?scrollY/max:0;
+  document.getElementById('bar').style.width=(raw*100)+'%';
+}
+addEventListener('scroll',onScroll,{passive:true});
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+function place(p){
+  const kf=PAGES[current].kf,s=p*(kf.length-1);
+  const i=Math.min(Math.floor(s),kf.length-2),f=smooth(s-i),a=kf[i],b=kf[i+1];
+  camera.position.set(a.p[0]+(b.p[0]-a.p[0])*f,a.p[1]+(b.p[1]-a.p[1])*f,a.p[2]+(b.p[2]-a.p[2])*f);
+  look.set(a.t[0]+(b.t[0]-a.t[0])*f,a.t[1]+(b.t[1]-a.t[1])*f,a.t[2]+(b.t[2]-a.t[2])*f);
+  camera.lookAt(look);
+}
+
+const clock=new THREE.Clock();
+function tick(){
+  const t=clock.getElapsedTime();
+  eased+=(raw-eased)*(reduce?1:.075);
+  place(eased); update(t,eased);
+  scene.userData.dust.rotation.y=t*.006;
+  renderer.render(scene,camera);
+  requestAnimationFrame(tick);
+}
+
+applyTheme(); mount('audio'); onScroll(); tick();
+})();
+</script>
+</body>
+</html>
