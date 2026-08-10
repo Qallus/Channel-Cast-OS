@@ -26,6 +26,10 @@ export const CRM_COLLECTIONS = [
   "card_events",
   "plans",
   "plan_tasks",
+  "ws_spaces",
+  "ws_folders",
+  "ws_documents",
+  "ws_comments",
 ] as const;
 export type CrmCollection = (typeof CRM_COLLECTIONS)[number];
 
