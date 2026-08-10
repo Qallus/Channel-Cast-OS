@@ -26,6 +26,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { DEAL_STAGE, DEAL_STAGE_ORDER, Deal, DealStage, OPEN_STAGES, seedDeals } from "@/lib/crm/deals";
+import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -50,11 +51,14 @@ function blankDeal(): Deal {
     id: genId("dl"),
     name: "",
     client: "",
-    stage: "qualified",
+    contactId: null,
+    stage: "new_lead",
     value: 0,
-    probability: DEAL_STAGE.qualified.defaultProb,
+    probability: DEAL_STAGE.new_lead.defaultProb,
     closeDate: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),
-    owner: "Alex Rivera",
+    owner: "Jeremy Waters",
+    products: [],
+    source: "",
     notes: "",
     createdAt: new Date().toISOString(),
   };
@@ -62,6 +66,8 @@ function blankDeal(): Deal {
 
 export function PipelinePage() {
   const { items, create, update, remove } = useCollection<Deal>("deals", seedDeals);
+  const contactsCol = useCollection<Contact>("contacts", seedContacts);
+  const contactsById = useMemo(() => new Map(contactsCol.items.map((c) => [c.id, c])), [contactsCol.items]);
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
@@ -121,6 +127,15 @@ export function PipelinePage() {
   }
   const move = (d: Deal, stage: DealStage) => update(d.id, { stage, probability: DEAL_STAGE[stage].defaultProb });
 
+  // On Deal Won, connect the record to a paying Client: mark the linked contact as a
+  // client (so the relationship lives on the contact profile) and mark the deal won.
+  function convertToClient(d: Deal) {
+    if (d.stage !== "won") update(d.id, { stage: "won", probability: 100 });
+    const c = d.contactId ? contactsById.get(d.contactId) : null;
+    if (c) contactsCol.update(c.id, { ...c, type: "client", status: "active" });
+    flash(c ? `${contactName(c)} is now a Client.` : "Deal won.");
+  }
+
   const rowActions = (d: Deal) => [
     { label: "Open", icon: ExternalLink, onClick: () => setDrawerId(d.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(d) },
@@ -132,7 +147,7 @@ export function PipelinePage() {
       <PageHeader
         icon={TrendingUp}
         title="Pipeline"
-        description="Deals in flight, by stage, with a weighted forecast."
+        description="Your lead-to-client sales lifecycle — opportunities by stage, with a weighted forecast."
         action={
           <Button onClick={openNew} className="shrink-0">
             <Plus className="h-4 w-4" /> Add deal
@@ -191,13 +206,25 @@ export function PipelinePage() {
                 <span className="text-sm text-muted-foreground">· {drawer.probability}% likely</span>
               </div>
               <div>
-                <DetailField label="Client">{drawer.client}</DetailField>
+                <DetailField label="Company / account">{drawer.client}</DetailField>
+                <DetailField label="Contact">{drawer.contactId && contactsById.get(drawer.contactId) ? contactName(contactsById.get(drawer.contactId)!) : "—"}</DetailField>
                 <DetailField label="Value">{usd.format(drawer.value)}</DetailField>
                 <DetailField label="Probability">{drawer.probability}%</DetailField>
                 <DetailField label="Weighted">{usd.format(Math.round((drawer.value * drawer.probability) / 100))}</DetailField>
                 <DetailField label="Expected close">{dateFmt(drawer.closeDate)}</DetailField>
-                <DetailField label="Owner">{drawer.owner}</DetailField>
+                <DetailField label="Assigned rep">{drawer.owner}</DetailField>
+                <DetailField label="Products / services">{drawer.products?.length ? drawer.products.join(", ") : "—"}</DetailField>
+                <DetailField label="Source">{drawer.source || "—"}</DetailField>
               </div>
+              {drawer.stage !== "won" ? (
+                <Button variant="outline" className="w-full" onClick={() => convertToClient(drawer)}>
+                  <ExternalLink className="h-4 w-4" /> Mark won &amp; convert to Client
+                </Button>
+              ) : (
+                <Button variant="outline" className="w-full" onClick={() => convertToClient(drawer)}>
+                  <ExternalLink className="h-4 w-4" /> Convert linked contact to Client
+                </Button>
+              )}
               <div>
                 <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">Move to stage</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -227,7 +254,7 @@ export function PipelinePage() {
       <Dialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editing?.isNew ? "Add deal" : "Edit deal"}</DialogTitle></DialogHeader>
-          {editing && <DealForm draft={editing.draft} onChange={(draft) => setEditing({ ...editing, draft })} />}
+          {editing && <DealForm draft={editing.draft} contacts={contactsCol.items} onChange={(draft) => setEditing({ ...editing, draft })} />}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
             <Button onClick={saveDraft} disabled={!editing?.draft.name.trim()}>{editing?.isNew ? "Add deal" : "Save changes"}</Button>
@@ -252,13 +279,13 @@ export function PipelinePage() {
 
 function BoardView({ deals, onOpen, onMove }: { deals: Deal[]; onOpen: (id: string) => void; onMove: (d: Deal, s: DealStage) => void }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+    <div className="flex gap-3 overflow-x-auto pb-2">
       {DEAL_STAGE_ORDER.map((stage) => {
         const col = deals.filter((d) => d.stage === stage);
         const total = col.reduce((s, d) => s + d.value, 0);
         const idx = DEAL_STAGE_ORDER.indexOf(stage);
         return (
-          <div key={stage} className="rounded-lg border border-border bg-card p-2">
+          <div key={stage} className="w-64 shrink-0 rounded-lg border border-border bg-card p-2">
             <div className="mb-2 flex items-center justify-between px-1">
               <StageBadge stage={stage} />
               <span className="text-xs text-muted-foreground">{usd.format(total)}</span>
@@ -379,20 +406,37 @@ function TableView({ deals, onOpen, rowActions }: { deals: Deal[]; onOpen: (id: 
   );
 }
 
-function DealForm({ draft, onChange }: { draft: Deal; onChange: (d: Deal) => void }) {
+function DealForm({ draft, contacts, onChange }: { draft: Deal; contacts: Contact[]; onChange: (d: Deal) => void }) {
   const set = <K extends keyof Deal>(key: K, value: Deal[K]) => onChange({ ...draft, [key]: value });
   const num = (v: string) => (v.trim() === "" ? 0 : Math.max(0, Number(v) || 0));
+  const sorted = [...contacts].sort((a, b) => contactName(a).localeCompare(contactName(b)));
   return (
     <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Deal name" className="sm:col-span-2">
           <Input value={draft.name} onChange={(e) => set("name", e.target.value)} placeholder="Acme — network rollout" />
         </FormField>
-        <FormField label="Client">
+        <FormField label="Linked contact">
+          <Select value={draft.contactId ?? "none"} onValueChange={(v) => {
+            if (v === "none") { set("contactId", null); return; }
+            const c = contacts.find((x) => x.id === v);
+            onChange({ ...draft, contactId: v, client: draft.client || c?.company || "" });
+          }}>
+            <SelectTrigger><SelectValue placeholder="No contact" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No contact</SelectItem>
+              {sorted.map((c) => <SelectItem key={c.id} value={c.id}>{contactName(c)}{c.company ? ` · ${c.company}` : ""}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Company / account">
           <Input value={draft.client} onChange={(e) => set("client", e.target.value)} placeholder="Acme Resorts" />
         </FormField>
-        <FormField label="Owner">
+        <FormField label="Assigned rep">
           <Input value={draft.owner} onChange={(e) => set("owner", e.target.value)} />
+        </FormField>
+        <FormField label="Source">
+          <Input value={draft.source ?? ""} onChange={(e) => set("source", e.target.value)} placeholder="Referral, website…" />
         </FormField>
         <FormField label="Stage">
           <Select value={draft.stage} onValueChange={(v) => set("stage", v as DealStage)}>
@@ -410,6 +454,9 @@ function DealForm({ draft, onChange }: { draft: Deal; onChange: (d: Deal) => voi
           <Input inputMode="numeric" value={String(draft.probability)} onChange={(e) => set("probability", Math.min(100, num(e.target.value)))} />
         </FormField>
       </div>
+      <FormField label="Products / services" >
+        <Input value={(draft.products ?? []).join(", ")} onChange={(e) => set("products", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} placeholder="Motion-activated audio, Digital displays" />
+      </FormField>
       <FormField label="Notes">
         <Textarea rows={3} value={draft.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Deal context, blockers, next steps…" />
       </FormField>
