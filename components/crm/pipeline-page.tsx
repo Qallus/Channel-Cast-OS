@@ -64,9 +64,13 @@ function blankDeal(): Deal {
   };
 }
 
+type AnyRec = { id: string } & Record<string, unknown>;
+
 export function PipelinePage() {
   const { items, create, update, remove } = useCollection<Deal>("deals", seedDeals);
   const contactsCol = useCollection<Contact>("contacts", seedContacts);
+  const clientsCol = useCollection<AnyRec>("clients", []);
+  const advertisersCol = useCollection<AnyRec>("advertisers", []);
   const contactsById = useMemo(() => new Map(contactsCol.items.map((c) => [c.id, c])), [contactsCol.items]);
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
@@ -127,13 +131,30 @@ export function PipelinePage() {
   }
   const move = (d: Deal, stage: DealStage) => update(d.id, { stage, probability: DEAL_STAGE[stage].defaultProb });
 
+  const now = () => new Date().toISOString();
+  const dealContact = (d: Deal) => (d.contactId ? contactsById.get(d.contactId) ?? null : null);
+
   // On Deal Won, connect the record to a paying Client: mark the linked contact as a
   // client (so the relationship lives on the contact profile) and mark the deal won.
   function convertToClient(d: Deal) {
     if (d.stage !== "won") update(d.id, { stage: "won", probability: 100 });
-    const c = d.contactId ? contactsById.get(d.contactId) : null;
+    const c = dealContact(d);
     if (c) contactsCol.update(c.id, { ...c, type: "client", status: "active" });
-    flash(c ? `${contactName(c)} is now a Client.` : "Deal won.");
+    clientsCol.create({ id: genId("client"), name: c ? contactName(c) : d.client, company: d.client, email: c?.email ?? "", phone: c?.phone ?? "", status: "active", type: "Client", value: d.value, source: d.source ?? "Pipeline", createdAt: now() });
+    flash(c ? `${contactName(c)} connected as a Client.` : "Client created.");
+  }
+  // Connect the account to an Advertiser record (a business buying advertising).
+  function connectAdvertiser(d: Deal) {
+    const c = dealContact(d);
+    advertisersCol.create({ id: genId("adv"), name: d.client || (c ? contactName(c) : "Advertiser"), company: d.client, email: c?.email ?? "", phone: c?.phone ?? "", status: "active", source: "Pipeline", createdAt: now() });
+    if (c && !(c.tags ?? []).includes("Advertiser")) contactsCol.update(c.id, { ...c, tags: [...(c.tags ?? []), "Advertiser"] });
+    flash("Connected as an Advertiser.");
+  }
+  // Mark the contact as a Partner (radio station / venue / reseller / agency).
+  function connectPartner(d: Deal) {
+    const c = dealContact(d);
+    if (c) contactsCol.update(c.id, { ...c, tags: Array.from(new Set([...(c.tags ?? []), "Partner"])) });
+    flash("Tagged as a Partner.");
   }
 
   const rowActions = (d: Deal) => [
@@ -216,15 +237,15 @@ export function PipelinePage() {
                 <DetailField label="Products / services">{drawer.products?.length ? drawer.products.join(", ") : "—"}</DetailField>
                 <DetailField label="Source">{drawer.source || "—"}</DetailField>
               </div>
-              {drawer.stage !== "won" ? (
-                <Button variant="outline" className="w-full" onClick={() => convertToClient(drawer)}>
-                  <ExternalLink className="h-4 w-4" /> Mark won &amp; convert to Client
-                </Button>
-              ) : (
-                <Button variant="outline" className="w-full" onClick={() => convertToClient(drawer)}>
-                  <ExternalLink className="h-4 w-4" /> Convert linked contact to Client
-                </Button>
-              )}
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Connect to records</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button size="sm" variant="outline" onClick={() => convertToClient(drawer)}><ExternalLink className="h-3.5 w-3.5" /> {drawer.stage === "won" ? "Create Client" : "Mark won & Client"}</Button>
+                  <Button size="sm" variant="outline" onClick={() => connectAdvertiser(drawer)}>Advertiser</Button>
+                  <Button size="sm" variant="outline" onClick={() => connectPartner(drawer)}>Partner</Button>
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">Creates the account in the right place and links it to {drawer.contactId && contactsById.get(drawer.contactId) ? contactName(contactsById.get(drawer.contactId)!) : "this deal"}.</p>
+              </div>
               <div>
                 <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">Move to stage</p>
                 <div className="flex flex-wrap gap-1.5">

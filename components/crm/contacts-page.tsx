@@ -25,6 +25,7 @@ import {
   Contact, ContactStatus, ContactType, DETAIL_CATEGORIES, categorizeDetail, contactName, seedContacts,
 } from "@/lib/crm/contacts";
 import { ACTIVITY_KIND, Activity, ActivityKind, seedActivities } from "@/lib/crm/activities";
+import { DEAL_STAGE, Deal, seedDeals } from "@/lib/crm/deals";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +84,7 @@ function blankContact(type: ContactType = "contact"): Contact {
 export function ContactsPage() {
   const { items, create, update, remove } = useCollection<Contact>("contacts", seedContacts);
   const activitiesCol = useCollection<Activity>("activities", seedActivities);
+  const dealsCol = useCollection<Deal>("deals", seedDeals);
   const [view, setView] = useState<View>("list");
   const [tab, setTab] = useState<ContactType | "all">("all");
   const [search, setSearch] = useState("");
@@ -265,6 +267,7 @@ export function ContactsPage() {
               onConvert={(t) => setType(drawer, t)} onStatus={(s) => setStatus(drawer, s)}
               activities={activitiesCol.items.filter((a) => a.contactId === drawer.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))}
               onLog={(kind, body) => activitiesCol.create({ id: genId("ac"), contactId: drawer.id, kind, body, actor: drawer.owner || "You", createdAt: new Date().toISOString() })}
+              deals={dealsCol.items.filter((d) => d.contactId === drawer.id)}
             />
           )}
         </DialogContent>
@@ -302,13 +305,14 @@ export function ContactsPage() {
 // ── The rich contact profile modal ──────────────────────────────────────────────
 
 function ContactProfile({
-  contact, expanded, onToggleExpand, onClose, onEdit, onDelete, onConvert, onStatus, activities, onLog,
+  contact, expanded, onToggleExpand, onClose, onEdit, onDelete, onConvert, onStatus, activities, onLog, deals,
 }: {
   contact: Contact; expanded: boolean; onToggleExpand: () => void; onClose: () => void;
   onEdit: () => void; onDelete: () => void; onConvert: (t: ContactType) => void; onStatus: (s: ContactStatus) => void;
-  activities: Activity[]; onLog: (kind: ActivityKind, body: string) => void;
+  activities: Activity[]; onLog: (kind: ActivityKind, body: string) => void; deals: Deal[];
 }) {
   const next = CONTACT_TYPE_NEXT[contact.type];
+  const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   const location = [contact.city, contact.state, contact.zip].filter(Boolean).join(", ");
   const details = contact.details ?? {};
   const byCategory = DETAIL_CATEGORIES.map((cat) => ({ cat, entries: Object.entries(details).filter(([k]) => categorizeDetail(k) === cat) })).filter((g) => g.entries.length);
@@ -392,6 +396,22 @@ function ContactProfile({
                 </AccordionItem>
               ))}
             </Accordion>
+          </div>
+        ) : null}
+
+        {/* Opportunities (linked deals) */}
+        {deals.length ? (
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Opportunities</p>
+            <div className="space-y-2">
+              {deals.map((d) => (
+                <div key={d.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2.5">
+                  <Badge className={cn("border-transparent", DEAL_STAGE[d.stage].tone)}>{DEAL_STAGE[d.stage].label}</Badge>
+                  <span className="min-w-0 flex-1 truncate text-sm">{d.name}</span>
+                  <span className="shrink-0 text-sm font-semibold">{usd.format(d.value)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
