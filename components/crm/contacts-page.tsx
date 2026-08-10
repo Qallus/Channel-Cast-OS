@@ -259,7 +259,7 @@ export function ContactsPage() {
 
       {/* Contact profile modal (expandable) */}
       <Dialog open={Boolean(drawer)} onOpenChange={(o) => { if (!o) { setViewId(null); setExpanded(false); } }}>
-        <DialogContent className={cn("gap-0 overflow-hidden p-0", expanded ? "h-[96dvh] w-[96vw] max-w-[96vw]" : "max-w-2xl")}>
+        <DialogContent className={cn("gap-0 overflow-hidden p-0 [&>button.absolute]:hidden", expanded ? "h-[96dvh] w-[96vw] max-w-[96vw]" : "max-w-2xl")}>
           {drawer && (
             <ContactProfile
               contact={drawer} expanded={expanded} onToggleExpand={() => setExpanded((v) => !v)} onClose={() => { setViewId(null); setExpanded(false); }}

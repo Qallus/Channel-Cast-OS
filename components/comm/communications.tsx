@@ -1,18 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { Call, Device as TwilioDevice } from "@twilio/voice-sdk";
 import {
+  Archive,
   Bell,
+  CalendarDays,
   Check,
   ChevronDown,
   Contact as ContactIcon,
+  Copy,
   Delete,
   Disc,
   Download,
   Inbox,
+  LayoutGrid,
   Link2,
+  List,
   Mail,
+  MapPin,
   MessageSquare,
   Mic,
   Phone,
@@ -24,6 +31,10 @@ import {
   Send,
   Share2,
   Sparkles,
+  SquareKanban,
+  Table as TableIcon,
+  Trash2,
+  UserPlus,
   Voicemail,
   X,
 } from "lucide-react";
@@ -32,8 +43,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { RecordCalendar } from "@/components/crm/crm-ui";
+import { Contact, ContactType, contactName, seedContacts } from "@/lib/crm/contacts";
+import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
+
+const SubmissionsMap = dynamic(() => import("@/components/crm/records-map"), { ssr: false });
 
 /* ── types ───────────────────────────────────────────────────────────── */
 
@@ -833,11 +851,39 @@ type Submission = {
   createdAt?: string;
 };
 
+type SubView = "list" | "table" | "cards" | "kanban" | "calendar" | "map";
+const SUB_VIEWS: { id: SubView; label: string; icon: typeof List }[] = [
+  { id: "list", label: "List", icon: List },
+  { id: "table", label: "Table", icon: TableIcon },
+  { id: "cards", label: "Cards", icon: LayoutGrid },
+  { id: "kanban", label: "Kanban", icon: SquareKanban },
+  { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "map", label: "Map", icon: MapPin },
+];
+const SUB_STATUS = (s: Submission) => (s.status === "archived" ? "archived" : s.status === "read" ? "read" : "new");
+const subDate = (s: Submission) => (s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "");
+
+function submissionToContact(s: Submission, type: ContactType): Contact {
+  const parts = (s.name || "").trim().split(/\s+/);
+  return {
+    id: genId("ct"), name: s.name || s.email || "New lead", firstName: parts[0] || "", lastName: parts.slice(1).join(" "),
+    title: "", company: s.company || "", type, status: "active", email: s.email || "", phone: s.phone || "",
+    website: s.website || "", city: "", state: "", source: "Website form", owner: "Jeremy Waters", tags: [],
+    notes: [s.subject, s.interest, s.message].filter(Boolean).join(" — "),
+    lastContact: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), details: {},
+  };
+}
+
 function FormSubmissionsTab() {
   const [items, setItems] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"new" | "all" | "archived">("new");
+  const [view, setView] = useState<SubView>("list");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const contactsCol = useCollection<Contact>("contacts", seedContacts);
+
+  function flash(m: string) { setMsg(m); setTimeout(() => setMsg(null), 2500); }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -853,9 +899,28 @@ function FormSubmissionsTab() {
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, status } : x)));
     await fetch("/api/comm/form-submissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) }).catch(() => {});
   }
+  async function remove(id: string) {
+    setItems((xs) => xs.filter((x) => x.id !== id));
+    if (openId === id) setOpenId(null);
+    await fetch(`/api/comm/form-submissions?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+    flash("Deleted.");
+  }
+  function saveTo(s: Submission, type: ContactType) {
+    contactsCol.create(submissionToContact(s, type));
+    if (SUB_STATUS(s) === "new") setStatus(s.id, "read");
+    flash(`Saved to ${type === "contact" ? "Contacts" : type === "lead" ? "Leads" : "Prospects"}.`);
+  }
+  async function share(s: Submission) {
+    const text = `${s.name || "Submission"} · ${s.email || ""}${s.phone ? ` · ${s.phone}` : ""}${s.company ? ` · ${s.company}` : ""}${s.message ? `\n${s.message}` : ""}`;
+    try { if (navigator.share) await navigator.share({ title: "Form submission", text }); else { await navigator.clipboard.writeText(text); flash("Copied to clipboard."); } }
+    catch { /* cancelled */ }
+  }
 
-  const shown = items.filter((s) => (filter === "all" ? true : filter === "archived" ? s.status === "archived" : (s.status || "new") === "new"));
-  const newCount = items.filter((s) => (s.status || "new") === "new").length;
+  const shown = useMemo(() => items.filter((s) => (filter === "all" ? true : filter === "archived" ? SUB_STATUS(s) === "archived" : SUB_STATUS(s) === "new")), [items, filter]);
+  const newCount = items.filter((s) => SUB_STATUS(s) === "new").length;
+  const open = items.find((s) => s.id === openId) || null;
+
+  const actions = (s: Submission) => ({ onOpen: () => setOpenId(s.id), onArchive: () => setStatus(s.id, SUB_STATUS(s) === "archived" ? "read" : "archived"), onDelete: () => remove(s.id), onShare: () => share(s), onSave: (t: ContactType) => saveTo(s, t), archived: SUB_STATUS(s) === "archived" });
 
   return (
     <div className="space-y-4">
@@ -865,71 +930,211 @@ function FormSubmissionsTab() {
             <button key={id} onClick={() => setFilter(id)} className={cn("rounded-md px-3 py-1.5 text-sm font-medium transition-colors", filter === id ? "bg-accent text-brand-strong" : "text-muted-foreground hover:text-foreground")}>{label}</button>
           ))}
         </div>
-        <Button variant="outline" size="sm" onClick={load}><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh</Button>
+        <div className="flex items-center gap-2">
+          {msg && <span className="text-sm text-brand-strong">{msg}</span>}
+          <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">
+            {SUB_VIEWS.map((v) => (
+              <button key={v.id} onClick={() => setView(v.id)} title={v.label} className={cn("flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors", view === v.id ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground")}>
+                <v.icon className={cn("h-4 w-4", view === v.id && "text-brand-strong")} /><span className="hidden sm:inline">{v.label}</span>
+              </button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" onClick={load}><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /> Refresh</Button>
+        </div>
       </div>
 
       {loading && !items.length ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">Loading submissions…</div>
       ) : !shown.length ? (
         <Placeholder icon={Inbox} title="No submissions here" note={filter === "new" ? "New contact and demo requests from the website land here." : "Nothing in this view yet."} />
+      ) : view === "table" ? (
+        <SubTable subs={shown} act={actions} />
+      ) : view === "cards" ? (
+        <SubCards subs={shown} act={actions} />
+      ) : view === "kanban" ? (
+        <SubKanban subs={shown} act={actions} />
+      ) : view === "calendar" ? (
+        <RecordCalendar items={shown} getId={(s) => s.id} getDate={(s) => s.createdAt || ""} getTitle={(s) => s.name || s.email || "Submission"} onOpen={(id) => setOpenId(id)} footer="Submissions by date received. Click one to open." />
+      ) : view === "map" ? (
+        <SubMap subs={shown} onOpen={(id) => setOpenId(id)} />
       ) : (
-        <div className="space-y-2">
-          {shown.map((s) => {
-            const open = openId === s.id;
-            const unread = (s.status || "new") === "new";
-            return (
-              <div key={s.id} className={cn("rounded-xl border bg-card transition-colors", unread ? "border-brand-strong/40" : "border-border")}>
-                <button
-                  onClick={() => { setOpenId(open ? null : s.id); if (unread) setStatus(s.id, "read"); }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left"
-                >
-                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold", unread ? "bg-brand/15 text-brand-strong" : "bg-accent text-muted-foreground")}>
-                    {(s.name || "?").trim().charAt(0).toUpperCase()}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{s.name || "Unknown"}</p>
-                      {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-strong" />}
-                      <Badge variant="outline" className="ml-auto shrink-0 capitalize">{s.kind || "contact"}</Badge>
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">{s.email}{s.subject ? ` · ${s.subject}` : s.interest ? ` · ${s.interest}` : ""}{s.message ? ` — ${s.message}` : ""}</p>
-                  </div>
-                  <span className="shrink-0 text-[11px] text-muted-foreground">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ""}</span>
-                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
-                </button>
-
-                {open && (
-                  <div className="border-t border-border px-4 py-3 text-sm">
-                    <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
-                      <SubField label="Email" value={s.email} />
-                      <SubField label="Phone" value={s.phone} />
-                      <SubField label="Business" value={s.company} />
-                      <SubField label="Website" value={s.website} />
-                      <SubField label="Subject" value={s.subject} />
-                      <SubField label="Interested in" value={s.interest} />
-                      <SubField label="Received" value={s.createdAt ? new Date(s.createdAt).toLocaleString() : undefined} />
-                    </div>
-                    {s.message && (
-                      <div className="mt-3">
-                        <p className="text-xs font-medium text-muted-foreground">Message</p>
-                        <p className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-foreground">{s.message}</p>
-                      </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {s.email && <Button asChild size="sm"><a href={`mailto:${s.email}`}><Mail className="h-4 w-4" /> Reply</a></Button>}
-                      {(s.status || "new") !== "archived" ? (
-                        <Button variant="outline" size="sm" onClick={() => setStatus(s.id, "archived")}>Archive</Button>
-                      ) : (
-                        <Button variant="outline" size="sm" onClick={() => setStatus(s.id, "read")}>Restore</Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <SubList subs={shown} act={actions} />
       )}
+
+      {/* Detail modal */}
+      <Dialog open={Boolean(open)} onOpenChange={(o) => !o && setOpenId(null)}>
+        <DialogContent className="max-w-lg">
+          {open && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">{open.name || "Submission"}<Badge variant="outline" className="capitalize">{open.kind || "contact"}</Badge></DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                <SubField label="Email" value={open.email} />
+                <SubField label="Phone" value={open.phone} />
+                <SubField label="Business" value={open.company} />
+                <SubField label="Website" value={open.website} />
+                <SubField label="Subject" value={open.subject} />
+                <SubField label="Interested in" value={open.interest} />
+                <SubField label="Received" value={open.createdAt ? new Date(open.createdAt).toLocaleString() : undefined} />
+              </div>
+              {open.message && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Message</p>
+                  <p className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-sm text-foreground">{open.message}</p>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <span className="mr-1 self-center text-xs text-muted-foreground">Save to</span>
+                <Button size="sm" variant="outline" onClick={() => saveTo(open, "contact")}><UserPlus className="h-3.5 w-3.5" /> Contact</Button>
+                <Button size="sm" variant="outline" onClick={() => saveTo(open, "lead")}><UserPlus className="h-3.5 w-3.5" /> Lead</Button>
+                <Button size="sm" variant="outline" onClick={() => saveTo(open, "prospect")}><UserPlus className="h-3.5 w-3.5" /> Prospect</Button>
+              </div>
+              <DialogFooter className="flex-wrap gap-2 sm:justify-start">
+                {open.email && <Button asChild size="sm"><a href={`mailto:${open.email}`}><Mail className="h-4 w-4" /> Reply</a></Button>}
+                <Button size="sm" variant="outline" onClick={() => share(open)}><Share2 className="h-4 w-4" /> Share</Button>
+                <Button size="sm" variant="outline" onClick={() => setStatus(open.id, SUB_STATUS(open) === "archived" ? "read" : "archived")}><Archive className="h-4 w-4" /> {SUB_STATUS(open) === "archived" ? "Restore" : "Archive"}</Button>
+                <Button size="sm" variant="outline" className="text-destructive" onClick={() => remove(open.id)}><Trash2 className="h-4 w-4" /> Delete</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+type SubAct = { onOpen: () => void; onArchive: () => void; onDelete: () => void; onShare: () => void; onSave: (t: ContactType) => void; archived: boolean };
+type SubViewProps = { subs: Submission[]; act: (s: Submission) => SubAct };
+
+function SaveMenu({ onSave }: { onSave: (t: ContactType) => void }) {
+  return (
+    <Select value="" onValueChange={(v) => onSave(v as ContactType)}>
+      <SelectTrigger className="h-8 w-[110px] text-xs"><span className="flex items-center gap-1"><UserPlus className="h-3.5 w-3.5" /> Save to</span></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="contact">Contact</SelectItem>
+        <SelectItem value="lead">Lead</SelectItem>
+        <SelectItem value="prospect">Prospect</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+function RowBtns({ a }: { a: SubAct }) {
+  return (
+    <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <SaveMenu onSave={a.onSave} />
+      <button onClick={a.onShare} title="Share" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Share2 className="h-4 w-4" /></button>
+      <button onClick={a.onArchive} title={a.archived ? "Restore" : "Archive"} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Archive className="h-4 w-4" /></button>
+      <button onClick={a.onDelete} title="Delete" className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
+function SubList({ subs, act }: SubViewProps) {
+  return (
+    <div className="space-y-2">
+      {subs.map((s) => {
+        const a = act(s); const unread = SUB_STATUS(s) === "new";
+        return (
+          <div key={s.id} className={cn("flex items-center gap-3 rounded-xl border bg-card px-4 py-3", unread ? "border-brand-strong/40" : "border-border")}>
+            <button onClick={a.onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+              <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold", unread ? "bg-brand/15 text-brand-strong" : "bg-accent text-muted-foreground")}>{(s.name || "?").trim().charAt(0).toUpperCase()}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2"><p className="truncate text-sm font-semibold text-foreground">{s.name || "Unknown"}</p>{unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-strong" />}</div>
+                <p className="truncate text-xs text-muted-foreground">{s.email}{s.subject ? ` · ${s.subject}` : s.interest ? ` · ${s.interest}` : ""}{s.message ? ` — ${s.message}` : ""}</p>
+              </div>
+              <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">{subDate(s)}</span>
+            </button>
+            <RowBtns a={a} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SubTable({ subs, act }: SubViewProps) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <Table>
+        <TableHeader>
+          <TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Kind</TableHead><TableHead>Received</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
+        </TableHeader>
+        <TableBody>
+          {subs.map((s) => { const a = act(s); return (
+            <TableRow key={s.id} className="cursor-pointer" onClick={a.onOpen}>
+              <TableCell className="font-medium">{s.name || "Unknown"}</TableCell>
+              <TableCell className="text-muted-foreground">{s.email}</TableCell>
+              <TableCell className="capitalize">{s.kind || "contact"}</TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">{subDate(s)}</TableCell>
+              <TableCell className="capitalize">{SUB_STATUS(s)}</TableCell>
+              <TableCell><div className="flex justify-end"><RowBtns a={a} /></div></TableCell>
+            </TableRow>
+          ); })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function SubCards({ subs, act }: SubViewProps) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {subs.map((s) => { const a = act(s); return (
+        <div key={s.id} className="rounded-xl border border-border bg-card p-4">
+          <button onClick={a.onOpen} className="w-full text-left">
+            <div className="flex items-center gap-2"><p className="truncate font-medium">{s.name || "Unknown"}</p><Badge variant="outline" className="ml-auto capitalize">{s.kind || "contact"}</Badge></div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{s.email}</p>
+            {s.message && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{s.message}</p>}
+            <p className="mt-2 text-[11px] text-muted-foreground">{subDate(s)}</p>
+          </button>
+          <div className="mt-3 border-t border-border pt-2"><RowBtns a={a} /></div>
+        </div>
+      ); })}
+    </div>
+  );
+}
+
+function SubKanban({ subs, act }: SubViewProps) {
+  const cols: { key: string; label: string }[] = [{ key: "new", label: "New" }, { key: "read", label: "Read" }, { key: "archived", label: "Archived" }];
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {cols.map((c) => {
+        const col = subs.filter((s) => SUB_STATUS(s) === c.key);
+        return (
+          <div key={c.key} className="rounded-lg border border-border bg-card p-2">
+            <div className="mb-2 flex items-center justify-between px-1"><span className="text-sm font-semibold">{c.label}</span><span className="text-xs text-muted-foreground">{col.length}</span></div>
+            <div className="space-y-2">
+              {col.map((s) => { const a = act(s); return (
+                <div key={s.id} className="rounded-md border border-border bg-background p-2.5">
+                  <button onClick={a.onOpen} className="w-full text-left"><p className="truncate text-sm font-medium">{s.name || "Unknown"}</p><p className="truncate text-[11px] text-muted-foreground">{s.email}</p></button>
+                  <div className="mt-2"><RowBtns a={a} /></div>
+                </div>
+              ); })}
+              {col.length === 0 && <p className="px-1 py-4 text-center text-xs text-muted-foreground/60">Empty</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SubMap({ subs, onOpen }: { subs: Submission[]; onOpen: (id: string) => void }) {
+  const points = subs
+    .map((s) => { const r = s as Submission & { lat?: number; lng?: number }; return typeof r.lat === "number" && typeof r.lng === "number" ? { id: s.id, lat: r.lat, lng: r.lng, title: s.name || s.email || "Submission" } : null; })
+    .filter(Boolean) as { id: string; lat: number; lng: number; title: string }[];
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="h-[420px] overflow-hidden rounded-xl border border-border"><SubmissionsMap points={points} onOpen={onOpen} /></div>
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">{points.length ? `${points.length} located on the map.` : "Website submissions don't include a location, so they aren't placed on the map yet. Add a location field to the form to plot them here."}</p>
+        {subs.map((s) => (
+          <button key={s.id} onClick={() => onOpen(s.id)} className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left text-xs transition-colors hover:border-brand/40">
+            <span className="truncate font-medium">{s.name || "Unknown"}</span><span className="ml-auto shrink-0 text-muted-foreground">{subDate(s)}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { listRecords, upsertRecords } from "@/lib/server/crm-db";
+import { deleteRecord, listRecords, upsertRecords } from "@/lib/server/crm-db";
 
 export const runtime = "nodejs";
 
@@ -29,5 +29,17 @@ export async function PATCH(req: Request) {
     return Response.json({ ok: true });
   } catch {
     return Response.json({ error: "update failed" }, { status: 500 });
+  }
+}
+
+// DELETE /api/comm/form-submissions?id=... → remove a submission.
+export async function DELETE(req: Request) {
+  const id = new URL(req.url).searchParams.get("id") || "";
+  if (!id) return Response.json({ error: "id required" }, { status: 400 });
+  try {
+    await deleteRecord("leads", id);
+    return Response.json({ ok: true });
+  } catch {
+    return Response.json({ error: "delete failed" }, { status: 500 });
   }
 }
