@@ -2,9 +2,9 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
-  Archive, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List, Mail,
-  Maximize2, Minimize2, MessageSquare, Pencil, Phone, Plus, Shuffle, SquareKanban, Table as TableIcon,
-  Trash2, Upload, X,
+  Archive, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List,
+  ListChecks, Mail, Maximize2, Minimize2, MessageSquare, Pencil, Phone, Plus, Shuffle, SquareKanban,
+  StickyNote, Table as TableIcon, Trash2, Upload, X,
 } from "lucide-react";
 
 import {
@@ -24,6 +24,7 @@ import {
   CONTACT_STATUS, CONTACT_STATUS_ORDER, CONTACT_TAGS, CONTACT_TYPE, CONTACT_TYPE_NEXT, CONTACT_TYPE_ORDER,
   Contact, ContactStatus, ContactType, DETAIL_CATEGORIES, categorizeDetail, contactName, seedContacts,
 } from "@/lib/crm/contacts";
+import { ACTIVITY_KIND, Activity, ActivityKind, seedActivities } from "@/lib/crm/activities";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +82,7 @@ function blankContact(type: ContactType = "contact"): Contact {
 
 export function ContactsPage() {
   const { items, create, update, remove } = useCollection<Contact>("contacts", seedContacts);
+  const activitiesCol = useCollection<Activity>("activities", seedActivities);
   const [view, setView] = useState<View>("list");
   const [tab, setTab] = useState<ContactType | "all">("all");
   const [search, setSearch] = useState("");
@@ -261,6 +263,8 @@ export function ContactsPage() {
               contact={drawer} expanded={expanded} onToggleExpand={() => setExpanded((v) => !v)} onClose={() => { setViewId(null); setExpanded(false); }}
               onEdit={() => openEdit(drawer)} onDelete={() => setDeleteItem(drawer)}
               onConvert={(t) => setType(drawer, t)} onStatus={(s) => setStatus(drawer, s)}
+              activities={activitiesCol.items.filter((a) => a.contactId === drawer.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))}
+              onLog={(kind, body) => activitiesCol.create({ id: genId("ac"), contactId: drawer.id, kind, body, actor: drawer.owner || "You", createdAt: new Date().toISOString() })}
             />
           )}
         </DialogContent>
@@ -298,10 +302,11 @@ export function ContactsPage() {
 // ── The rich contact profile modal ──────────────────────────────────────────────
 
 function ContactProfile({
-  contact, expanded, onToggleExpand, onClose, onEdit, onDelete, onConvert, onStatus,
+  contact, expanded, onToggleExpand, onClose, onEdit, onDelete, onConvert, onStatus, activities, onLog,
 }: {
   contact: Contact; expanded: boolean; onToggleExpand: () => void; onClose: () => void;
   onEdit: () => void; onDelete: () => void; onConvert: (t: ContactType) => void; onStatus: (s: ContactStatus) => void;
+  activities: Activity[]; onLog: (kind: ActivityKind, body: string) => void;
 }) {
   const next = CONTACT_TYPE_NEXT[contact.type];
   const location = [contact.city, contact.state, contact.zip].filter(Boolean).join(", ");
@@ -324,9 +329,9 @@ function ContactProfile({
       <div className={cn("min-h-0 flex-1 overflow-y-auto p-5", expanded && "mx-auto w-full max-w-3xl")}>
         {/* Quick actions */}
         <div className="flex flex-wrap gap-1.5">
-          {contact.phone && <ActionBtn href={`tel:${contact.phone}`} icon={Phone} label="Call" />}
-          {(contact.sms || contact.phone) && <ActionBtn href={`sms:${contact.sms || contact.phone}`} icon={MessageSquare} label="Text" />}
-          {contact.email && <ActionBtn href={`mailto:${contact.email}`} icon={Mail} label="Email" />}
+          {contact.phone && <ActionBtn href={`tel:${contact.phone}`} icon={Phone} label="Call" onLog={() => onLog("call", `Call to ${contact.phone}`)} />}
+          {(contact.sms || contact.phone) && <ActionBtn href={`sms:${contact.sms || contact.phone}`} icon={MessageSquare} label="Text" onLog={() => onLog("sms", `SMS to ${contact.sms || contact.phone}`)} />}
+          {contact.email && <ActionBtn href={`mailto:${contact.email}`} icon={Mail} label="Email" onLog={() => onLog("email", `Email to ${contact.email}`)} />}
           <Button size="sm" variant="outline" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
           <Button size="sm" variant="outline" onClick={() => onStatus(contact.status === "archived" ? "active" : "archived")}><Archive className="h-3.5 w-3.5" /> {contact.status === "archived" ? "Unarchive" : "Archive"}</Button>
           <Select value={contact.status} onValueChange={(v) => onStatus(v as ContactStatus)}>
@@ -390,6 +395,9 @@ function ContactProfile({
           </div>
         ) : null}
 
+        {/* Activity & communications */}
+        <ActivityTimeline activities={activities} onLog={onLog} />
+
         {/* Convert */}
         {next ? (
           <div className="mt-5">
@@ -401,8 +409,65 @@ function ContactProfile({
   );
 }
 
-function ActionBtn({ href, icon: Icon, label }: { href: string; icon: typeof Phone; label: string }) {
-  return <Button asChild size="sm" variant="outline"><a href={href}><Icon className="h-3.5 w-3.5" /> {label}</a></Button>;
+function ActionBtn({ href, icon: Icon, label, onLog }: { href: string; icon: typeof Phone; label: string; onLog?: () => void }) {
+  return <Button asChild size="sm" variant="outline"><a href={href} onClick={() => onLog?.()}><Icon className="h-3.5 w-3.5" /> {label}</a></Button>;
+}
+
+const ACTIVITY_ICON: Record<ActivityKind, typeof Phone> = {
+  note: StickyNote, call: Phone, sms: MessageSquare, email: Mail, meeting: CalendarClock, task: ListChecks, stage: Shuffle,
+};
+
+function timeAgo(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function ActivityTimeline({ activities, onLog }: { activities: Activity[]; onLog: (kind: ActivityKind, body: string) => void }) {
+  const [kind, setKind] = useState<ActivityKind>("note");
+  const [body, setBody] = useState("");
+  function submit() { if (body.trim()) { onLog(kind, body.trim()); setBody(""); } }
+  return (
+    <div className="mt-5">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activity &amp; communications</p>
+      {/* Composer */}
+      <div className="mb-3 flex gap-2">
+        <Select value={kind} onValueChange={(v) => setKind(v as ActivityKind)}>
+          <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>{(["note", "call", "sms", "email", "meeting"] as ActivityKind[]).map((k) => <SelectItem key={k} value={k}>{ACTIVITY_KIND[k].label}</SelectItem>)}</SelectContent>
+        </Select>
+        <Input value={body} onChange={(e) => setBody(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} placeholder="Log a call, note, or message…" className="flex-1" />
+        <Button size="sm" onClick={submit} disabled={!body.trim()}>Log</Button>
+      </div>
+      {activities.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border py-6 text-center text-xs text-muted-foreground">No activity yet. Log the first touchpoint above.</p>
+      ) : (
+        <ol className="space-y-2">
+          {activities.map((a) => {
+            const Icon = ACTIVITY_ICON[a.kind] ?? StickyNote;
+            return (
+              <li key={a.id} className="flex gap-3 rounded-lg border border-border bg-card p-3">
+                <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", ACTIVITY_KIND[a.kind].tone)}><Icon className="h-3.5 w-3.5" /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium">{ACTIVITY_KIND[a.kind].label}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(a.createdAt)}</span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-foreground">{a.body}</p>
+                  {a.actor ? <p className="mt-0.5 text-[11px] text-muted-foreground">{a.actor}</p> : null}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
 }
 function Info({ label, icon: Icon, children }: { label: string; icon?: typeof Mail; children: React.ReactNode }) {
   return (
