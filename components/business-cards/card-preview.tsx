@@ -76,7 +76,7 @@ export function CardPreview({
         return wrap(
           <div className={cn("flex flex-col", alignClass)}>
             {card.logo_url
-              ? <img src={card.logo_url} alt="" className="mb-3 h-6 object-contain" />
+              ? <img src={card.logo_url} alt="" className="mb-3 object-contain" style={{ height: media.logo_height || 24, width: media.logo_width || "auto", maxWidth: "100%" }} />
               : <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: hexAlpha(text, 0.5) }}>{card.company_name || "Digital Card"}</div>}
             {card.profile_photo_url
               ? <img src={card.profile_photo_url} alt={name} className={cn("h-24 w-24 object-cover", shapeClass)} style={{ border: media.profile_outline ? `2px solid ${accent}` : `2px solid ${border}` }} />

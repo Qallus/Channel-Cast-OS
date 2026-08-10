@@ -14,7 +14,9 @@ function genId(prefix: string): string {
 }
 
 export function slugify(input: string): string {
-  return String(input || "")
+  // Drop an email domain so "jw@channelcast.io" becomes "jw", not "jw-channelcast-io".
+  const base = String(input || "").split("@")[0];
+  return base
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")

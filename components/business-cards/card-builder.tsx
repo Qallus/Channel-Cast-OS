@@ -770,8 +770,19 @@ function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K ext
   function setMedia(patch: Partial<MediaSettings>) {
     setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), ...patch } }));
   }
+  const logoH = media.logo_height || 24;
+  const logoW = media.logo_width || 0;
   return (
     <>
+      <Section title="Logo size">
+        <p className="mb-2 text-xs text-muted-foreground">Set the logo shown in the profile header. The aspect ratio is locked, so it never stretches.</p>
+        <F label={`Height — ${logoH}px`}>
+          <input type="range" min={12} max={120} value={logoH} onChange={(e) => setMedia({ logo_height: Number(e.target.value) })} className="w-full accent-brand" />
+        </F>
+        <F label={logoW ? `Max width — ${logoW}px` : "Max width — auto"} hint="0 = auto (scales with height).">
+          <input type="range" min={0} max={320} value={logoW} onChange={(e) => setMedia({ logo_width: Number(e.target.value) })} className="w-full accent-brand" />
+        </F>
+      </Section>
       <Section title="Background">
         <ImageField label="Background image" value={draft.background_image_url} onChange={(v) => set("background_image_url", v)} />
         <label className="flex items-center gap-2 text-sm">

@@ -24,6 +24,9 @@ export type Profile = {
 };
 
 export const STORAGE_KEY = "cc-profile";
+// Fired on the window after a profile save so same-tab listeners (e.g. the topbar
+// avatar) can update without a reload. Cross-tab uses the native `storage` event.
+export const PROFILE_EVENT = "cc-profile-updated";
 
 // Seeded to match the (currently hard-coded) console user so the page reads as
 // "real" on first visit; every field is editable.
@@ -80,6 +83,7 @@ export function saveProfile(profile: Profile): Profile {
     // Keep the app-wide theme in sync with the appearance preference.
     window.localStorage.setItem("cc-theme", next.appearance);
     document.documentElement.classList.toggle("dark", next.appearance === "dark");
+    window.dispatchEvent(new CustomEvent(PROFILE_EVENT));
   }
   return next;
 }

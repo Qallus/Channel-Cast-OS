@@ -22,6 +22,8 @@ export type MediaSettings = {
   profile_outline?: boolean;
   content_align?: "center" | "left";
   use_background_image?: boolean;
+  logo_height?: number; // px; aspect ratio is preserved (object-contain)
+  logo_width?: number;  // px max; 0/undefined = auto
 };
 
 export type AutomationAction = "notify_owner_email" | "notify_owner_sms" | "autoreply_email";

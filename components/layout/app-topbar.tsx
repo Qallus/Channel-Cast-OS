@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronRight, Menu, Search } from "lucide-react";
 
 import { adminNavGroups } from "@/lib/nav/navigation";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { loadProfile, initials as profileInitials, PROFILE_EVENT, STORAGE_KEY } from "@/lib/profile/profile";
 
 function useCurrentSection() {
   const pathname = usePathname();
@@ -26,12 +28,21 @@ export function AppTopbar({
   userEmail?: string;
 }) {
   const section = useCurrentSection();
-  const initials = roleLabel
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+
+  // Avatar + name come from the saved profile (localStorage). Falls back to the
+  // role label's initials until the profile hydrates after mount.
+  const roleInitials = roleLabel.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  useEffect(() => {
+    const sync = () => { const p = loadProfile(); setAvatar(p.avatar); setName(p.fullName); };
+    sync();
+    const onStorage = (e: StorageEvent) => { if (e.key === STORAGE_KEY) sync(); };
+    window.addEventListener(PROFILE_EVENT, sync);
+    window.addEventListener("storage", onStorage);
+    return () => { window.removeEventListener(PROFILE_EVENT, sync); window.removeEventListener("storage", onStorage); };
+  }, []);
+  const initials = name.trim() ? profileInitials(name) : roleInitials;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
@@ -70,9 +81,14 @@ export function AppTopbar({
         </button>
         <ThemeToggle />
         <div className="flex items-center gap-2 rounded-md pl-1">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
-            {initials}
-          </span>
+          {avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar} alt={name || "Profile"} className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-brand-foreground">
+              {initials}
+            </span>
+          )}
           {userEmail && <span className="hidden text-sm text-muted-foreground lg:inline">{userEmail}</span>}
         </div>
       </div>
