@@ -5,7 +5,20 @@ import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SupportFab } from "@/components/site/support-fab";
 import { AiVisionDemo } from "@/components/site/ai-vision-demo";
+import { DeviceCaption } from "@/components/site/device-anim";
+import { LISTINGS, type Listing } from "@/lib/marketing/marketplace";
 import { Button } from "@/components/ui/button";
+
+// A varied trio of real listings for the homepage marketplace preview.
+const MARKETPLACE_PREVIEW: Listing[] = ["scottsdale-fashion-square-garage", "salt-river-fields", "sky-harbor-parking-garage"]
+  .map((s) => LISTINGS.find((l) => l.slug === s))
+  .filter((l): l is Listing => Boolean(l))
+  .concat(LISTINGS)
+  .slice(0, 3);
+
+function audienceLabel(n: number): string {
+  return n >= 1000 ? `~${(n / 1000).toFixed(1)}k/wk` : `~${n}/wk`;
+}
 
 export const metadata = {
   title: "Channel Cast — Motion-Based Audio Advertising",
@@ -102,19 +115,20 @@ export default function HomePage() {
       <Section eyebrow="Marketplace" title="Discover ad space near your audience"
         action={<Button asChild variant="outline"><Link href="/marketplace">Browse the marketplace <ArrowRight className="h-4 w-4" /></Link></Button>}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { name: "Downtown Coffee Bar", loc: "Austin, TX", type: "Café", plays: "~1.2k/wk" },
-            { name: "Riverside Fitness", loc: "Denver, CO", type: "Gym", plays: "~3.4k/wk" },
-            { name: "Market Street Salon", loc: "Portland, OR", type: "Salon", plays: "~800/wk" },
-          ].map((s) => (
-            <div key={s.name} className="overflow-hidden rounded-xl border border-border bg-card">
-              <div className="flex h-28 items-center justify-center bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-8 w-8 text-brand-strong/70" /></div>
+          {MARKETPLACE_PREVIEW.map((l) => (
+            <Link key={l.slug} href={`/marketplace/${l.slug}`} className="group overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-brand/50">
+              {l.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={l.imageUrl} alt={l.name} className="h-28 w-full object-cover" />
+              ) : (
+                <div className="flex h-28 items-center justify-center bg-[radial-gradient(80%_80%_at_50%_20%,hsl(var(--brand)/0.15),transparent)]"><Store className="h-8 w-8 text-brand-strong/70" /></div>
+              )}
               <div className="p-4">
-                <p className="text-sm font-semibold text-foreground">{s.name}</p>
-                <p className="text-xs text-muted-foreground">{s.type} · {s.loc}</p>
-                <p className="mt-2 text-xs text-muted-foreground">Est. audience <span className="font-medium text-foreground">{s.plays}</span></p>
+                <p className="text-sm font-semibold text-foreground group-hover:text-brand-strong">{l.name}</p>
+                <p className="text-xs text-muted-foreground">{l.type} · {[l.city, l.state].filter(Boolean).join(", ")}</p>
+                <p className="mt-2 text-xs text-muted-foreground">Est. audience <span className="font-medium text-foreground">{audienceLabel(l.audiencePerWeek)}</span></p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </Section>
@@ -136,6 +150,7 @@ export default function HomePage() {
           <Feature icon={CalendarClock} title="Scheduling" body="Play windows, cooldowns, and per-device deployments." />
           <Feature icon={ShieldCheck} title="Private by design" body="On-device vision — no faces stored or uploaded, ever." />
         </div>
+        <div className="mt-8"><DeviceCaption /></div>
       </Section>
 
       {/* FAQ */}
