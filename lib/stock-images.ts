@@ -28,6 +28,13 @@ const TYPE_MAP: [string, string][] = [
   ["bar", "bar"], ["taproom", "bar"], ["brewery", "bar"], ["night", "bar"], ["pub", "bar"],
   ["hotel", "hotel"], ["hospitality", "hotel"], ["pool", "hotel"], ["resort", "hotel"],
   ["parking", "parking"], ["garage", "parking"],
+  // Big-box, grocery, malls → retail. Keep gas/fuel before "station" (transit) so
+  // "Gas Station" resolves to a retail/convenience image, not a transit hub.
+  ["gas", "retail"], ["fuel", "retail"], ["mall", "retail"], ["walmart", "retail"],
+  ["grocery", "retail"], ["supermarket", "retail"], ["market", "retail"], ["fry", "retail"],
+  // High-traffic public venues → transit (crowds). Airport is a natural fit.
+  ["airport", "transit"], ["arena", "transit"], ["stadium", "transit"], ["sport", "transit"],
+  ["event", "transit"], ["venue", "transit"], ["convention", "transit"],
   ["office", "office"], ["cowork", "office"],
   ["clinic", "clinic"], ["medical", "clinic"], ["dental", "clinic"], ["waiting", "clinic"], ["health", "clinic"],
   ["transit", "transit"], ["commut", "transit"], ["station", "transit"],
