@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Inbox, ListChecks, Mail, MessageSquare, Phone, StickyNote, Users } from "lucide-react";
+import { Bell, CalendarClock, Inbox, ListChecks, Mail, MessageSquare, Phone, StickyNote, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ type Notif = { id: string; kind: string; title: string; subtitle: string; at: st
 
 const SEEN_KEY = "cc-notif-seen";
 const ICON: Record<string, typeof Bell> = {
-  form: Inbox, call: Phone, sms: MessageSquare, email: Mail, note: StickyNote, meeting: Users, task: ListChecks,
+  form: Inbox, call: Phone, sms: MessageSquare, email: Mail, note: StickyNote, meeting: Users, task: ListChecks, booking: CalendarClock,
 };
 const ACT_TITLE: Record<string, string> = {
   call: "Call logged", sms: "New SMS", email: "Email logged", note: "New note", meeting: "Meeting", task: "Task",
@@ -59,6 +59,16 @@ export function NotificationBell() {
           if (!c.direction?.includes("inbound") || c.status !== "no-answer") continue;
           out.push({ id: `call_${c.from}_${c.startTime}`, kind: "call", title: "Missed call", subtitle: c.from || "", at: c.startTime || "", href: "/app/admin/communications" });
         }
+      }
+    } catch { /* ignore */ }
+    // New appointment/booking requests.
+    try {
+      const r = await fetch("/api/crm/bookings");
+      if (r.ok) {
+        const rows = (await r.json()) as Record<string, string>[];
+        (Array.isArray(rows) ? rows : [])
+          .filter((b) => (b.status || "pending") === "pending")
+          .forEach((b) => out.push({ id: `bk_${b.id}`, kind: "booking", title: "New appointment request", subtitle: `${b.typeName || "Booking"} · ${[b.firstName, b.lastName].filter(Boolean).join(" ") || b.email}`, at: b.createdAt || "", href: "/app/admin/bookings" }));
       }
     } catch { /* ignore */ }
     // CRM activities (calls / SMS / emails / notes / meetings), newest first.
