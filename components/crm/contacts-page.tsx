@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List,
-  ListChecks, Mail, Maximize2, Minimize2, MessageSquare, Pencil, Phone, Plus, Shuffle, SquareKanban,
+  ListChecks, Mail, Maximize2, Minimize2, MessageSquare, Pencil, Phone, Plus, Send, Shuffle, SquareKanban,
   StickyNote, Table as TableIcon, Trash2, Upload, X,
 } from "lucide-react";
 
@@ -316,6 +316,7 @@ function ContactProfile({
   activities: Activity[]; onLog: (kind: ActivityKind, body: string) => void; deals: Deal[];
 }) {
   const next = CONTACT_TYPE_NEXT[contact.type];
+  const [smsOpen, setSmsOpen] = useState(false);
   const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   const location = [contact.city, contact.state, contact.zip].filter(Boolean).join(", ");
   const details = contact.details ?? {};
@@ -339,7 +340,7 @@ function ContactProfile({
         <div className="flex flex-wrap gap-1.5">
           <Button asChild size="sm"><Link href={`/app/admin/contacts/${contact.id}`}><Shuffle className="h-3.5 w-3.5" /> Work Lead</Link></Button>
           {contact.phone && <ActionBtn href={`tel:${contact.phone}`} icon={Phone} label="Call" onLog={() => onLog("call", `Call to ${contact.phone}`)} />}
-          {(contact.sms || contact.phone) && <ActionBtn href={`sms:${contact.sms || contact.phone}`} icon={MessageSquare} label="Text" onLog={() => onLog("sms", `SMS to ${contact.sms || contact.phone}`)} />}
+          {(contact.sms || contact.phone) && <Button size="sm" variant="outline" onClick={() => setSmsOpen(true)}><MessageSquare className="h-3.5 w-3.5" /> Text</Button>}
           {contact.email && <ActionBtn href={`mailto:${contact.email}`} icon={Mail} label="Email" onLog={() => onLog("email", `Email to ${contact.email}`)} />}
           <Button size="sm" variant="outline" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
           <Button size="sm" variant="outline" onClick={() => onStatus(contact.status === "archived" ? "active" : "archived")}><Archive className="h-3.5 w-3.5" /> {contact.status === "archived" ? "Unarchive" : "Archive"}</Button>
@@ -430,7 +431,65 @@ function ContactProfile({
           </div>
         ) : null}
       </div>
+
+      <SmsComposeModal
+        open={smsOpen}
+        onClose={() => setSmsOpen(false)}
+        to={contact.sms || contact.phone || ""}
+        name={contact.firstName || contact.name}
+        onSent={(body) => onLog("sms", `SMS to ${contact.sms || contact.phone}: ${body}`)}
+      />
     </div>
+  );
+}
+
+// In-app SMS composer — sends via Twilio (/api/comm/sms) instead of the OS sms: handler.
+function SmsComposeModal({ open, onClose, to, name, onSent }: { open: boolean; onClose: () => void; to: string; name: string; onSent: (body: string) => void }) {
+  const [numbers, setNumbers] = useState<string[]>([]);
+  const [from, setFrom] = useState<string | null>(null);
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setBody(""); setErr(null);
+    fetch("/api/comm/sms").then((r) => r.json()).then((d) => { setNumbers(d.smsPhoneNumbers || []); setFrom((d.smsPhoneNumbers || [])[0] || null); }).catch(() => {});
+  }, [open]);
+
+  async function send() {
+    if (!body.trim()) return;
+    setSending(true); setErr(null);
+    try {
+      const res = await fetch("/api/comm/sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to, from, body: body.trim() }) });
+      const d = await res.json();
+      if (res.ok) { onSent(body.trim()); onClose(); }
+      else setErr(d.error || "Couldn't send the message.");
+    } catch { setErr("Couldn't send the message."); }
+    finally { setSending(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Text {name}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">To <span className="font-medium text-foreground">{to || "—"}</span></p>
+          {numbers.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {numbers.map((n) => <button key={n} onClick={() => setFrom(n)} className={cn("rounded-lg border px-2 py-1 text-xs", from === n ? "border-brand-strong text-brand-strong" : "border-border text-muted-foreground")}>{n}</button>)}
+            </div>
+          )}
+          <Textarea rows={5} value={body} onChange={(e) => setBody(e.target.value)} placeholder={`Message ${name}…`} autoFocus />
+          {err && <p className="text-sm text-destructive">{err}</p>}
+          {!numbers.length && <p className="text-xs text-muted-foreground">No SMS number is configured. Add a Twilio SMS number to send from the app.</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={send} disabled={sending || !body.trim() || !to}><Send className="h-4 w-4" /> {sending ? "Sending…" : "Send SMS"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
