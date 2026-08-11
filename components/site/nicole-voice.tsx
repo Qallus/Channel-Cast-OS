@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 
 type Status = "connecting" | "live" | "error" | "unconfigured" | "ended";
 
-const RELAY_URL = process.env.NEXT_PUBLIC_NICOLE_WS_URL;
 const SAMPLE_RATE = 24000;
 
 function floatToPCM16(f32: Float32Array): ArrayBuffer {
@@ -57,7 +56,6 @@ export function NicoleCallModal({ open, onClose }: { open: boolean; onClose: () 
     setStatus("connecting"); setError(""); setTranscript(""); setMuted(false); setSpeaking(false);
 
     async function start() {
-      if (!RELAY_URL) { setStatus("unconfigured"); return; }
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -68,7 +66,22 @@ export function NicoleCallModal({ open, onClose }: { open: boolean; onClose: () 
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
       micStreamRef.current = stream;
 
-      const ws = new WebSocket(RELAY_URL!);
+      // Mint a short-lived ephemeral token server-side, then connect straight to xAI.
+      let token: string, agentId: string;
+      try {
+        const res = await fetch("/api/nicole/token", { method: "POST" });
+        if (res.status === 501) { setStatus("unconfigured"); return; }
+        if (!res.ok) throw new Error("token");
+        const data = await res.json();
+        token = data.token; agentId = data.agentId;
+        if (!token || !agentId) throw new Error("token");
+      } catch {
+        setStatus("error"); setError("Couldn't start the voice session. Please try again.");
+        return;
+      }
+      if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+
+      const ws = new WebSocket(`wss://api.x.ai/v1/realtime?agent_id=${encodeURIComponent(agentId)}`, [`xai-client-secret.${token}`]);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -165,7 +178,7 @@ export function NicoleCallModal({ open, onClose }: { open: boolean; onClose: () 
             {status === "unconfigured" && "Voice agent not set up yet"}
           </p>
 
-          {status === "unconfigured" && <p className="mt-1 max-w-xs text-xs text-muted-foreground">The voice relay isn&apos;t configured. Meanwhile you can call us at (480) 999-9906.</p>}
+          {status === "unconfigured" && <p className="mt-1 max-w-xs text-xs text-muted-foreground">Nicole isn&apos;t available right now. Meanwhile you can call us at (480) 999-9906.</p>}
           {status === "error" && <p className="mt-1 max-w-xs text-xs text-muted-foreground">{error}</p>}
 
           {/* Transcript */}
