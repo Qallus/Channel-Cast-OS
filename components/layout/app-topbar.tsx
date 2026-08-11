@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronRight, Menu, Search } from "lucide-react";
+import { ChevronRight, Menu, Search } from "lucide-react";
 
 import { adminNavGroups } from "@/lib/nav/navigation";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { loadProfile, initials as profileInitials, PROFILE_EVENT, STORAGE_KEY } from "@/lib/profile/profile";
 
 function useCurrentSection() {
@@ -71,14 +72,7 @@ export function AppTopbar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 md:ml-0">
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand" />
-        </button>
+        <NotificationBell />
         <ThemeToggle />
         <div className="flex items-center gap-2 rounded-md pl-1">
           {avatar ? (

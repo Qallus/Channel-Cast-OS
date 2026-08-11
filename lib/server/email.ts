@@ -5,6 +5,10 @@ type SendArgs = { subject: string; html: string; replyTo?: string; to?: string[]
 
 const DEFAULT_TO = "jw@channelcast.io,hello@channelcast.io,jwaters@qallus.co";
 
+// Absolute origin for images in emails — clients can't resolve relative paths.
+// SVG doesn't render in Gmail/Outlook, so email logos must be hosted PNGs.
+const BRAND_ORIGIN = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").split(",")[0].trim().replace(/\/$/, "");
+
 export async function sendNotificationEmail({ subject, html, replyTo, to }: SendArgs): Promise<{ ok: boolean; skipped?: boolean }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
@@ -38,7 +42,7 @@ export function notificationHtml(opts: { heading: string; eyebrow?: string; rows
   <tr><td align="center" style="padding:28px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
     <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border:1px solid #dde5d3;border-radius:16px;overflow:hidden;">
       <tr><td style="background:#14241a;padding:18px 26px;">
-        <span style="display:inline-block;height:20px;width:20px;background:#c6ff00;border-radius:6px;vertical-align:middle;"></span>
+        <img src="${BRAND_ORIGIN}/logos/logo-white.png" alt="Channel Cast" width="24" height="24" style="display:inline-block;height:24px;width:24px;vertical-align:middle;border:0;" />
         <span style="color:#ffffff;font-size:14px;font-weight:700;letter-spacing:2px;vertical-align:middle;padding-left:10px;">CHANNEL CAST</span>
       </td></tr>
       <tr><td style="padding:26px;">

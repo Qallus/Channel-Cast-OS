@@ -16,13 +16,15 @@ Browser (mic/speaker) ⇄ this relay (holds XAI_API_KEY) ⇄ wss://api.x.ai/v1/r
    - `XAI_AGENT_ID` = `agent_HamskohGyCzAkXQc` (optional; this is the default)
    - `ALLOWED_ORIGINS` = `https://channelcast.io,https://www.channelcast.io,https://os.channelcast.io` (optional; locks the relay to your sites)
    - `PORT` = `8787` (or whatever Coolify assigns)
-4. Give it a domain, e.g. **`nicole.channelcast.io`**, with SSL (Coolify handles WSS).
+4. Give it the domain **`agent.channelcast.io`**, with SSL (Coolify handles WSS).
+   Add a DNS **A record** in Hostinger: `agent` → `31.97.12.201` (the VPS).
 
 ## Point the web app at it
 In the **main app's** env (build-time, since it's public):
 ```
-NEXT_PUBLIC_NICOLE_WS_URL = wss://nicole.channelcast.io
+NEXT_PUBLIC_NICOLE_WS_URL = wss://agent.channelcast.io
 ```
+Redeploy the main app afterward — `NEXT_PUBLIC_*` vars are inlined at build time.
 
 That's it — the "Talk to Nicole AI" button in the site FAB will connect through this relay.
 
