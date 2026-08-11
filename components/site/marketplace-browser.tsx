@@ -156,8 +156,8 @@ export function MarketplaceBrowser({ listings }: { listings: Listing[] }) {
                     {(l.city || l.state) && <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> {[l.city, l.state].filter(Boolean).join(", ")}</p>}
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {l.audiencePerWeek.toLocaleString("en-US")}/wk</span>
-                      <span className="flex items-center gap-1"><Monitor className="h-3.5 w-3.5" /> {l.devices}</span>
-                      <span className="font-semibold text-foreground">{money(l.pricePerWeek)}/wk</span>
+                      <span className="flex items-center gap-1"><Monitor className="h-3.5 w-3.5" /> {l.spots ? `${l.spots}×${l.spotSeconds ?? 30}s` : l.devices}</span>
+                      <span className="font-semibold text-foreground">{l.pricePerDay ? `${money(l.pricePerDay)}/day` : `${money(l.pricePerWeek)}/wk`}</span>
                     </div>
                   </div>
                 </Link>

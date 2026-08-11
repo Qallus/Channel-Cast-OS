@@ -90,6 +90,22 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
               </div>
             )}
 
+            {(l.pricePerDay || l.spots) && (
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                {[
+                  ["Daily rate", l.pricePerDay ? `$${l.pricePerDay}` : "—", "per day"],
+                  ["Ad loop", l.spots ? `${l.spots}` : "—", "spots"],
+                  ["Spot length", l.spotSeconds ? `${l.spotSeconds}s` : "—", l.spotSeconds && l.spotSeconds <= 10 ? "audience on the move" : "captive audience"],
+                ].map(([label, value, sub]) => (
+                  <div key={label} className="rounded-xl border border-border bg-card p-3 text-center">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+                    <p className="mt-0.5 text-xl font-semibold text-foreground">{value}</p>
+                    <p className="text-[11px] text-muted-foreground">{sub}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <LocationOffers features={c.features} />
 
             <div className="mt-8 border-t border-border pt-6">
