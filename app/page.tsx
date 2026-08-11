@@ -25,10 +25,10 @@ export default function HomePage() {
               <Sparkles className="h-3.5 w-3.5 text-brand-strong" /> Motion-based audio advertising
             </span>
             <h1 className="cc-fade-up mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" style={{ animationDelay: "0.08s" }}>
-              Turn physical spaces into <span className="text-brand-strong">smart audio advertising</span> channels.
+              How do you get consumers to notice your ads? You don&apos;t. You get them to <span className="text-brand-strong">hear them.</span>
             </h1>
             <p className="cc-fade-up mt-4 max-w-xl text-lg text-muted-foreground" style={{ animationDelay: "0.16s" }}>
-              Channel Cast plays the right audio spot the moment someone walks by — powered by motion and on-device vision. Discover ad space, book campaigns, create audio, and run the whole network from one dashboard.
+              Consumers are practically glued to their phones. Channel Cast&apos;s AI Vision Audio Advertisement Playback Device plays targeted content the moment someone walks by — getting their attention back. Powered by on-device AI Vision, PIR sensors, and crystal-clear Dolby Digital audio. Discover ad space, book campaigns, create audio, and run the whole network from one dashboard.
             </p>
             <div className="cc-fade-up mt-7 flex flex-wrap gap-3" style={{ animationDelay: "0.24s" }}>
               <Button asChild><Link href="/marketplace">View ad space <ArrowRight className="h-4 w-4" /></Link></Button>
