@@ -4,6 +4,7 @@ import { ArrowRight, BarChart3, Building2, CalendarClock, Eye, Megaphone, Mic, R
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SupportFab } from "@/components/site/support-fab";
+import { AiVisionDemo } from "@/components/site/ai-vision-demo";
 import { Button } from "@/components/ui/button";
 
 export const metadata = {
@@ -82,6 +83,11 @@ export default function HomePage() {
           <Feature icon={Play} title="2 · Trigger" body="The moment someone is near, it plays the scheduled spot — respecting cooldowns and play windows." />
           <Feature icon={BarChart3} title="3 · Measure" body="Every play is reported in real time: motion vs scheduled, by device, by audience." />
         </div>
+      </Section>
+
+      {/* AI Vision — dynamic content demo */}
+      <Section eyebrow="AI Vision · Dynamic content" title="One device. The right message for every audience." subtitle="On-device AI Vision reads who's nearby and plays content geared to them. Tap an audience to see it switch." muted>
+        <AiVisionDemo />
       </Section>
 
       {/* Device types */}

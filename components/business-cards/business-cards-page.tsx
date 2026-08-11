@@ -35,7 +35,7 @@ const STAT_TILES: { key: keyof CardStats; label: string; hint: string }[] = [
   { key: "leads", label: "Leads", hint: "Form submissions" },
 ];
 
-const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://os.channelcast.io").replace(/\/$/, "");
+const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").replace(/\/$/, "");
 
 export function BusinessCardsPage() {
   const [data, setData] = React.useState<ApiResponse | null>(null);

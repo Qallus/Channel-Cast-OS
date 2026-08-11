@@ -16,7 +16,7 @@ import type {
   LinkType, MediaSettings, OwnerOption, SaveCardPayload, SlideshowSlide, StepItem, ThemeMode,
 } from "@/lib/business-cards/types";
 
-const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://os.channelcast.io").replace(/\/$/, "");
+const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").replace(/\/$/, "");
 
 type PanelKey =
   | "sections" | "content" | "links" | "color" | "splash" | "qr"
@@ -782,6 +782,9 @@ function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K ext
         <F label={logoW ? `Max width — ${logoW}px` : "Max width — auto"} hint="0 = auto (scales with height).">
           <input type="range" min={0} max={320} value={logoW} onChange={(e) => setMedia({ logo_width: Number(e.target.value) })} className="w-full accent-brand" />
         </F>
+        <F label="Logo links to (optional)" hint="Make the logo tappable — e.g. your company site.">
+          <input className={iCls} value={media.logo_link_url ?? ""} onChange={(e) => setMedia({ logo_link_url: e.target.value })} placeholder="https://…" />
+        </F>
       </Section>
       <Section title="Background">
         <ImageField label="Background image" value={draft.background_image_url} onChange={(v) => set("background_image_url", v)} />
@@ -798,8 +801,14 @@ function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K ext
         </F>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={Boolean(media.profile_outline)} onChange={(e) => setMedia({ profile_outline: e.target.checked })} />
-          Accent outline around photo
+          Outline around photo
         </label>
+        {media.profile_outline && (
+          <ColorField label="Outline color" value={media.profile_outline_color || draft.accent_color || "#c6ff00"} onChange={(v) => setMedia({ profile_outline_color: v })} />
+        )}
+        <F label="Photo links to (optional)" hint="Make the photo tappable — e.g. your profile or booking link.">
+          <input className={iCls} value={media.profile_link_url ?? ""} onChange={(e) => setMedia({ profile_link_url: e.target.value })} placeholder="https://…" />
+        </F>
       </Section>
       <Section title="Layout">
         <F label="Content alignment">

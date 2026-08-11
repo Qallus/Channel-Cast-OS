@@ -20,10 +20,13 @@ export type StepItem = { id: string; title: string; description?: string };
 export type MediaSettings = {
   profile_shape?: "circle" | "rounded" | "square";
   profile_outline?: boolean;
+  profile_outline_color?: string;  // hex; falls back to accent when outline is on
+  profile_link_url?: string;       // photo links here when set
   content_align?: "center" | "left";
   use_background_image?: boolean;
   logo_height?: number; // px; aspect ratio is preserved (object-contain)
   logo_width?: number;  // px max; 0/undefined = auto
+  logo_link_url?: string;          // logo links here when set
 };
 
 export type AutomationAction = "notify_owner_email" | "notify_owner_sms" | "autoreply_email";

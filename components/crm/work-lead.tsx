@@ -98,8 +98,8 @@ export function WorkLead({ contactId }: { contactId: string }) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{contactName(contact)}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge className={cn("border-transparent", CONTACT_TYPE[contact.type].tone)}>{CONTACT_TYPE[contact.type].label}</Badge>
-              <Badge className={cn("border-transparent", CONTACT_STATUS[contact.status].tone)}>{CONTACT_STATUS[contact.status].label}</Badge>
+              <Badge className={cn("border-transparent", CONTACT_TYPE[contact.type]?.tone)}>{CONTACT_TYPE[contact.type]?.label ?? contact.type}</Badge>
+              <Badge className={cn("border-transparent", CONTACT_STATUS[contact.status]?.tone)}>{CONTACT_STATUS[contact.status]?.label ?? contact.status}</Badge>
               {contact.company ? <span className="text-sm text-muted-foreground">{contact.company}</span> : null}
             </div>
           </div>
@@ -201,7 +201,7 @@ function WorkflowTab({ contact, stage, onSet, activities, deals, onLog }: {
           <div className="space-y-2">
             {deals.map((d) => (
               <div key={d.id} className="flex items-center gap-2 rounded-lg border border-border p-2.5">
-                <Badge className={cn("border-transparent", DEAL_STAGE[d.stage].tone)}>{DEAL_STAGE[d.stage].label}</Badge>
+                <Badge className={cn("border-transparent", DEAL_STAGE[d.stage]?.tone)}>{DEAL_STAGE[d.stage]?.label ?? d.stage}</Badge>
                 <span className="min-w-0 flex-1 truncate text-sm">{d.name}</span>
                 <span className="shrink-0 text-sm font-semibold">{usd.format(d.value)}</span>
               </div>
@@ -254,9 +254,9 @@ function ActivityBlock({ activities, onLog }: { activities: Activity[]; onLog: (
         <ol className="space-y-2">
           {activities.map((a) => { const Icon = ACT_ICON[a.kind] ?? StickyNote; return (
             <li key={a.id} className="flex gap-3 rounded-lg border border-border p-3">
-              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", ACTIVITY_KIND[a.kind].tone)}><Icon className="h-3.5 w-3.5" /></span>
+              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", ACTIVITY_KIND[a.kind]?.tone ?? "bg-muted text-muted-foreground")}><Icon className="h-3.5 w-3.5" /></span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium">{ACTIVITY_KIND[a.kind].label}</span><span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(a.createdAt)}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium">{ACTIVITY_KIND[a.kind]?.label ?? a.kind}</span><span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(a.createdAt)}</span></div>
                 <p className="mt-0.5 text-sm">{a.body}</p>
               </div>
             </li>

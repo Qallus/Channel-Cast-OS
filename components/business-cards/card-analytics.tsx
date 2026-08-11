@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BusinessCard, CardAnalytics } from "@/lib/business-cards/types";
 
-const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://os.channelcast.io").replace(/\/$/, "");
+const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").replace(/\/$/, "");
 
 export function CardAnalyticsView({ card, onClose }: { card: BusinessCard; onClose: () => void }) {
   const [data, setData] = React.useState<CardAnalytics | null>(null);

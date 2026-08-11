@@ -40,6 +40,7 @@ export function CardPreview({
 
   const media = (card.media_settings || {}) as MediaSettings;
   const shapeClass = media.profile_shape === "square" ? "rounded-md" : media.profile_shape === "rounded" ? "rounded-2xl" : "rounded-full";
+  const outlineColor = media.profile_outline ? (media.profile_outline_color || accent) : border;
   const alignClass = media.content_align === "left" ? "items-start text-left" : "items-center text-center";
   const useBgImage = Boolean(media.use_background_image && card.background_image_url);
 
@@ -72,20 +73,27 @@ export function CardPreview({
     );
 
     switch (s.section_type) {
-      case "profile_header":
+      case "profile_header": {
+        const logoImg = card.logo_url
+          ? <img src={card.logo_url} alt="" className="object-contain" style={{ height: media.logo_height || 24, width: media.logo_width || "auto", maxWidth: "100%" }} />
+          : null;
+        const photoNode = card.profile_photo_url
+          ? <img src={card.profile_photo_url} alt={name} className={cn("h-24 w-24 object-cover", shapeClass)} style={{ border: `2px solid ${outlineColor}` }} />
+          : <div className={cn("grid h-24 w-24 place-items-center text-2xl font-semibold", shapeClass)} style={{ background: surface, color: accent, border: `2px solid ${outlineColor}` }}>{name.slice(0, 1)}</div>;
         return wrap(
           <div className={cn("flex flex-col", alignClass)}>
-            {card.logo_url
-              ? <img src={card.logo_url} alt="" className="mb-3 object-contain" style={{ height: media.logo_height || 24, width: media.logo_width || "auto", maxWidth: "100%" }} />
+            {logoImg
+              ? <div className="mb-3">{media.logo_link_url ? <a href={media.logo_link_url} target="_blank" rel="noreferrer" className="inline-block">{logoImg}</a> : logoImg}</div>
               : <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: hexAlpha(text, 0.5) }}>{card.company_name || "Digital Card"}</div>}
-            {card.profile_photo_url
-              ? <img src={card.profile_photo_url} alt={name} className={cn("h-24 w-24 object-cover", shapeClass)} style={{ border: media.profile_outline ? `2px solid ${accent}` : `2px solid ${border}` }} />
-              : <div className={cn("grid h-24 w-24 place-items-center text-2xl font-semibold", shapeClass)} style={{ background: surface, color: accent, border: `2px solid ${border}` }}>{name.slice(0, 1)}</div>}
+            {media.profile_link_url
+              ? <a href={media.profile_link_url} target="_blank" rel="noreferrer" className="inline-block">{photoNode}</a>
+              : photoNode}
             <div className="mt-3 text-lg font-semibold" style={{ color: text }}>{name}</div>
             {subtitle && <div className="mt-0.5 text-xs font-medium" style={{ color: hexAlpha(text, 0.7) }}>{subtitle}</div>}
             {card.bio && <p className="mt-2 text-xs leading-5" style={{ color: hexAlpha(text, 0.7) }}>{card.bio}</p>}
           </div>,
         );
+      }
       case "quick_actions": {
         const actions: React.ReactNode[] = [];
         if (card.primary_phone) actions.push(pill("Call", <Phone className="h-4 w-4" />, () => onAction?.("call")));

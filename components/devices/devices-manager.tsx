@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, Columns3, Copy, Folder, FolderPlus, ImagePlus, LayoutGrid, List as ListIcon, Map as MapIcon, Pencil, Plus, Search, Table2, TerminalSquare, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Columns3, Copy, Folder, FolderPlus, ImagePlus, LayoutGrid, List as ListIcon, Map as MapIcon, Pencil, Plus, Search, Sparkles, Table2, TerminalSquare, Trash2, X } from "lucide-react";
 
 import { FleetViews, ModeBadge, StatusBadge, RemoveBtn, normStatus, type DeviceView, type FleetDevice } from "@/components/devices/fleet-views";
 import { Button } from "@/components/ui/button";
@@ -129,6 +129,7 @@ export function DevicesManager() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setUpdateOpen(true)}><TerminalSquare className="h-4 w-4" /> Update agent</Button>
+          <Button asChild variant="outline"><Link href="/app/admin/devices/training"><Sparkles className="h-4 w-4" /> Train Your Device</Link></Button>
           <Button asChild><Link href="/app/admin/devices/new"><Plus className="h-4 w-4" /> Add Device</Link></Button>
         </div>
       </div>

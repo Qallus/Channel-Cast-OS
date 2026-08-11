@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AudioLines, ChevronDown, ChevronUp, CircleUserRound, Headphones, IdCard, LayoutDashboard, MessageSquare, UserPlus } from "lucide-react";
+import { AudioLines, ChevronDown, ChevronUp, CircleUserRound, Headphones, IdCard, LayoutDashboard, Phone, UserPlus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 // icon-only, with a hide/restore toggle. Hidden on lg+ where the sidebar shows.
 const ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/app/admin" },
-  { label: "Communications", icon: MessageSquare, href: "/app/admin/communications" },
+  { label: "Communications", icon: Phone, href: "/app/admin/communications" },
   { label: "Contacts", icon: CircleUserRound, href: "/app/admin/contacts" },
   { label: "Leads", icon: UserPlus, href: "/app/admin/leads" },
   { label: "Audio Management", icon: AudioLines, href: "/app/admin/audio" },
