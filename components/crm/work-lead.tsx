@@ -65,14 +65,31 @@ export function WorkLead({ contactId }: { contactId: string }) {
   }
 
   const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
-    { id: "details", label: "Contact details", icon: Users },
-    { id: "workflow", label: "Workflow & funnel", icon: Shuffle },
-    { id: "next", label: "Next steps", icon: AlarmClock },
+    { id: "details", label: "Details", icon: Users },
+    { id: "workflow", label: "Workflow", icon: Shuffle },
+    { id: "next", label: "Next Steps", icon: AlarmClock },
+  ];
+
+  const count = (k: ActivityKind) => activities.filter((a) => a.kind === k).length;
+  const statTiles: { label: string; icon: typeof Phone; value: number }[] = [
+    { label: "Calls", icon: Phone, value: count("call") }, { label: "Emails", icon: Mail, value: count("email") },
+    { label: "Texts", icon: MessageSquare, value: count("sms") }, { label: "Meetings", icon: Users, value: count("meeting") },
+    { label: "Notes", icon: StickyNote, value: count("note") }, { label: "Tasks", icon: ListChecks, value: count("task") },
   ];
 
   return (
     <div className="space-y-5">
       <Link href="/app/admin/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Back to contacts</Link>
+
+      {/* Activity stat tiles */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {statTiles.map((s) => (
+          <div key={s.label} className="rounded-xl border border-border bg-card p-3">
+            <div className="flex items-center justify-between"><span className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</span><s.icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{s.value}</p>
+          </div>
+        ))}
+      </div>
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -132,13 +149,6 @@ function WorkflowTab({ contact, stage, onSet, activities, deals, onLog }: {
   const current = WORKFLOW_NODES[idx];
   const next = idx < WORKFLOW_NODES.length - 1 ? WORKFLOW_NODES[idx + 1] : null;
 
-  const count = (k: ActivityKind) => activities.filter((a) => a.kind === k).length;
-  const stats: { label: string; icon: typeof Phone; value: number }[] = [
-    { label: "Calls", icon: Phone, value: count("call") }, { label: "Emails", icon: Mail, value: count("email") },
-    { label: "Texts", icon: MessageSquare, value: count("sms") }, { label: "Meetings", icon: Users, value: count("meeting") },
-    { label: "Notes", icon: StickyNote, value: count("note") }, { label: "Tasks", icon: ListChecks, value: count("task") },
-  ];
-
   return (
     <div className="space-y-5">
       {/* Workflow card */}
@@ -146,55 +156,42 @@ function WorkflowTab({ contact, stage, onSet, activities, deals, onLog }: {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold">Lead servicing workflow</p>
-            <p className="text-xs text-muted-foreground">Every lead is worked through this consistent path.</p>
+            <p className="text-xs text-muted-foreground">Every lead is worked through this consistent path. Click any stage to move it there.</p>
           </div>
-          {/* Stage action */}
-          {current.key === "closed" ? (
-            isLost ? <Button size="sm" variant="outline" onClick={() => onSet("opportunity")}>Reopen opportunity</Button>
-              : <Button size="sm" onClick={() => onSet("onboarding")}>Begin onboarding <ArrowRight className="h-4 w-4" /></Button>
-          ) : current.key === "proposal" ? (
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => onSet("won")}><CheckCircle2 className="h-4 w-4" /> Closed Won</Button>
-              <Button size="sm" variant="outline" className="text-destructive" onClick={() => onSet("lost")}><XCircle className="h-4 w-4" /> Closed Lost</Button>
-            </div>
-          ) : next ? (
-            <Button size="sm" onClick={() => onSet(stageForNodeAdvance(next.key))}><Check className="h-4 w-4" /> Mark complete</Button>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-3 py-1.5 text-sm font-medium text-success"><CheckCircle2 className="h-4 w-4" /> Active client</span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Step backwards */}
+            {idx > 0 && !isLost && (
+              <Button size="sm" variant="outline" onClick={() => onSet(stageForNodeAdvance(WORKFLOW_NODES[idx - 1].key))}><ArrowLeft className="h-4 w-4" /> Back a stage</Button>
+            )}
+            {/* Stage action */}
+            {current.key === "closed" ? (
+              isLost ? <Button size="sm" variant="outline" onClick={() => onSet("opportunity")}>Reopen opportunity</Button>
+                : <Button size="sm" onClick={() => onSet("onboarding")}>Begin onboarding <ArrowRight className="h-4 w-4" /></Button>
+            ) : current.key === "proposal" ? (
+              <>
+                <Button size="sm" onClick={() => onSet("won")}><CheckCircle2 className="h-4 w-4" /> Closed Won</Button>
+                <Button size="sm" variant="outline" className="text-destructive" onClick={() => onSet("lost")}><XCircle className="h-4 w-4" /> Closed Lost</Button>
+              </>
+            ) : next ? (
+              <Button size="sm" onClick={() => onSet(stageForNodeAdvance(next.key))}><Check className="h-4 w-4" /> Mark complete</Button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-3 py-1.5 text-sm font-medium text-success"><CheckCircle2 className="h-4 w-4" /> Active client</span>
+            )}
+          </div>
         </div>
 
-        {/* Progress bar — Channel Cast style (segmented, not chevrons) */}
+        {/* Progress bar — Channel Cast style; each stage is clickable (forward or back) */}
         <div className="flex gap-1">
           {WORKFLOW_NODES.map((n, i) => {
             const done = i < idx, active = i === idx, lostHere = isLost && i === closedIdx;
             return (
-              <div key={n.key} className="flex-1" title={n.label}>
-                <div className={cn("h-1.5 rounded-full", lostHere ? "bg-destructive" : active ? "bg-brand" : done ? "bg-brand/40" : "bg-muted")} />
-                <p className={cn("mt-1.5 truncate text-center text-[11px]", active ? "font-semibold text-brand-strong" : "text-muted-foreground")}>{n.label}</p>
-              </div>
+              <button key={n.key} type="button" onClick={() => onSet(stageForNodeAdvance(n.key))} className="group flex-1 text-left" title={`Move to ${n.label}`}>
+                <div className={cn("h-1.5 rounded-full transition-colors", lostHere ? "bg-destructive" : active ? "bg-brand" : done ? "bg-brand/40" : "bg-muted group-hover:bg-brand/30")} />
+                <p className={cn("mt-1.5 truncate text-center text-[11px]", active ? "font-semibold text-brand-strong" : "text-muted-foreground group-hover:text-foreground")}>{n.label}</p>
+              </button>
             );
           })}
         </div>
-
-        {/* Guidance */}
-        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand-strong"><Sparkles className="h-3.5 w-3.5" /> Guidance for success</p>
-          <p className="font-medium">{current.guidance.title}</p>
-          <ul className="mt-2 space-y-1.5">
-            {current.guidance.items.map((it, k) => <li key={k} className="flex items-start gap-2 text-sm text-muted-foreground"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />{it}</li>)}
-          </ul>
-        </div>
-      </div>
-
-      {/* Activity stat tiles */}
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-card p-3">
-            <div className="flex items-center justify-between"><span className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</span><s.icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{s.value}</p>
-          </div>
-        ))}
       </div>
 
       {/* Linked opportunities */}
@@ -215,6 +212,15 @@ function WorkflowTab({ contact, stage, onSet, activities, deals, onLog }: {
 
       {/* Activity timeline */}
       <ActivityBlock activities={activities} onLog={onLog} owner={contact.owner} />
+
+      {/* Guidance for success (moved to the bottom) */}
+      <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand-strong"><Sparkles className="h-3.5 w-3.5" /> Guidance for success</p>
+        <p className="font-medium">{current.guidance.title}</p>
+        <ul className="mt-2 space-y-1.5">
+          {current.guidance.items.map((it, k) => <li key={k} className="flex items-start gap-2 text-sm text-muted-foreground"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />{it}</li>)}
+        </ul>
+      </div>
     </div>
   );
 }
