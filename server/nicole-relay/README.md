@@ -13,9 +13,14 @@ Browser (mic/speaker) ⇄ this relay (holds XAI_API_KEY) ⇄ wss://api.x.ai/v1/r
 2. **Base directory:** `server/nicole-relay`  ·  **Build:** `npm install`  ·  **Start:** `npm start`
 3. **Environment variables:**
    - `XAI_API_KEY` = your xAI key **(mark secret)**
-   - `XAI_AGENT_ID` = `agent_HamskohGyCzAkXQc` (optional; this is the default)
+   - `XAI_VOICE_MODEL` = `grok-voice-latest` (optional; this is the default)
+   - `XAI_VOICE` = `ara` (optional; the default voice)
+   - `NICOLE_INSTRUCTIONS` = custom persona text (optional; a good default is baked in)
    - `ALLOWED_ORIGINS` = `https://channelcast.io,https://www.channelcast.io,https://os.channelcast.io` (optional; locks the relay to your sites)
    - `PORT` = `8787` (or whatever Coolify assigns)
+
+   > Note: xAI's realtime endpoint takes a **model**, not an agent id. An earlier
+   > `XAI_AGENT_ID` var is no longer used and can be removed.
 4. Give it the domain **`agent.channelcast.io`**, with SSL (Coolify handles WSS).
    Add a DNS **A record** in Hostinger: `agent` → `31.97.12.201` (the VPS).
 
