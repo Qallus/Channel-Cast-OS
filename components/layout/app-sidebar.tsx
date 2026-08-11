@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import { AppIcon } from "@/components/brand/logo";
 import { adminNavGroups, isNavItemActive } from "@/lib/nav/navigation";
@@ -13,10 +13,16 @@ export function AppSidebar({
   collapsed,
   onToggleCollapse,
   roleLabel = "Super Admin",
+  mobile = false,
+  onNavigate,
 }: {
   collapsed: boolean;
   onToggleCollapse: () => void;
   roleLabel?: string;
+  /** Rendered inside the full-screen mobile slide-out menu. */
+  mobile?: boolean;
+  /** Called when a nav item is tapped — used to close the mobile menu. */
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -40,6 +46,16 @@ export function AppSidebar({
             </span>
             <span className="text-sm font-semibold text-foreground">{roleLabel}</span>
           </span>
+        )}
+        {mobile && (
+          <button
+            type="button"
+            onClick={onNavigate}
+            aria-label="Close menu"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
         )}
       </div>
 
@@ -74,11 +90,11 @@ export function AppSidebar({
                 return (
                   <li key={item.label}>
                     {isLogout ? (
-                      <button type="button" onClick={handleLogout} title={collapsed ? item.label : undefined} className={className}>
+                      <button type="button" onClick={() => { onNavigate?.(); handleLogout(); }} title={collapsed ? item.label : undefined} className={className}>
                         {inner}
                       </button>
                     ) : (
-                      <Link href={item.href} title={collapsed ? item.label : undefined} className={className}>
+                      <Link href={item.href} onClick={onNavigate} title={collapsed ? item.label : undefined} className={className}>
                         {inner}
                       </Link>
                     )}
@@ -90,8 +106,8 @@ export function AppSidebar({
         ))}
       </nav>
 
-      {/* Collapse control */}
-      <div className="border-t border-border px-3 py-3">
+      {/* Collapse control — desktop only (the mobile menu closes via its X) */}
+      <div className={cn("border-t border-border px-3 py-3", mobile && "hidden")}>
         <button
           type="button"
           onClick={onToggleCollapse}

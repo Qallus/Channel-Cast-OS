@@ -133,7 +133,7 @@ export function Fab() {
         aria-label="Quick actions"
         aria-expanded={open}
         className={cn(
-          "fixed bottom-6 right-6 z-[55] flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-xl transition-transform hover:scale-105",
+          "fixed bottom-20 right-5 z-[55] flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-xl transition-transform hover:scale-105 lg:bottom-6 lg:right-6",
           open && "rotate-45",
         )}
       >
@@ -145,7 +145,7 @@ export function Fab() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="fixed bottom-24 right-6 z-50 flex h-[min(525px,calc(100vh-8rem))] w-[min(450px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            className="fixed bottom-36 right-5 z-50 flex h-[min(525px,calc(100vh-13rem))] w-[min(450px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl lg:bottom-24 lg:right-6 lg:h-[min(525px,calc(100vh-8rem))]"
             role="dialog"
             aria-label="Quick actions"
           >

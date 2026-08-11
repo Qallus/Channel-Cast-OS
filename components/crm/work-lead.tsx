@@ -111,10 +111,10 @@ export function WorkLead({ contactId }: { contactId: string }) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5 border-b border-border">
+      {/* Tabs — slide horizontally when they exceed the viewport width */}
+      <div className="flex gap-1.5 overflow-x-auto border-b border-border [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition", tab === t.id ? "border-brand-strong text-brand-strong" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={cn("-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition", tab === t.id ? "border-brand-strong text-brand-strong" : "border-transparent text-muted-foreground hover:text-foreground")}>
             <t.icon className="h-4 w-4" /> {t.label}
           </button>
         ))}

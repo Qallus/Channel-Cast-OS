@@ -25,10 +25,10 @@ export default function HomePage() {
               <Sparkles className="h-3.5 w-3.5 text-brand-strong" /> Motion-based audio advertising
             </span>
             <h1 className="cc-fade-up mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" style={{ animationDelay: "0.08s" }}>
-              How do you get consumers to notice your ads? You don&apos;t. You get them to <span className="text-brand-strong">hear them.</span>
+              How do you get consumers to notice your ads? <span className="text-brand-strong">You don&apos;t. You get them to hear them.</span>
             </h1>
             <p className="cc-fade-up mt-4 max-w-xl text-lg text-muted-foreground" style={{ animationDelay: "0.16s" }}>
-              Consumers are practically glued to their phones. Channel Cast&apos;s AI Vision Audio Advertisement Playback Device plays targeted content the moment someone walks by — getting their attention back. Powered by on-device AI Vision, PIR sensors, and crystal-clear Dolby Digital audio. Discover ad space, book campaigns, create audio, and run the whole network from one dashboard.
+              Consumers are practically glued to their phones. Channel Cast&apos;s AI Vision Audio Advertisement Playback Device plays targeted content the moment someone walks by — getting their attention back. Discover ad space, book campaigns, create audio, and run the whole network from one dashboard.
             </p>
             <div className="cc-fade-up mt-7 flex flex-wrap gap-3" style={{ animationDelay: "0.24s" }}>
               <Button asChild><Link href="/marketplace">View ad space <ArrowRight className="h-4 w-4" /></Link></Button>
@@ -76,7 +76,7 @@ export default function HomePage() {
       </section>
 
       {/* How it works */}
-      <Section id="how" eyebrow="How it works" title="Motion in, the right message out">
+      <Section id="how" eyebrow="How it works" title="Motion in, the right message out" subtitle="Powered by on-device AI Vision, PIR sensors, and crystal-clear Dolby Digital audio.">
         <div className="grid gap-4 md:grid-cols-3">
           <Feature icon={Radar} title="1 · Detect" body="A device watches for presence — via a USB webcam (software vision) or a simple PIR sensor." />
           <Feature icon={Play} title="2 · Trigger" body="The moment someone is near, it plays the scheduled spot — respecting cooldowns and play windows." />
@@ -169,7 +169,7 @@ export default function HomePage() {
   );
 }
 
-function Section({ id, eyebrow, title, children, action, muted }: { id?: string; eyebrow: string; title: string; children: React.ReactNode; action?: React.ReactNode; muted?: boolean }) {
+function Section({ id, eyebrow, title, subtitle, children, action, muted }: { id?: string; eyebrow: string; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode; muted?: boolean }) {
   return (
     <section id={id} className={muted ? "bg-card/30" : undefined}>
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-20">
@@ -177,6 +177,7 @@ function Section({ id, eyebrow, title, children, action, muted }: { id?: string;
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-strong">{eyebrow}</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{title}</h2>
+            {subtitle && <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>}
           </div>
           {action}
         </div>

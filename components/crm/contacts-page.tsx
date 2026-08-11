@@ -198,11 +198,11 @@ export function ContactsPage() {
         <StatTile label="Companies" value={stats.companies} />
       </StatRow>
 
-      {/* Type tabs */}
-      <div className="flex flex-wrap gap-1.5 border-b border-border">
+      {/* Type tabs — slide horizontally when they exceed the viewport width */}
+      <div className="flex gap-1.5 overflow-x-auto border-b border-border [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(["all", ...CONTACT_TYPE_ORDER] as const).map((t) => (
           <button key={t} onClick={() => { setTab(t); clearSel(); }}
-            className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition", tab === t ? "border-brand-strong text-brand-strong" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            className={cn("-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition", tab === t ? "border-brand-strong text-brand-strong" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t === "all" ? "All" : CONTACT_TYPE[t].plural}
             <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground">{counts[t] ?? 0}</span>
           </button>
