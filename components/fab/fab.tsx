@@ -12,6 +12,7 @@ import {
   Maximize2,
   MessageCircle,
   MessageSquare,
+  Mic,
   Minimize2,
   MonitorPlay,
   Phone,
@@ -33,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ToolBoundary } from "@/components/fab/tool-boundary";
+import { VoiceRecorder } from "@/components/recordings/voice-recorder";
 import { cn } from "@/lib/utils";
 
 /** Lightweight, dependency-free hover/focus tooltip (light + dark via popover tokens). */
@@ -53,7 +55,7 @@ function IconTip({ label, side = "bottom", children }: { label: string; side?: "
   );
 }
 
-type ToolId = "agent" | "dm" | "sms" | "dialpad" | "calls" | "notes" | "device";
+type ToolId = "agent" | "dm" | "sms" | "dialpad" | "calls" | "notes" | "record" | "device";
 const TOOLS: { id: ToolId; label: string; icon: typeof Phone }[] = [
   { id: "agent", label: "AI Agent", icon: Sparkles },
   { id: "dm", label: "Direct Message", icon: MessageCircle },
@@ -61,6 +63,7 @@ const TOOLS: { id: ToolId; label: string; icon: typeof Phone }[] = [
   { id: "dialpad", label: "Dialpad", icon: Phone },
   { id: "calls", label: "Call Logs", icon: PhoneCall },
   { id: "notes", label: "Notes", icon: StickyNote },
+  { id: "record", label: "Record", icon: Mic },
   { id: "device", label: "Add Device", icon: MonitorPlay },
 ];
 
@@ -97,6 +100,7 @@ export function Fab() {
       {tool === "dialpad" && <DialpadTool seed={dialSeed} />}
       {tool === "calls" && <CallLogsTool onCallBack={(n) => { setDialSeed(n); setTool("dialpad"); }} />}
       {tool === "notes" && <NotesTool />}
+      {tool === "record" && <div className="mx-auto max-w-md"><VoiceRecorder onSaved={() => setOpen(false)} /></div>}
       {tool === "device" && <AddDeviceTool onNavigate={() => setOpen(false)} />}
     </>
   );

@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AudioLines, ChevronDown, ChevronUp, CircleUserRound, Headphones, IdCard, LayoutDashboard, Phone, UserPlus } from "lucide-react";
+import { AudioLines, ChevronDown, ChevronUp, CircleUserRound, Headphones, IdCard, LayoutDashboard, Mic, Phone, UserPlus } from "lucide-react";
 
+import { openRecorder } from "@/components/recordings/quick-recorder";
 import { cn } from "@/lib/utils";
 
 // Fixed mobile-only bottom navigation — the most-used dashboard destinations,
 // icon-only, with a hide/restore toggle. Hidden on lg+ where the sidebar shows.
-const ITEMS = [
+const ITEMS: { label: string; icon: typeof LayoutDashboard; href?: string; action?: "record" }[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/app/admin" },
   { label: "Communications", icon: Phone, href: "/app/admin/communications" },
   { label: "Contacts", icon: CircleUserRound, href: "/app/admin/contacts" },
+  { label: "Record", icon: Mic, action: "record" },
   { label: "Leads", icon: UserPlus, href: "/app/admin/leads" },
   { label: "Audio Management", icon: AudioLines, href: "/app/admin/audio" },
   { label: "Devices", icon: Headphones, href: "/app/admin/devices" },
@@ -76,11 +78,20 @@ export function MobileBottomNav() {
         <ul className="flex items-stretch justify-between px-1">
           {ITEMS.map((it) => {
             const Icon = it.icon;
-            const on = isActive(it.href, pathname);
+            if (it.action === "record") {
+              return (
+                <li key="record" className="flex-1">
+                  <button type="button" onClick={openRecorder} aria-label="Quick voice recording" className="flex w-full items-center justify-center py-2.5 text-brand-strong">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground shadow"><Icon className="h-[18px] w-[18px]" /></span>
+                  </button>
+                </li>
+              );
+            }
+            const on = isActive(it.href!, pathname);
             return (
               <li key={it.href} className="flex-1">
                 <Link
-                  href={it.href}
+                  href={it.href!}
                   aria-label={it.label}
                   aria-current={on ? "page" : undefined}
                   className={cn(

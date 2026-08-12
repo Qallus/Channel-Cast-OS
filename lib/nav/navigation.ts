@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  Mic,
   NotebookPen,
   Megaphone,
   MessageSquare,
@@ -69,6 +70,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     items: [
       { label: "Advertising", icon: Megaphone, href: "/app/admin/advertising" },
       { label: "Audio Management", icon: AudioLines, href: "/app/admin/audio" },
+      { label: "Voice Recordings", icon: Mic, href: "/app/admin/recordings" },
       { label: "Media", icon: ImageIcon, href: "/app/admin/media" },
       { label: "Devices", icon: Headphones, href: "/app/admin/devices" },
       { label: "Operating System", icon: Cpu, href: "/app/admin/operating-system" },

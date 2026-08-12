@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { Fab } from "@/components/fab/fab";
+import { QuickRecorder } from "@/components/recordings/quick-recorder";
 import { cn } from "@/lib/utils";
 
 export function DashboardShell({
@@ -64,8 +65,9 @@ export function DashboardShell({
       {/* Fixed mobile bottom navigation */}
       <MobileBottomNav />
 
-      {/* Global quick-actions FAB */}
+      {/* Global quick-actions FAB + voice recorder */}
       <Fab />
+      <QuickRecorder />
     </div>
   );
 }
