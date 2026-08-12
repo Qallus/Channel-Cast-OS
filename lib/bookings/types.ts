@@ -60,6 +60,7 @@ export type Booking = {
   planId?: string | null;
   workspaceId?: string | null;
   assignedStaff?: string | null;
+  reminded?: boolean;   // 24h reminder SMS sent
   source: "website" | "dashboard";
   createdAt: string;
 };

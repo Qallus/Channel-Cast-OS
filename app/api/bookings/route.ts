@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import { listRecords, upsertRecords } from "@/lib/server/crm-db";
 import { notificationHtml, sendNotificationEmail } from "@/lib/server/email";
+import { sendSms } from "@/lib/server/twilio";
+import { confirmationSms, manageUrl } from "@/lib/bookings/messages";
 import { APPOINTMENT_TYPES, DEFAULT_AVAILABILITY, fmtTime, slotsForDate, type AvailabilityRule, type Booking } from "@/lib/bookings/types";
+
+const APP_ORIGIN = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").split(",")[0].trim().replace(/\/$/, "");
 
 export const runtime = "nodejs";
 
@@ -57,6 +61,7 @@ export async function POST(req: Request) {
     location: s(body.location, 40) || "remote",
     clientVisible: true,
     showOnTimeline: false,
+    reminded: false,
     source: "website",
     createdAt: new Date().toISOString(),
   };
@@ -67,6 +72,14 @@ export async function POST(req: Request) {
   try { await upsertRecords("bookings", [rec as unknown as { id: string }]); }
   catch { /* best-effort — the visitor is still confirmed */ }
 
+  const detailRows: [string, string | undefined][] = [
+    ["Appointment", rec.typeName],
+    ["Date", new Date(`${rec.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })],
+    ["Time", `${fmtTime(rec.time)} (Arizona time)`],
+    ["Duration", `${rec.minutes} minutes`],
+  ];
+
+  // 1) Team notification → jw@ / hello@channelcast.io (+ NOTIFY_EMAILS).
   try {
     await sendNotificationEmail({
       subject: `New appointment request: ${rec.typeName} — ${rec.firstName} ${rec.lastName}`.trim(),
@@ -76,19 +89,38 @@ export async function POST(req: Request) {
         heading: rec.typeName,
         rows: [
           ["Name", `${rec.firstName} ${rec.lastName}`.trim()],
-          ["Email", rec.email],
-          ["Phone", rec.phone],
-          ["Company", rec.company],
-          ["Project", rec.projectName],
-          ["Date", rec.date],
-          ["Time", fmtTime(rec.time)],
-          ["Duration", `${rec.minutes} minutes`],
+          ["Email", rec.email], ["Phone", rec.phone], ["Company", rec.company], ["Project", rec.projectName],
+          ...detailRows.slice(1),
         ],
         message: rec.notes || undefined,
+        cta: { label: "Open in Bookings", url: `${APP_ORIGIN}/app/admin/bookings` },
         footer: "Confirm it in Bookings → Appointments.",
       }),
     });
-  } catch { /* email is best-effort */ }
+  } catch { /* best-effort */ }
+
+  // 2) Confirmation to the person who booked.
+  if (rec.email) {
+    try {
+      await sendNotificationEmail({
+        to: [rec.email],
+        subject: `Your Channel Cast appointment request — ${rec.typeName}`,
+        html: notificationHtml({
+          eyebrow: "Appointment request received",
+          heading: `Thanks, ${rec.firstName || "there"}!`,
+          intro: `We've received your ${rec.typeName.toLowerCase()} request and our team will confirm it shortly. Here are the details:`,
+          rows: detailRows,
+          cta: { label: "Manage your appointment", url: manageUrl(rec.id) },
+          footer: "Need to change something? Use the button above, or reply to this email.",
+        }),
+      });
+    } catch { /* best-effort */ }
+  }
+
+  // 3) Confirmation SMS to the booker (only with consent + a number).
+  if (rec.smsConsent && rec.phone) {
+    await sendSms(rec.phone, confirmationSms(rec));
+  }
 
   return Response.json({ ok: true, id: rec.id });
 }

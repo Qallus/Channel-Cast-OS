@@ -4,7 +4,9 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarClock, CalendarDays, CheckCircle2, Clock, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { APPOINTMENT_TYPES, fmtTime, type AppointmentType } from "@/lib/bookings/types";
 import { cn } from "@/lib/utils";
@@ -54,10 +56,11 @@ export function BookingWizard() {
 
   const contactName = [form.firstName, form.lastName].filter(Boolean).join(" ");
   const STEPS = [
-    { n: 1, label: "Appointment", sub: type.name, icon: CalendarClock },
-    { n: 2, label: "Date & Time", sub: time ? fmtTime(time) : "Pick availability", icon: Clock },
-    { n: 3, label: "Your Details", sub: contactName || "Contact info", icon: User },
+    { n: 1, label: "Appointment", sub: type.name, icon: CalendarClock, enabled: true },
+    { n: 2, label: "Date & Time", sub: time ? fmtTime(time) : "Pick availability", icon: Clock, enabled: true },
+    { n: 3, label: "Your Details", sub: contactName || "Contact info", icon: User, enabled: Boolean(time) },
   ];
+  function goStep(n: number, enabled: boolean) { if (!done && enabled) setStep(n); }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -78,8 +81,8 @@ export function BookingWizard() {
           {/* Stepper */}
           <div className="grid gap-3 sm:grid-cols-3">
             {STEPS.map((s) => (
-              <button key={s.n} onClick={() => { if (s.n < step || done) return; }} disabled={done}
-                className={cn("rounded-xl border p-4 text-left transition", s.n === step && !done ? "border-brand-strong bg-brand/5" : "border-border bg-card")}>
+              <button key={s.n} onClick={() => goStep(s.n, s.enabled)} disabled={done || !s.enabled}
+                className={cn("rounded-xl border p-4 text-left transition", s.n === step && !done ? "border-brand-strong bg-brand/5" : "border-border bg-card", s.enabled && !done && s.n !== step && "hover:border-brand-strong/40", (!s.enabled || done) && "cursor-default")}>
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><s.icon className="h-3.5 w-3.5" /> Step {s.n}</div>
                 <p className="mt-1 text-base font-semibold text-foreground">{s.label}</p>
                 <p className="text-xs text-muted-foreground">{s.sub}</p>
@@ -119,10 +122,9 @@ export function BookingWizard() {
               <>
                 <h2 className="text-lg font-semibold text-foreground">Select date &amp; time</h2>
                 <p className="text-sm text-muted-foreground">Available times are shown in Arizona time.</p>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  <input type="date" value={date} min={todayStr()} onChange={(e) => { setDate(e.target.value); setSlots(null); setTime(""); }}
-                    className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-brand-strong sm:w-56" />
-                  <Button variant="outline" onClick={checkAvailability} className="h-11 flex-1"><CalendarDays className="h-4 w-4" /> Check availability</Button>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <DatePicker value={date} onChange={(v) => { setDate(v || todayStr()); setSlots(null); setTime(""); }} className="sm:w-56" />
+                  <Button variant="outline" onClick={checkAvailability} className="flex-1"><CalendarDays className="h-4 w-4" /> Check availability</Button>
                 </div>
                 <div className="mt-4">
                   {loadingSlots ? (
@@ -157,10 +159,13 @@ export function BookingWizard() {
                   <Input placeholder="Project / campaign name" value={form.projectName} onChange={(e) => set("projectName", e.target.value)} />
                 </div>
                 <Textarea className="mt-3" rows={4} placeholder="Anything we should know before the meeting?" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
-                <label className="mt-3 flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-foreground">
-                  <input type="checkbox" checked={form.smsConsent} onChange={(e) => set("smsConsent", e.target.checked)} />
-                  I agree to receive SMS updates for this appointment.
-                </label>
+                <div className="mt-3 flex items-start gap-3 rounded-lg border border-border p-3.5">
+                  <Switch checked={form.smsConsent} onCheckedChange={(v) => set("smsConsent", v)} aria-label="Agree to SMS updates" className="mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-foreground">Text me appointment updates</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">By enabling, you agree to receive appointment confirmations and a reminder by SMS from Channel Cast. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out, HELP for help.</p>
+                  </div>
+                </div>
                 {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
                 <div className="mt-5 flex justify-between">
                   <Button variant="outline" onClick={() => setStep(2)}><ArrowLeft className="h-4 w-4" /> Back</Button>
