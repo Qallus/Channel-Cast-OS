@@ -91,13 +91,13 @@ export function BookingsManager() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Stats — slidable single row on mobile */}
+      <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-6">
         {[
           ["Total", stats.total], ["Upcoming", stats.upcoming], ["Pending", stats.pending],
           ["Confirmed", stats.confirmed], ["Linked records", stats.linked], ["Project timeline", stats.timeline],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-border bg-card p-4">
+          <div key={label} className="w-36 shrink-0 rounded-xl border border-border bg-card p-4 sm:w-auto sm:shrink">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
           </div>

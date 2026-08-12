@@ -300,13 +300,10 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
         {numbers.length > 0 && (
           <div className="mt-3">
             <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Dial out from</p>
-            <div className="flex flex-wrap gap-2">
-              {numbers.map((n) => (
-                <button key={n} onClick={() => setFrom(n)} className={cn("inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors", from === n ? "border-brand-strong text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
-                  <Phone className="h-3.5 w-3.5" /> {fmtPhone(n)}
-                </button>
-              ))}
-            </div>
+            <Select value={from ?? undefined} onValueChange={setFrom}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select a number" /></SelectTrigger>
+              <SelectContent>{numbers.map((n) => <SelectItem key={n} value={n}>{fmtPhone(n)}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
         )}
         <button

@@ -81,10 +81,10 @@ export function WorkLead({ contactId }: { contactId: string }) {
     <div className="space-y-5">
       <Link href="/app/admin/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Back to contacts</Link>
 
-      {/* Activity stat tiles */}
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+      {/* Activity stat tiles — slidable single row on mobile */}
+      <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 sm:overflow-visible">
         {statTiles.map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-card p-3">
+          <div key={s.label} className="w-28 shrink-0 rounded-xl border border-border bg-card p-3 sm:w-auto sm:shrink">
             <div className="flex items-center justify-between"><span className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</span><s.icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{s.value}</p>
           </div>

@@ -82,10 +82,10 @@ export default function SuperAdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
+      {/* KPI row — single slidable row on mobile, grid from sm up */}
+      <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-5 2xl:grid-cols-10">
         {kpis.map((kpi) => (
-          <Card key={kpi.label}>
+          <Card key={kpi.label} className="w-36 shrink-0 sm:w-auto sm:shrink">
             <CardContent className="p-4">
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {kpi.label}
