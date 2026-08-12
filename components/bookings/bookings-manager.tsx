@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { genId, useCollection } from "@/lib/crm/store";
 import {
   APPOINTMENT_TYPES, BOOKING_STATUS, Booking, BookingStatus, EVENT_TYPES, EVENT_TYPE_LABEL, EventPage, EventType,
-  DEFAULT_AVAILABILITY, bookingName, fmtTime, slotsForDate, slugify,
+  AvailabilityRule, DEFAULT_AVAILABILITY, bookingName, fmtTime, slotsForDate, slugify,
 } from "@/lib/bookings/types";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,12 @@ export function BookingsManager() {
   const eventsCol = useCollection<EventPage>("event_pages", []);
   const contactsCol = useCollection<{ id: string }>("contacts", []);
   const projectsCol = useCollection<ProjectRec>("projects", []);
+  const settingsCol = useCollection<{ id: string; rules?: AvailabilityRule[] }>("settings", []);
+  const availability = settingsCol.items.find((s) => s.id === "booking_availability")?.rules ?? DEFAULT_AVAILABILITY;
+  function saveAvailability(rules: AvailabilityRule[]) {
+    if (settingsCol.items.some((s) => s.id === "booking_availability")) settingsCol.update("booking_availability", { id: "booking_availability", rules });
+    else settingsCol.create({ id: "booking_availability", rules });
+  }
 
   const [tab, setTab] = useState<Tab>("list");
   const [selected, setSelected] = useState<string | null>(null);
@@ -190,22 +196,9 @@ export function BookingsManager() {
 
       {tab === "events" && <EventsView col={eventsCol} onNew={() => setEventOpen(true)} />}
 
-      {tab === "availability" && (
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-base font-semibold text-foreground">Availability</p>
-          <p className="text-sm text-muted-foreground">Weekly booking hours used to offer public appointment times (Arizona time).</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {DEFAULT_AVAILABILITY.map((r) => (
-              <div key={r.day} className="rounded-lg border border-border p-3">
-                <p className="text-sm font-medium text-foreground">{r.day}</p>
-                {r.available ? <><p className="text-xs text-muted-foreground">{r.start} – {r.end}</p><p className="mt-1 text-xs font-medium text-success">Available</p></> : <p className="mt-1 text-xs text-muted-foreground">Unavailable</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {tab === "availability" && <AvailabilityEditor rules={availability} onSave={saveAvailability} />}
 
-      <AppointmentSheet open={apptOpen} onClose={() => setApptOpen(false)} bookings={bookings} projects={projectsCol.items}
+      <AppointmentSheet open={apptOpen} onClose={() => setApptOpen(false)} bookings={bookings} projects={projectsCol.items} rules={availability}
         onSave={(b, contact) => { if (contact) contactsCol.create(contact); create(b); setApptOpen(false); setTab("list"); setSelected(b.id); }} />
       <EventSheet open={eventOpen} onClose={() => setEventOpen(false)} onSave={(e) => { eventsCol.create(e); setEventOpen(false); setTab("events"); }} />
     </div>
@@ -249,8 +242,8 @@ function EventsView({ col, onNew }: { col: ReturnType<typeof useCollection<Event
 }
 
 // ── Add appointment sheet ─────────────────────────────────────────────────────
-function AppointmentSheet({ open, onClose, bookings, projects, onSave }: {
-  open: boolean; onClose: () => void; bookings: Booking[]; projects: ProjectRec[];
+function AppointmentSheet({ open, onClose, bookings, projects, rules, onSave }: {
+  open: boolean; onClose: () => void; bookings: Booking[]; projects: ProjectRec[]; rules: AvailabilityRule[];
   onSave: (b: Booking, contact: { id: string } | null) => void;
 }) {
   const [typeId, setTypeId] = useState(APPOINTMENT_TYPES[0].id);
@@ -259,7 +252,7 @@ function AppointmentSheet({ open, onClose, bookings, projects, onSave }: {
   const [f, setF] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", projectName: "", notes: "", projectId: "", assignedStaff: "", createContact: true, showOnTimeline: true });
   const type = APPOINTMENT_TYPES.find((t) => t.id === typeId)!;
   const taken = bookings.filter((b) => b.date === date && b.status !== "canceled").map((b) => b.time);
-  const slots = slotsForDate(date, type.minutes, taken);
+  const slots = slotsForDate(date, type.minutes, taken, rules);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
 
   function save() {
@@ -383,6 +376,41 @@ function EventSheet({ open, onClose, onSave }: { open: boolean; onClose: () => v
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ── Availability editor ───────────────────────────────────────────────────────
+function AvailabilityEditor({ rules, onSave }: { rules: AvailabilityRule[]; onSave: (r: AvailabilityRule[]) => void }) {
+  const [draft, setDraft] = useState<AvailabilityRule[]>(rules);
+  const [saved, setSaved] = useState(false);
+  const setDay = (i: number, patch: Partial<AvailabilityRule>) => setDraft((d) => d.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-base font-semibold text-foreground">Availability</p>
+          <p className="text-sm text-muted-foreground">Weekly hours used to offer public appointment times (Arizona time).</p>
+        </div>
+        <Button size="sm" onClick={() => { onSave(draft); setSaved(true); setTimeout(() => setSaved(false), 1800); }}>{saved ? "Saved" : "Save availability"}</Button>
+      </div>
+      <div className="mt-4 space-y-2">
+        {draft.map((r, i) => (
+          <div key={r.day} className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
+            <label className="flex w-32 items-center gap-2 text-sm font-medium text-foreground">
+              <input type="checkbox" checked={r.available} onChange={(e) => setDay(i, { available: e.target.checked })} /> {r.day}
+            </label>
+            {r.available ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input type="time" value={r.start} onChange={(e) => setDay(i, { start: e.target.value })} className="h-9 rounded-md border border-border bg-background px-2 text-foreground" />
+                <span>to</span>
+                <input type="time" value={r.end} onChange={(e) => setDay(i, { end: e.target.value })} className="h-9 rounded-md border border-border bg-background px-2 text-foreground" />
+              </div>
+            ) : <span className="text-sm text-muted-foreground">Unavailable</span>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

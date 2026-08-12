@@ -2,9 +2,19 @@ import { randomUUID } from "node:crypto";
 
 import { listRecords, upsertRecords } from "@/lib/server/crm-db";
 import { notificationHtml, sendNotificationEmail } from "@/lib/server/email";
-import { APPOINTMENT_TYPES, fmtTime, slotsForDate, type Booking } from "@/lib/bookings/types";
+import { APPOINTMENT_TYPES, DEFAULT_AVAILABILITY, fmtTime, slotsForDate, type AvailabilityRule, type Booking } from "@/lib/bookings/types";
 
 export const runtime = "nodejs";
+
+// The saved weekly availability rules (Bookings → Availability), or defaults.
+async function loadAvailability(): Promise<AvailabilityRule[]> {
+  try {
+    const rows = (await listRecords("settings")) as unknown as { id: string; rules?: AvailabilityRule[] }[];
+    const rec = rows.find((r) => r.id === "booking_availability");
+    if (rec?.rules?.length) return rec.rules;
+  } catch { /* fall through */ }
+  return DEFAULT_AVAILABILITY;
+}
 
 // GET /api/bookings?date=YYYY-MM-DD&type=<id> → open time slots for the public wizard.
 export async function GET(req: Request) {
@@ -17,7 +27,8 @@ export async function GET(req: Request) {
     const rows = (await listRecords("bookings")) as unknown as Booking[];
     taken = rows.filter((b) => b.date === date && b.status !== "canceled").map((b) => b.time);
   } catch { /* store unavailable — offer all slots */ }
-  const slots = slotsForDate(date, type.minutes, taken).map((t) => ({ value: t, label: fmtTime(t) }));
+  const rules = await loadAvailability();
+  const slots = slotsForDate(date, type.minutes, taken, rules).map((t) => ({ value: t, label: fmtTime(t) }));
   return Response.json({ slots });
 }
 
