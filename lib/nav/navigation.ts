@@ -25,6 +25,7 @@ import {
   RadioTower,
   Send,
   Settings,
+  ShieldCheck,
   Shuffle,
   UserPlus,
   Users,
@@ -98,6 +99,7 @@ export const adminNavGroups: readonly NavGroup[] = [
     label: "Account",
     items: [
       { label: "Profile", icon: CircleUserRound, href: "/app/admin/profile" },
+      { label: "User Management", icon: ShieldCheck, href: "/app/admin/users" },
       { label: "Team", icon: Users, href: "/app/admin/team" },
       { label: "Logout", icon: LogOut, href: "/login", action: "logout" },
     ],

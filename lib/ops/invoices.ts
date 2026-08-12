@@ -1,17 +1,48 @@
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "void";
 
+export type LineItem = { id: string; description: string; qty: number; rate: number };
+export type Party = { name: string; company?: string; email?: string; phone?: string; address?: string };
+
 export type Invoice = {
   id: string;
   number: string;
   client: string;
-  amount: number;
+  amount: number;      // kept in sync with the computed total for stats/search
   status: InvoiceStatus;
-  issueDate: string; // ISO date
-  dueDate: string; // ISO date
+  issueDate: string;   // ISO date
+  dueDate: string;     // ISO date
   description: string;
   owner: string;
   createdAt: string;
+  // Robust invoice fields (optional for back-compat with older records).
+  logoUrl?: string;
+  from?: Party;        // letterhead / "from"
+  billTo?: Party;
+  lineItems?: LineItem[];
+  taxRate?: number;    // percent, e.g. 8.6
+  discount?: number;   // flat amount off
+  notes?: string;
+  terms?: string;
+  contactId?: string | null;
 };
+
+// Default Channel Cast letterhead + logo (light backgrounds → the full-color mark).
+export const DEFAULT_LOGO = "/logos/logo.svg";
+export const CHANNEL_CAST_FROM: Party = {
+  name: "Channel Cast",
+  email: "hello@channelcast.io",
+  phone: "(480) 999-9906",
+  address: "Scottsdale, AZ",
+};
+
+export const lineAmount = (li: LineItem) => Math.max(0, (Number(li.qty) || 0) * (Number(li.rate) || 0));
+export const invoiceSubtotal = (inv: Invoice) =>
+  inv.lineItems?.length ? inv.lineItems.reduce((s, li) => s + lineAmount(li), 0) : (inv.amount || 0);
+export function invoiceTotal(inv: Invoice): number {
+  const sub = invoiceSubtotal(inv);
+  const tax = sub * ((inv.taxRate || 0) / 100);
+  return Math.max(0, sub + tax - (inv.discount || 0));
+}
 
 export const INVOICE_STATUS: Record<InvoiceStatus, { label: string; tone: string }> = {
   draft: { label: "Draft", tone: "bg-muted text-muted-foreground" },

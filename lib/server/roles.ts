@@ -16,7 +16,8 @@ const ALLOWED_EMAILS = (process.env.CC_ALLOWED_EMAILS || SUPER_ADMIN_EMAILS.join
 type MinimalUser = { email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined;
 
 export function isSuperAdmin(user: MinimalUser): boolean {
-  return Boolean(user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase()));
+  if (user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase())) return true;
+  return (user?.user_metadata?.role as string | undefined)?.toLowerCase() === "super_admin";
 }
 
 // Whether this signed-in user may enter the console at all (the pre-launch gate).
