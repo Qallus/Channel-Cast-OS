@@ -75,12 +75,12 @@ export function MobileBottomNav() {
           <ChevronDown className="h-3.5 w-3.5" /> Hide
         </button>
 
-        <ul className="flex items-stretch justify-between px-1">
+        <ul className="flex items-stretch overflow-x-auto px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {ITEMS.map((it) => {
             const Icon = it.icon;
             if (it.action === "record") {
               return (
-                <li key="record" className="flex-1">
+                <li key="record" className="w-16 shrink-0">
                   <button type="button" onClick={openRecorder} aria-label="Quick voice recording" className="flex w-full items-center justify-center py-2.5 text-brand-strong">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-brand-foreground shadow"><Icon className="h-[18px] w-[18px]" /></span>
                   </button>
@@ -89,7 +89,7 @@ export function MobileBottomNav() {
             }
             const on = isActive(it.href!, pathname);
             return (
-              <li key={it.href} className="flex-1">
+              <li key={it.href} className="w-16 shrink-0">
                 <Link
                   href={it.href!}
                   aria-label={it.label}
