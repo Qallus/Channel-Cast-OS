@@ -99,7 +99,7 @@ export function CardBuilder({
   const deviceWidth = device === "mobile" ? "max-w-[360px]" : device === "tablet" ? "max-w-[460px]" : "max-w-[560px]";
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col">
+    <div className="flex flex-col lg:min-h-[calc(100vh-8rem)]">
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-1 pb-3">
         <div className="flex items-center gap-3">
@@ -119,7 +119,7 @@ export function CardBuilder({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="flex flex-1 flex-col lg:flex-row lg:overflow-hidden">
         {/* Left rail */}
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border py-2 lg:w-[150px] lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r">
           {PANELS.map(({ key, label, icon: Icon }) => (
@@ -131,12 +131,12 @@ export function CardBuilder({
         </div>
 
         {/* Panel editor */}
-        <div className="shrink-0 overflow-y-auto border-b border-border p-4 lg:w-[380px] lg:border-b-0 lg:border-r">
+        <div className="shrink-0 border-b border-border p-4 lg:w-[380px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <PanelBody panel={panel} draft={draft} set={set} setDraft={setDraft} links={links} setLinks={setLinks} sections={sections} setSections={setSections} isAdmin={isAdmin} ownerOptions={ownerOptions} publicUrl={publicUrl} />
         </div>
 
         {/* Live preview */}
-        <div className="flex flex-1 flex-col overflow-y-auto bg-muted/30 p-5">
+        <div className="flex flex-1 flex-col bg-muted/30 p-5 lg:overflow-y-auto">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm font-semibold">Live preview</div>
             <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">

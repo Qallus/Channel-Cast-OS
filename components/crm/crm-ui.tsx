@@ -49,7 +49,7 @@ export function StatTile({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="w-40 shrink-0 snap-start rounded-xl border border-border bg-card p-4 sm:w-auto sm:min-w-0 sm:shrink">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={cn("mt-1 text-2xl font-semibold", accent ? "text-brand-strong" : "text-foreground")}>{value}</p>
       {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
@@ -57,8 +57,9 @@ export function StatTile({
   );
 }
 
+// Single, horizontally-scrollable row on mobile; a grid from sm up.
 export function StatRow({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>;
+  return <div className="flex snap-x gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4">{children}</div>;
 }
 
 /* ── View switcher ───────────────────────────────────────────────────── */

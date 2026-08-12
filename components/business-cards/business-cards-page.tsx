@@ -145,9 +145,9 @@ export function BusinessCardsPage() {
         <LeadsInbox isAdmin={isAdmin} scope={scope} onChanged={() => load(scope)} />
       ) : (
         <div>
-          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+          <div className="mb-5 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible xl:grid-cols-8">
             {STAT_TILES.map((t) => (
-              <div key={t.key} className="rounded-xl border border-border bg-card px-4 py-3">
+              <div key={t.key} className="w-32 shrink-0 rounded-xl border border-border bg-card px-4 py-3 sm:w-auto sm:shrink">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.label}</div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums">{data ? data.stats[t.key] : "—"}</div>
                 <div className="mt-0.5 text-[10px] text-muted-foreground">{t.hint}</div>

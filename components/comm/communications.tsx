@@ -297,6 +297,18 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
             </button>
           ))}
         </div>
+        {numbers.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Dial out from</p>
+            <div className="flex flex-wrap gap-2">
+              {numbers.map((n) => (
+                <button key={n} onClick={() => setFrom(n)} className={cn("inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors", from === n ? "border-brand-strong text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
+                  <Phone className="h-3.5 w-3.5" /> {fmtPhone(n)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button
           onClick={() => setRecord((v) => !v)}
           disabled={callState !== "idle"}
@@ -329,26 +341,6 @@ function CallsTab({ numbers, defaultFrom, status, token }: { numbers: string[]; 
 
       {/* History */}
       <div className="space-y-3">
-        {numbers.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Dial out from</p>
-            <div className="flex flex-wrap gap-2">
-              {numbers.map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setFrom(n)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                    from === n ? "border-brand-strong text-brand-strong" : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Phone className="h-3.5 w-3.5" /> {fmtPhone(n)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
             <SegBtn active={mode === "history"} onClick={() => setMode("history")} icon={PhoneCall}>Call History</SegBtn>
