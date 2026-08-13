@@ -44,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { RecordCalendar } from "@/components/crm/crm-ui";
@@ -765,7 +766,107 @@ function SmsTab({ smsNumbers, defaultFrom }: { smsNumbers: string[]; defaultFrom
 
 /* ── AI Voice tab (OpenAI TTS) ───────────────────────────────────────── */
 
+type AiVoiceCfg = { id: string; outboundEnabled?: boolean; inboundEnabled?: boolean; fromNumber?: string; goal?: string };
+type QueueItem = { id: string; name: string; phone: string; status: string };
+const TARGET_TYPES: [string, string][] = [["contact", "Contacts"], ["lead", "Leads"], ["prospect", "Prospects"], ["client", "Clients"]];
+
 function AiVoiceTab() {
+  const contactsCol = useCollection<Contact>("contacts", seedContacts);
+  const settingsCol = useCollection<AiVoiceCfg>("settings", []);
+  const cfg = settingsCol.items.find((s) => s.id === "ai_voice_config");
+  const outbound = cfg?.outboundEnabled ?? false;
+  const inbound = cfg?.inboundEnabled ?? false;
+
+  function save(patch: Partial<AiVoiceCfg>) {
+    const next: AiVoiceCfg = { id: "ai_voice_config", outboundEnabled: outbound, inboundEnabled: inbound, fromNumber: cfg?.fromNumber ?? "", goal: cfg?.goal ?? "", ...patch };
+    if (cfg) settingsCol.update("ai_voice_config", next); else settingsCol.create(next);
+  }
+
+  const [types, setTypes] = useState<string[]>(["lead", "prospect"]);
+  const [tag, setTag] = useState("");
+  const targets = contactsCol.items.filter((c) => types.includes(c.type) && c.phone && c.status !== "archived" && (!tag || (c.tags ?? []).some((t) => t.toLowerCase().includes(tag.toLowerCase()))));
+
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [running, setRunning] = useState(false);
+
+  async function startCalls() {
+    if (!outbound || !targets.length) return;
+    const q: QueueItem[] = targets.map((c) => ({ id: c.id, name: contactName(c), phone: c.phone as string, status: "queued" }));
+    setQueue(q); setRunning(true);
+    for (const item of q) {
+      setQueue((p) => p.map((x) => (x.id === item.id ? { ...x, status: "calling" } : x)));
+      try {
+        const r = await fetch("/api/comm/ai-voice/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: item.phone, name: item.name }) });
+        const d = await r.json().catch(() => ({}));
+        setQueue((p) => p.map((x) => (x.id === item.id ? { ...x, status: r.ok ? "dialed" : (d.error || "failed") } : x)));
+      } catch { setQueue((p) => p.map((x) => (x.id === item.id ? { ...x, status: "failed" } : x))); }
+      await new Promise((res) => setTimeout(res, 1500)); // pace outbound calls
+    }
+    setRunning(false);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Agent header + toggles */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/15 text-brand-strong"><Sparkles className="h-5 w-5" /></span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Nicole — AI Voice Agent</p>
+              <p className="text-xs text-muted-foreground">Your xAI agent runs calls to your contacts, leads, and prospects.</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+            <label className="flex items-center gap-2 text-sm"><Switch checked={outbound} onCheckedChange={(v) => save({ outboundEnabled: v })} /> Outbound calling</label>
+            <label className="flex items-center gap-2 text-sm"><Switch checked={inbound} onCheckedChange={(v) => save({ inboundEnabled: v })} /> Inbound answering</label>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Caller ID (Nicole&apos;s number)</p><Input value={cfg?.fromNumber ?? ""} onChange={(e) => save({ fromNumber: e.target.value })} placeholder="+1 480 999 9926" /></div>
+          <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Call goal / script</p><Input value={cfg?.goal ?? ""} onChange={(e) => save({ goal: e.target.value })} placeholder="Qualify interest & book a call" /></div>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">Inbound answering routes calls to Nicole&apos;s number to the xAI agent (via your Twilio SIP). Outbound places a call from that number and bridges the person to Nicole.</p>
+      </div>
+
+      {/* Target list */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-sm font-semibold text-foreground">Target list</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {TARGET_TYPES.map(([key, label]) => (
+            <button key={key} onClick={() => setTypes((p) => (p.includes(key) ? p.filter((x) => x !== key) : [...p, key]))}
+              className={cn("rounded-lg border px-3 py-1.5 text-sm transition-colors", types.includes(key) ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>{label}</button>
+          ))}
+          <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Filter by tag…" className="h-9 w-44" />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground"><span className="font-semibold text-foreground">{targets.length}</span> contacts with a phone number selected</p>
+          <Button onClick={startCalls} disabled={!outbound || running || !targets.length}><Phone className="h-4 w-4" /> {running ? "Calling…" : `Start calling (${targets.length})`}</Button>
+        </div>
+        {!outbound && <p className="mt-2 text-xs text-warning">Turn on outbound calling above to launch a campaign.</p>}
+      </div>
+
+      {/* Call queue */}
+      {queue.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="mb-2 text-sm font-semibold text-foreground">Call queue</p>
+          <div className="max-h-72 space-y-1.5 overflow-y-auto">
+            {queue.map((q) => (
+              <div key={q.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                <span className="min-w-0"><span className="font-medium text-foreground">{q.name}</span> <span className="text-muted-foreground">{fmtPhone(q.phone)}</span></span>
+                <span className={cn("shrink-0 text-xs font-medium", q.status === "dialed" ? "text-success" : q.status === "calling" ? "text-brand-strong" : q.status === "queued" ? "text-muted-foreground" : "text-destructive")}>{q.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <TtsUtility />
+    </div>
+  );
+}
+
+function TtsUtility() {
   const [script, setScript] = useState("");
   const [voice, setVoice] = useState("alloy");
   const [busy, setBusy] = useState(false);
@@ -774,34 +875,26 @@ function AiVoiceTab() {
 
   async function generate() {
     if (!script.trim()) return;
-    setBusy(true);
-    setErr(null);
+    setBusy(true); setErr(null);
     try {
-      const res = await fetch("/api/admin/ai-voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ script, voice, provider: "openai" }),
-      });
+      const res = await fetch("/api/admin/ai-voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ script, voice, provider: "openai" }) });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.audio?.id) setSrc(`/api/audio/${data.audio.id}/file`);
       else setErr(data.hint || data.error || "Generation unavailable. Add OPENAI_API_KEY.");
-    } catch {
-      setErr("Generation failed.");
-    } finally {
-      setBusy(false);
-    }
+    } catch { setErr("Generation failed."); }
+    finally { setBusy(false); }
   }
 
   return (
     <div className="max-w-2xl space-y-3 rounded-xl border border-border bg-card p-4">
-      <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Mic className="h-4 w-4 text-brand-strong" /> AI Voice</p>
-      <p className="text-xs text-muted-foreground">Generate a voiceover with OpenAI TTS — for greetings, IVR prompts, or SMS-to-voice.</p>
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Mic className="h-4 w-4 text-brand-strong" /> Generate a voice clip</p>
+      <p className="text-xs text-muted-foreground">OpenAI TTS — for greetings, voicemail drops, or IVR prompts.</p>
       <div className="flex flex-wrap gap-2">
         {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map((v) => (
           <button key={v} onClick={() => setVoice(v)} className={cn("rounded-lg border px-2.5 py-1 text-xs capitalize", voice === v ? "border-brand-strong text-brand-strong" : "border-border text-muted-foreground")}>{v}</button>
         ))}
       </div>
-      <Textarea rows={4} value={script} onChange={(e) => setScript(e.target.value)} placeholder="Type the script the AI voice should read…" />
+      <Textarea rows={3} value={script} onChange={(e) => setScript(e.target.value)} placeholder="Type the script the AI voice should read…" />
       <div className="flex items-center gap-2">
         <Button onClick={generate} disabled={busy || !script.trim()}><Sparkles className="h-4 w-4" /> {busy ? "Generating…" : "Generate voice"}</Button>
         {err && <span className="text-sm text-destructive">{err}</span>}
