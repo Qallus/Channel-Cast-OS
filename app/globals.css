@@ -221,6 +221,29 @@
   z-index: 500;
 }
 
+/* Auth login data-flow — packets travel a vertical track, nodes flash on arrival. */
+@keyframes cc-flow-dot {
+  0%   { top: 0%;   opacity: 0; }
+  7%   { opacity: 1; }
+  93%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes cc-flow-node {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(204,255,0,0); border-color: rgba(204,255,0,0.22); transform: scale(1); }
+  6%       { box-shadow: 0 0 26px 2px rgba(204,255,0,0.55); border-color: rgba(204,255,0,0.9); transform: scale(1.08); }
+  24%      { transform: scale(1); box-shadow: 0 0 0 0 rgba(204,255,0,0); }
+}
+.cc-flow-dot {
+  position: absolute; left: 1.5rem; height: 9px; width: 9px; border-radius: 9999px;
+  background: #ccff00; box-shadow: 0 0 12px 3px rgba(204,255,0,0.8);
+  transform: translate(-50%, -50%); animation: cc-flow-dot 4.5s linear infinite;
+}
+.cc-flow-node { animation: cc-flow-node 4.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cc-flow-dot, .cc-flow-node { animation: none; }
+  .cc-flow-dot { top: 50%; opacity: 0.8; }
+}
+
 /* Print: show only the invoice preview (.cc-print-area), full-page and un-themed. */
 @media print {
   body * { visibility: hidden !important; }
