@@ -52,7 +52,9 @@ import { cn } from "@/lib/utils";
 
 type LibAudio = { id: string; name: string; sizeBytes: number; createdAt: string; mime: string; archived?: boolean };
 type Spot = LibAudio & SpotMeta;
-type Tab = "library" | "studio" | "spots";
+const DualRecorder = dynamic(() => import("@/components/audio/dual-recorder").then((m) => m.DualRecorder), { ssr: false });
+
+type Tab = "library" | "studio" | "spots" | "capture";
 type LibView = "cards" | "list" | "table" | "kanban" | "calendar" | "map";
 
 const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`;
@@ -93,7 +95,7 @@ export function AudioManagement() {
       </div>
 
       <div className="flex gap-1 rounded-lg border border-border bg-card p-1 sm:w-fit">
-        {(["library", "studio", "spots"] as Tab[]).map((t) => (
+        {(["library", "studio", "spots", "capture"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -102,7 +104,7 @@ export function AudioManagement() {
               tab === t ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {t === "studio" ? "Media Studio" : t === "spots" ? "Audio Spots" : "Library"}
+            {t === "studio" ? "Media Studio" : t === "spots" ? "Audio Spots" : t === "capture" ? "Audio Capture" : "Library"}
           </button>
         ))}
       </div>
@@ -110,6 +112,7 @@ export function AudioManagement() {
       {tab === "library" && <LibraryTab />}
       {tab === "studio" && <MediaStudio />}
       {tab === "spots" && <AudioSpots />}
+      {tab === "capture" && <DualRecorder />}
     </div>
   );
 }
