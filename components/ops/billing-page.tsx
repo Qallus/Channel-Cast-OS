@@ -35,6 +35,63 @@ const VIEWS = [
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const fmtDate = (iso: string) => (iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
 
+// Self-contained, fully inline-styled invoice HTML for printing. Rendered into a
+// fresh window so the print never fights the dialog's transform/overflow clipping.
+function invoiceHtml(inv: Invoice): string {
+  const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const sub = invoiceSubtotal(inv);
+  const tax = sub * ((inv.taxRate || 0) / 100);
+  const total = invoiceTotal(inv);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const raw = inv.logoUrl || DEFAULT_LOGO;
+  const logo = raw.startsWith("/") ? origin + raw : raw;
+  const rows = (inv.lineItems ?? []).map((li) =>
+    `<tr style="border-bottom:1px solid #eef2e9"><td style="padding:8px 0">${esc(li.description || "—")}</td><td style="padding:8px 0;text-align:right">${li.qty}</td><td style="padding:8px 0;text-align:right">${usd.format(li.rate)}</td><td style="padding:8px 0;text-align:right;font-weight:600">${usd.format(lineAmount(li))}</td></tr>`).join("");
+  return `<div style="max-width:720px;margin:0 auto;color:#14241a;font-size:14px;line-height:1.5">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img src="${esc(logo)}" alt="" style="height:48px;width:48px;object-fit:contain"/>
+      <div><div style="font-size:18px;font-weight:700">${esc(inv.from?.name || "Channel Cast")}</div>
+      <div style="font-size:12px;color:#5b6b5b">${[inv.from?.email, inv.from?.phone].filter(Boolean).map(esc).join(" · ")}</div>
+      ${inv.from?.address ? `<div style="font-size:12px;color:#5b6b5b">${esc(inv.from.address)}</div>` : ""}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:24px;font-weight:800">INVOICE</div>
+      <div style="font-size:13px;color:#5b6b5b">${esc(inv.number)}</div>
+      <div style="font-size:12px;color:#5b6b5b;margin-top:4px">Issued ${fmtDate(inv.issueDate)}</div>
+      <div style="font-size:12px;color:#5b6b5b">Due ${fmtDate(inv.dueDate)}</div>
+    </div>
+  </div>
+  <div style="margin-top:24px">
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#8a998a">Bill to</div>
+    <div style="font-weight:600">${esc(inv.billTo?.name || inv.client)}</div>
+    ${inv.billTo?.company ? `<div>${esc(inv.billTo.company)}</div>` : ""}
+    ${inv.billTo?.email ? `<div style="font-size:12px;color:#5b6b5b">${esc(inv.billTo.email)}</div>` : ""}
+    ${inv.billTo?.address ? `<div style="font-size:12px;color:#5b6b5b;white-space:pre-wrap">${esc(inv.billTo.address)}</div>` : ""}
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:14px">
+    <thead><tr style="border-bottom:1px solid #dde5d3;text-align:left;font-size:11px;text-transform:uppercase;color:#8a998a">
+      <th style="padding:8px 0">Description</th><th style="padding:8px 0;text-align:right">Qty</th><th style="padding:8px 0;text-align:right">Rate</th><th style="padding:8px 0;text-align:right">Amount</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="margin-top:16px;margin-left:auto;max-width:280px;font-size:14px">
+    <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Subtotal</span><span>${usd.format(sub)}</span></div>
+    ${(inv.taxRate || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Tax (${inv.taxRate}%)</span><span>${usd.format(tax)}</span></div>` : ""}
+    ${(inv.discount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Discount</span><span>−${usd.format(inv.discount || 0)}</span></div>` : ""}
+    <div style="display:flex;justify-content:space-between;padding:6px 0 0;border-top:1px solid #dde5d3;font-weight:700;font-size:16px"><span>Total</span><span>${usd.format(total)}</span></div>
+  </div>
+  ${(inv.notes || inv.terms) ? `<div style="margin-top:24px;border-top:1px solid #dde5d3;padding-top:12px;font-size:12px;color:#5b6b5b">${inv.notes ? `<div><b style="color:#14241a">Notes:</b> ${esc(inv.notes)}</div>` : ""}${inv.terms ? `<div style="margin-top:4px"><b style="color:#14241a">Terms:</b> ${esc(inv.terms)}</div>` : ""}</div>` : ""}
+</div>`;
+}
+
+function printInvoice(inv: Invoice) {
+  const win = window.open("", "_blank", "width=820,height=1040");
+  if (!win) { alert("Please allow pop-ups to print the invoice."); return; }
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${inv.number}</title><style>@page{margin:16mm}html,body{margin:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#14241a;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:8px}</style><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></head><body>${invoiceHtml(inv)}</body></html>`);
+  win.document.close();
+  win.focus();
+}
+
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   return <Badge className={cn("border-transparent", INVOICE_STATUS[status].tone)}>{INVOICE_STATUS[status].label}</Badge>;
 }
@@ -210,7 +267,7 @@ export function BillingPage() {
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader className="flex-row items-center justify-between gap-2 pr-8">
             <DialogTitle>Invoice preview</DialogTitle>
-            <Button size="sm" onClick={() => window.print()}><Printer className="h-4 w-4" /> Print / Save PDF</Button>
+            <Button size="sm" onClick={() => preview && printInvoice(preview)}><Printer className="h-4 w-4" /> Print / Save PDF</Button>
           </DialogHeader>
           {preview && <InvoicePreview inv={preview} />}
         </DialogContent>

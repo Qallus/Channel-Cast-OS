@@ -244,13 +244,6 @@
   .cc-flow-dot { top: 50%; opacity: 0.8; }
 }
 
-/* Print: show only the invoice preview (.cc-print-area), full-page and un-themed. */
-@media print {
-  body * { visibility: hidden !important; }
-  .cc-print-area, .cc-print-area * { visibility: visible !important; }
-  .cc-print-area { position: absolute !important; inset: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; }
-}
-
 /* Branded Leaflet zoom controls — rounded, brand accent, click animation, theme-aware */
 .leaflet-control-zoom {
   border: none !important;
