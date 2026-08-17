@@ -1,6 +1,6 @@
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "void";
 
-export type LineItem = { id: string; description: string; qty: number; rate: number };
+export type LineItem = { id: string; description: string; qty: number; rate: number; included?: boolean };
 export type Party = { name: string; company?: string; email?: string; phone?: string; address?: string };
 
 export type Invoice = {
@@ -35,7 +35,7 @@ export const CHANNEL_CAST_FROM: Party = {
   address: "Scottsdale, AZ",
 };
 
-export const lineAmount = (li: LineItem) => Math.max(0, (Number(li.qty) || 0) * (Number(li.rate) || 0));
+export const lineAmount = (li: LineItem) => (li.included ? 0 : Math.max(0, (Number(li.qty) || 0) * (Number(li.rate) || 0)));
 export const invoiceSubtotal = (inv: Invoice) =>
   inv.lineItems?.length ? inv.lineItems.reduce((s, li) => s + lineAmount(li), 0) : (inv.amount || 0);
 export function invoiceTotal(inv: Invoice): number {

@@ -46,8 +46,8 @@ function invoiceHtml(inv: Invoice): string {
   const raw = inv.logoUrl || DEFAULT_LOGO;
   const logo = raw.startsWith("/") ? origin + raw : raw;
   const rows = (inv.lineItems ?? []).map((li) =>
-    `<tr style="border-bottom:1px solid #eef2e9"><td style="padding:8px 0">${esc(li.description || "—")}</td><td style="padding:8px 0;text-align:right">${li.qty}</td><td style="padding:8px 0;text-align:right">${usd.format(li.rate)}</td><td style="padding:8px 0;text-align:right;font-weight:600">${usd.format(lineAmount(li))}</td></tr>`).join("");
-  return `<div style="max-width:720px;margin:0 auto;color:#14241a;font-size:14px;line-height:1.5">
+    `<tr style="border-bottom:1px solid #eef2e9"><td style="padding:8px 0">${esc(li.description || "—")}</td><td style="padding:8px 0;text-align:right">${li.qty}</td><td style="padding:8px 0;text-align:right">${li.included ? "Included" : usd.format(li.rate)}</td><td style="padding:8px 0;text-align:right;font-weight:600">${li.included ? "Included" : usd.format(lineAmount(li))}</td></tr>`).join("");
+  return `<div style="max-width:720px;margin:0 auto;padding-top:28px;color:#14241a;font-size:14px;line-height:1.5">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
     <div style="display:flex;align-items:center;gap:12px">
       <img src="${esc(logo)}" alt="" style="height:48px;width:48px;object-fit:contain"/>
@@ -227,7 +227,7 @@ export function BillingPage() {
                   {drawer.lineItems!.map((li) => (
                     <div key={li.id} className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-sm last:border-0">
                       <span className="min-w-0 truncate text-foreground">{li.description || "—"}</span>
-                      <span className="shrink-0 text-muted-foreground">{li.qty} × {usd.format(li.rate)} = <span className="font-medium text-foreground">{usd.format(lineAmount(li))}</span></span>
+                      <span className="shrink-0 text-muted-foreground">{li.included ? <span className="font-medium text-brand-strong">Included</span> : <>{li.qty} × {usd.format(li.rate)} = <span className="font-medium text-foreground">{usd.format(lineAmount(li))}</span></>}</span>
                     </div>
                   ))}
                 </div>
@@ -467,11 +467,14 @@ function InvoiceEditor({ draft, onChange }: { draft: Invoice; onChange: (d: Invo
         <div className="mb-3 flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Line items</p><Button size="sm" variant="outline" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Add item</Button></div>
         <div className="space-y-2">
           {items.map((li) => (
-            <div key={li.id} className="grid grid-cols-[1fr_64px_90px_90px_32px] items-center gap-2">
+            <div key={li.id} className="grid grid-cols-[1fr_46px_82px_82px_auto_28px] items-center gap-1.5">
               <Input value={li.description} onChange={(e) => setItem(li.id, { description: e.target.value })} placeholder="Description" />
               <Input type="number" min={0} value={li.qty} onChange={(e) => setItem(li.id, { qty: Number(e.target.value) || 0 })} placeholder="Qty" />
-              <Input type="number" min={0} step="0.01" value={li.rate} onChange={(e) => setItem(li.id, { rate: Number(e.target.value) || 0 })} placeholder="Rate" />
-              <span className="text-right text-sm font-medium text-foreground">{usd.format(lineAmount(li))}</span>
+              {li.included
+                ? <span className="text-center text-xs font-medium text-brand-strong">Included</span>
+                : <Input type="number" min={0} step="0.01" value={li.rate} onChange={(e) => setItem(li.id, { rate: Number(e.target.value) || 0 })} placeholder="Rate" />}
+              <span className="text-right text-sm font-medium text-foreground">{li.included ? "Included" : usd.format(lineAmount(li))}</span>
+              <button onClick={() => setItem(li.id, { included: !li.included })} title={li.included ? "Set a price" : "Mark as included in the fee"} className={cn("rounded-md border px-2 py-1 text-[11px] font-medium transition-colors", li.included ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>Incl</button>
               <button onClick={() => removeItem(li.id)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
@@ -533,7 +536,7 @@ function InvoicePreview({ inv }: { inv: Invoice }) {
         <thead><tr className="border-b border-[#dde5d3] text-left text-[11px] uppercase text-[#8a998a]"><th className="py-2">Description</th><th className="py-2 text-right">Qty</th><th className="py-2 text-right">Rate</th><th className="py-2 text-right">Amount</th></tr></thead>
         <tbody>
           {items.map((li) => (
-            <tr key={li.id} className="border-b border-[#eef2e9]"><td className="py-2">{li.description || "—"}</td><td className="py-2 text-right">{li.qty}</td><td className="py-2 text-right">{usd.format(li.rate)}</td><td className="py-2 text-right font-medium">{usd.format(lineAmount(li))}</td></tr>
+            <tr key={li.id} className="border-b border-[#eef2e9]"><td className="py-2">{li.description || "—"}</td><td className="py-2 text-right">{li.qty}</td><td className="py-2 text-right">{li.included ? "Included" : usd.format(li.rate)}</td><td className="py-2 text-right font-medium">{li.included ? "Included" : usd.format(lineAmount(li))}</td></tr>
           ))}
         </tbody>
       </table>
