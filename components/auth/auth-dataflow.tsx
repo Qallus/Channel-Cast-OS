@@ -20,15 +20,7 @@ const NODES = [
 // Delays align each node's flash to when a packet passes it (4.5s loop).
 const DELAYS = ["0s", "1.125s", "2.25s", "3.375s", "4.5s"];
 
-export function AuthDataFlow({
-  className,
-  heading = "From your screen to their moment.",
-  subtext = "Manage it on your computer, push it through the app to a location's device, and it plays for the audience that's actually there.",
-}: {
-  className?: string;
-  heading?: string;
-  subtext?: string;
-}) {
+export function AuthDataFlow({ className }: { className?: string }) {
   return (
     <div className={cn("relative overflow-hidden bg-[#050705]", className)}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_55%_at_38%_50%,rgba(204,255,0,0.06),transparent)]" />
@@ -60,15 +52,11 @@ export function AuthDataFlow({
         </div>
       </div>
 
-      {/* Vignette + brand overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/25" />
-      <div className="absolute left-10 top-10 flex items-center gap-2.5">
-        <AppIcon className="h-9 w-9 rounded-lg" />
-        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-white/90">Channel Cast</span>
-      </div>
-      <div className="absolute bottom-12 left-10 max-w-sm">
-        <p className="text-2xl font-semibold leading-tight text-white">{heading}</p>
-        <p className="mt-2 text-sm text-white/60">{subtext}</p>
+      {/* Vignette + brand mark (kept small & clean; tagline removed to de-clutter) */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/25" />
+      <div className="absolute left-8 top-8 flex items-center gap-2">
+        <AppIcon className="h-8 w-8 rounded-lg" />
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/85">Channel Cast</span>
       </div>
     </div>
   );
