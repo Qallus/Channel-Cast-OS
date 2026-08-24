@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Check, Copy, Loader2, PartyPopper, Radar, TerminalSquare } from "lucide-react";
+import { CalendarClock, Check, Copy, Download, Loader2, PartyPopper, Radar } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,10 +27,13 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
   const [connected, setConnected] = useState<FleetDevice | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://os.channelcast.io";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://channelcast.io";
   const command =
     device &&
     `$env:CC_SERVER="${origin}"; $env:CC_CLAIM="${device.claimCode}";${mode === "motion" ? ' $env:CC_MOTION="webcam";' : ""} irm $env:CC_SERVER/install.ps1 | iex`;
+  const batUrl =
+    device &&
+    `${origin}/install.bat?claim=${encodeURIComponent(device.claimCode || "")}&code=${encodeURIComponent(device.deviceCode)}${mode === "motion" ? "&motion=webcam" : ""}`;
 
   async function createDevice() {
     setBusy(true); setError(null);
@@ -118,20 +121,32 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Claim code · {device.deviceCode}</p>
             <p className="font-mono text-lg font-semibold tracking-wider text-foreground">{device.claimCode}</p>
           </div>
-          <ol className="space-y-2.5 text-sm text-foreground">
-            <li className="flex gap-2"><Num n={1} /> On the mini PC, open <b className="font-semibold">PowerShell as Administrator</b> (right-click → Run as administrator).</li>
-            <li className="flex gap-2"><Num n={2} /> Paste this command and press <b className="font-semibold">Enter</b>:</li>
-          </ol>
-          <div className="relative">
-            <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-background px-3 py-2.5 pr-10 font-mono text-xs text-foreground">{command}</pre>
-            <button onClick={copyCommand} aria-label="Copy command" className="absolute right-2 top-2 rounded-md border border-border bg-card p-1.5 text-muted-foreground hover:text-foreground">
-              {copied ? <Check className="h-4 w-4 text-brand-strong" /> : <Copy className="h-4 w-4" />}
-            </button>
+          {/* Easiest: download & double-click */}
+          <div className="rounded-lg border border-brand-strong/40 bg-brand/5 p-3">
+            <p className="text-sm font-semibold text-foreground">Easiest — download &amp; double-click</p>
+            <ol className="mt-2 space-y-1.5 text-sm text-foreground">
+              <li className="flex gap-2"><Num n={1} /> On the mini PC, download the installer below.</li>
+              <li className="flex gap-2"><Num n={2} /> Double-click it, then click <b className="font-semibold">Yes</b> when Windows asks for permission.</li>
+            </ol>
+            <a href={batUrl || "#"} download>
+              <Button className="mt-3 w-full"><Download className="h-4 w-4" /> Download Windows installer</Button>
+            </a>
+            <p className="mt-2 text-[11px] text-muted-foreground">Installs Python, FFmpeg{mode === "motion" ? ", OpenCV" : ""}, connects this device, and auto-starts it at sign-in. First run can take a minute or two.</p>
           </div>
-          <p className="flex items-start gap-2 text-xs text-muted-foreground">
-            <TerminalSquare className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            It installs Python, ffmpeg{mode === "motion" ? ", and OpenCV" : ""}, registers this device, and starts it. First run can take a minute or two.
-          </p>
+
+          {/* Advanced: PowerShell fallback */}
+          <details className="rounded-lg border border-border">
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">Advanced — run a command in PowerShell instead</summary>
+            <div className="space-y-2 border-t border-border p-3">
+              <p className="text-xs text-muted-foreground">Open <b className="font-semibold text-foreground">PowerShell as Administrator</b> on the mini PC and paste this:</p>
+              <div className="relative">
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-background px-3 py-2.5 pr-10 font-mono text-xs text-foreground">{command}</pre>
+                <button onClick={copyCommand} aria-label="Copy command" className="absolute right-2 top-2 rounded-md border border-border bg-card p-1.5 text-muted-foreground hover:text-foreground">
+                  {copied ? <Check className="h-4 w-4 text-brand-strong" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </details>
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => setStep("details")}>Back</Button>
             <Button className="flex-1" onClick={() => setStep("waiting")}>I&apos;ve run it →</Button>
@@ -143,8 +158,8 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Loader2 className="h-8 w-8 animate-spin text-brand-strong" />
           <p className="text-sm font-medium text-foreground">Waiting for {device.name} to check in…</p>
-          <p className="max-w-xs text-xs text-muted-foreground">Keep the PowerShell window open on the mini PC. This can take a minute or two on first install while dependencies download.</p>
-          <Button variant="ghost" size="sm" onClick={() => setStep("install")}>Back to the command</Button>
+          <p className="max-w-xs text-xs text-muted-foreground">Keep the installer window open on the mini PC. This can take a minute or two on first install while dependencies download.</p>
+          <Button variant="ghost" size="sm" onClick={() => setStep("install")}>Back to the installer</Button>
         </div>
       )}
 

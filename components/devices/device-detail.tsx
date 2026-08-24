@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Download,
   ImageIcon,
   Play,
   Power,
@@ -91,6 +92,9 @@ export function DeviceDetail({ deviceCode }: { deviceCode: string }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <a href={`${typeof window !== "undefined" ? window.location.origin : ""}/install.bat?code=${encodeURIComponent(device.deviceCode)}${device.type === "ai_vision" || device.type === "pir_motion" ? "&motion=webcam" : ""}`} download title="Download the double-click installer to bring this device back online">
+            <Button variant="outline" size="sm"><Download className="h-4 w-4" /> Reconnect</Button>
+          </a>
           <Button variant="outline" size="sm"><Play className="h-4 w-4" /> Test audio</Button>
           <Button variant="outline" size="sm"><RefreshCw className="h-4 w-4" /> Sync schedule</Button>
           <Button variant="outline" size="sm"><Power className="h-4 w-4" /> Restart</Button>
