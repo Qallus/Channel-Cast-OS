@@ -47,7 +47,7 @@ function invoiceHtml(inv: Invoice): string {
   const logo = raw.startsWith("/") ? origin + raw : raw;
   const rows = (inv.lineItems ?? []).map((li) =>
     `<tr style="border-bottom:1px solid #eef2e9"><td style="padding:8px 0">${esc(li.description || "—")}</td><td style="padding:8px 0;text-align:right">${li.qty}</td><td style="padding:8px 0;text-align:right">${li.included ? "Included" : usd.format(li.rate)}</td><td style="padding:8px 0;text-align:right;font-weight:600">${li.included ? "Included" : usd.format(lineAmount(li))}</td></tr>`).join("");
-  return `<div style="max-width:720px;margin:0 auto;padding-top:28px;color:#14241a;font-size:14px;line-height:1.5">
+  return `<div class="cc-sheet" style="width:7.5in;max-width:100%;margin:0 auto;padding-top:28px;color:#14241a;font-size:14px;line-height:1.5">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
     <div style="display:flex;align-items:center;gap:12px">
       <img src="${esc(logo)}" alt="" style="height:48px;width:48px;object-fit:contain"/>
@@ -74,7 +74,7 @@ function invoiceHtml(inv: Invoice): string {
       <th style="padding:8px 0">Description</th><th style="padding:8px 0;text-align:right">Qty</th><th style="padding:8px 0;text-align:right">Rate</th><th style="padding:8px 0;text-align:right">Amount</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <div style="margin-top:16px;margin-left:auto;max-width:280px;font-size:14px">
+  <div class="cc-totals" style="margin-top:16px;margin-left:auto;max-width:280px;font-size:14px">
     <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Subtotal</span><span>${usd.format(sub)}</span></div>
     ${(inv.taxRate || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Tax (${inv.taxRate}%)</span><span>${usd.format(tax)}</span></div>` : ""}
     ${(inv.discount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Discount</span><span>−${usd.format(inv.discount || 0)}</span></div>` : ""}
@@ -87,7 +87,7 @@ function invoiceHtml(inv: Invoice): string {
 function printInvoice(inv: Invoice) {
   const win = window.open("", "_blank", "width=820,height=1040");
   if (!win) { alert("Please allow pop-ups to print the invoice."); return; }
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${inv.number}</title><style>@page{margin:16mm}html,body{margin:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#14241a;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:8px}</style><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></head><body>${invoiceHtml(inv)}</body></html>`);
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${inv.number}</title><style>@page{size:8.5in 11in;margin:0.5in}html,body{margin:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#14241a;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:8px}thead{display:table-header-group}tr,.cc-totals{break-inside:avoid;page-break-inside:avoid}@media print{body{padding:0}.cc-sheet{width:auto}}</style><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></head><body>${invoiceHtml(inv)}</body></html>`);
   win.document.close();
   win.focus();
 }

@@ -13,3 +13,6 @@ _reference
 agent/agent_state.json
 agent/cache
 .mcp.json
+
+# Real client billing records (PII + amounts) — this repo is public.
+docs/invoices/client-invoices/
