@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Camera, CameraOff, Eye, FlaskConical, ListMusic, Loader2, Play, Plus, Power, Radar, SkipForward, Square, Trash2, Upload, Users, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarClock, Camera, CameraOff, Download, Eye, FlaskConical, ListMusic, Loader2, Play, Plus, Power, Radar, SkipForward, Square, Trash2, Upload, Users, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react";
 
 import { DeviceDetail } from "@/components/devices/device-detail";
 import { Badge } from "@/components/ui/badge";
@@ -350,6 +350,9 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
           <Badge className={cn("gap-1 border-transparent", motionMode ? "bg-brand/15 text-brand-strong" : "bg-secondary text-secondary-foreground")}>
             {motionMode ? <Radar className="h-3 w-3" /> : <CalendarClock className="h-3 w-3" />}{motionMode ? "Motion-activated" : "Scheduled"}
           </Badge>
+          <a href={`/install.bat?code=${encodeURIComponent(d.deviceCode)}${motionMode ? "&motion=webcam" : ""}`} download title="Download the double-click installer to bring this device online" className="ml-auto">
+            <Button size="sm" variant={online ? "outline" : "default"}><Download className="h-4 w-4" /> Reconnect</Button>
+          </a>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {d.model}{d.locationName ? ` · ${d.locationName}` : ""} · <Volume2 className="mb-0.5 inline h-3.5 w-3.5" /> {d.volume}%
