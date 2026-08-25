@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { CalendarDays, CreditCard, ExternalLink, LayoutGrid, List, Pencil, Plus, Printer, SquareKanban, Table as TableIcon, Trash2, Upload } from "lucide-react";
+import { CalendarDays, CreditCard, ExternalLink, GripVertical, LayoutGrid, List, Pencil, Plus, Printer, SquareKanban, Table as TableIcon, Trash2, Upload } from "lucide-react";
 
 import {
   DetailField, EmptyState, FormField, PageHeader, RecordCalendar, RowActions, SearchBox, StatRow, StatTile, ViewSwitcher,
@@ -400,6 +400,30 @@ function InvoiceEditor({ draft, onChange }: { draft: Invoice; onChange: (d: Invo
   const addItem = () => set("lineItems", [...items, { id: genId("li"), description: "", qty: 1, rate: 0 }]);
   const removeItem = (id: string) => set("lineItems", items.filter((li) => li.id !== id));
 
+  // Reordering — native HTML5 drag-and-drop, same approach as the plans board.
+  // Only the grip is draggable so the row's inputs stay fully editable.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<{ id: string; after: boolean } | null>(null);
+  const endDrag = () => { setDragId(null); setDropAt(null); };
+  const nudgeItem = (id: string, delta: number) => {
+    const from = items.findIndex((li) => li.id === id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= items.length) return;
+    const next = items.slice();
+    [next[from], next[to]] = [next[to], next[from]];
+    set("lineItems", next);
+  };
+  const commitDrop = () => {
+    if (!dragId || !dropAt || dragId === dropAt.id) return endDrag();
+    const moved = items.find((li) => li.id === dragId);
+    if (!moved) return endDrag();
+    const rest = items.filter((li) => li.id !== dragId);
+    const i = rest.findIndex((li) => li.id === dropAt.id);
+    rest.splice(i < 0 ? rest.length : i + (dropAt.after ? 1 : 0), 0, moved);
+    set("lineItems", rest);
+    endDrag();
+  };
+
   async function onLogo(file: File) {
     setUploading(true);
     try {
@@ -462,12 +486,59 @@ function InvoiceEditor({ draft, onChange }: { draft: Invoice; onChange: (d: Invo
         </section>
       </div>
 
-      {/* Line items */}
+      {/* Line items — drag the grip to reorder (or focus it and press ↑/↓) */}
       <section className="rounded-xl border border-border p-4">
-        <div className="mb-3 flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Line items</p><Button size="sm" variant="outline" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Add item</Button></div>
-        <div className="space-y-2">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Line items</p>
+            {items.length > 1 && <p className="mt-0.5 text-[11px] text-muted-foreground/70">Drag the handle to reorder — the invoice and PDF follow this order.</p>}
+          </div>
+          <Button size="sm" variant="outline" onClick={addItem}><Plus className="h-3.5 w-3.5" /> Add item</Button>
+        </div>
+        <div className="space-y-2" onDragEnd={endDrag}>
           {items.map((li) => (
-            <div key={li.id} className="grid grid-cols-[1fr_46px_82px_82px_auto_28px] items-center gap-1.5">
+            <div
+              key={li.id}
+              data-line-row
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                const r = e.currentTarget.getBoundingClientRect();
+                setDropAt({ id: li.id, after: e.clientY > r.top + r.height / 2 });
+              }}
+              onDrop={(e) => { e.preventDefault(); commitDrop(); }}
+              className={cn(
+                "relative grid grid-cols-[18px_1fr_46px_82px_82px_auto_28px] items-center gap-1.5 rounded-md transition-opacity",
+                dragId === li.id && "opacity-40",
+              )}
+            >
+              {/* Insertion line, shown on the edge the drop will land against */}
+              {dropAt?.id === li.id && dragId !== li.id && (
+                <span aria-hidden className={cn("pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-brand-strong", dropAt.after ? "-bottom-1" : "-top-1")} />
+              )}
+              <button
+                type="button"
+                draggable
+                onDragStart={(e) => {
+                  setDragId(li.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", li.id);
+                  // Drag the whole row, not just the grip.
+                  const row = (e.currentTarget as HTMLElement).closest("[data-line-row]");
+                  if (row) e.dataTransfer.setDragImage(row, 12, 16);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                  e.preventDefault();
+                  nudgeItem(li.id, e.key === "ArrowUp" ? -1 : 1);
+                }}
+                title="Drag to reorder — or press ↑ / ↓"
+                aria-label={`Reorder ${li.description || "line item"} — drag, or use the arrow keys`}
+                className="flex h-8 w-[18px] cursor-grab items-center justify-center rounded text-muted-foreground/40 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+              >
+                <GripVertical className="h-4 w-4" aria-hidden />
+              </button>
               <Input value={li.description} onChange={(e) => setItem(li.id, { description: e.target.value })} placeholder="Description" />
               <Input type="number" min={0} value={li.qty} onChange={(e) => setItem(li.id, { qty: Number(e.target.value) || 0 })} placeholder="Qty" />
               {li.included
