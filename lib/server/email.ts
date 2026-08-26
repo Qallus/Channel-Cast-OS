@@ -1,7 +1,7 @@
 // Outbound email via Resend. Sends FROM hello@channelcast.io to the team.
 // No-op (skipped) when RESEND_API_KEY isn't set, so local/dev never breaks.
 
-type SendArgs = { subject: string; html: string; replyTo?: string; to?: string[] };
+type SendArgs = { subject: string; html: string; replyTo?: string; to?: string[]; from?: string };
 
 const DEFAULT_TO = "jw@channelcast.io,hello@channelcast.io,jwaters@qallus.co";
 
@@ -9,11 +9,13 @@ const DEFAULT_TO = "jw@channelcast.io,hello@channelcast.io,jwaters@qallus.co";
 // SVG doesn't render in Gmail/Outlook, so email logos must be hosted PNGs.
 const BRAND_ORIGIN = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").split(",")[0].trim().replace(/\/$/, "");
 
-export async function sendNotificationEmail({ subject, html, replyTo, to }: SendArgs): Promise<{ ok: boolean; skipped?: boolean }> {
+export async function sendNotificationEmail({ subject, html, replyTo, to, from: fromArg }: SendArgs): Promise<{ ok: boolean; skipped?: boolean }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
 
-  const from = process.env.EMAIL_FROM || "Channel Cast <hello@channelcast.io>";
+  // `from` must sit on a domain verified in Resend, so callers can only override
+  // it when one is configured — otherwise Resend rejects the send outright.
+  const from = fromArg || process.env.EMAIL_FROM || "Channel Cast <hello@channelcast.io>";
   const recipients = (to && to.length ? to : (process.env.NOTIFY_EMAILS || DEFAULT_TO).split(",")).map((s) => s.trim()).filter(Boolean);
 
   try {

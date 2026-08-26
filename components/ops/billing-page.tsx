@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { CalendarDays, CreditCard, ExternalLink, GripVertical, LayoutGrid, List, Pencil, Plus, Printer, SquareKanban, Table as TableIcon, Trash2, Upload } from "lucide-react";
+import { CalendarDays, Check, CreditCard, ExternalLink, GripVertical, LayoutGrid, List, Mail, MessageSquare, Pencil, Plus, Printer, Send, SquareKanban, Table as TableIcon, Trash2, TriangleAlert, Upload } from "lucide-react";
 
 import {
   DetailField, EmptyState, FormField, PageHeader, RecordCalendar, RowActions, SearchBox, StatRow, StatTile, ViewSwitcher,
@@ -20,6 +20,7 @@ import {
   CHANNEL_CAST_FROM, DEFAULT_LOGO, INVOICE_STATUS, INVOICE_STATUS_ORDER, Invoice, InvoiceStatus, LineItem,
   invoiceSubtotal, invoiceTotal, lineAmount, seedInvoices,
 } from "@/lib/ops/invoices";
+import { fmtDate, invoiceEmailSubject, invoiceHtml, invoiceSmsText, usd } from "@/lib/ops/invoice-html";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -32,57 +33,6 @@ const VIEWS = [
   { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
 ];
 
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-const fmtDate = (iso: string) => (iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
-
-// Self-contained, fully inline-styled invoice HTML for printing. Rendered into a
-// fresh window so the print never fights the dialog's transform/overflow clipping.
-function invoiceHtml(inv: Invoice): string {
-  const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const sub = invoiceSubtotal(inv);
-  const tax = sub * ((inv.taxRate || 0) / 100);
-  const total = invoiceTotal(inv);
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const raw = inv.logoUrl || DEFAULT_LOGO;
-  const logo = raw.startsWith("/") ? origin + raw : raw;
-  const rows = (inv.lineItems ?? []).map((li) =>
-    `<tr style="border-bottom:1px solid #eef2e9"><td style="padding:8px 0">${esc(li.description || "—")}</td><td style="padding:8px 0;text-align:right">${li.qty}</td><td style="padding:8px 0;text-align:right">${li.included ? "Included" : usd.format(li.rate)}</td><td style="padding:8px 0;text-align:right;font-weight:600">${li.included ? "Included" : usd.format(lineAmount(li))}</td></tr>`).join("");
-  return `<div class="cc-sheet" style="width:7.5in;max-width:100%;margin:0 auto;padding-top:28px;color:#14241a;font-size:14px;line-height:1.5">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
-    <div style="display:flex;align-items:center;gap:12px">
-      <img src="${esc(logo)}" alt="" style="height:48px;width:48px;object-fit:contain"/>
-      <div><div style="font-size:18px;font-weight:700">${esc(inv.from?.name || "Channel Cast")}</div>
-      <div style="font-size:12px;color:#5b6b5b">${[inv.from?.email, inv.from?.phone].filter(Boolean).map(esc).join(" · ")}</div>
-      ${inv.from?.address ? `<div style="font-size:12px;color:#5b6b5b">${esc(inv.from.address)}</div>` : ""}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:24px;font-weight:800">INVOICE</div>
-      <div style="font-size:13px;color:#5b6b5b">${esc(inv.number)}</div>
-      <div style="font-size:12px;color:#5b6b5b;margin-top:4px">Issued ${fmtDate(inv.issueDate)}</div>
-      <div style="font-size:12px;color:#5b6b5b">Due ${fmtDate(inv.dueDate)}</div>
-    </div>
-  </div>
-  <div style="margin-top:24px">
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#8a998a">Bill to</div>
-    <div style="font-weight:600">${esc(inv.billTo?.name || inv.client)}</div>
-    ${inv.billTo?.company ? `<div>${esc(inv.billTo.company)}</div>` : ""}
-    ${inv.billTo?.email ? `<div style="font-size:12px;color:#5b6b5b">${esc(inv.billTo.email)}</div>` : ""}
-    ${inv.billTo?.address ? `<div style="font-size:12px;color:#5b6b5b;white-space:pre-wrap">${esc(inv.billTo.address)}</div>` : ""}
-  </div>
-  <table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:14px">
-    <thead><tr style="border-bottom:1px solid #dde5d3;text-align:left;font-size:11px;text-transform:uppercase;color:#8a998a">
-      <th style="padding:8px 0">Description</th><th style="padding:8px 0;text-align:right">Qty</th><th style="padding:8px 0;text-align:right">Rate</th><th style="padding:8px 0;text-align:right">Amount</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div class="cc-totals" style="margin-top:16px;margin-left:auto;max-width:280px;font-size:14px">
-    <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Subtotal</span><span>${usd.format(sub)}</span></div>
-    ${(inv.taxRate || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Tax (${inv.taxRate}%)</span><span>${usd.format(tax)}</span></div>` : ""}
-    ${(inv.discount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#5b6b5b">Discount</span><span>−${usd.format(inv.discount || 0)}</span></div>` : ""}
-    <div style="display:flex;justify-content:space-between;padding:6px 0 0;border-top:1px solid #dde5d3;font-weight:700;font-size:16px"><span>Total</span><span>${usd.format(total)}</span></div>
-  </div>
-  ${(inv.notes || inv.terms) ? `<div style="margin-top:24px;border-top:1px solid #dde5d3;padding-top:12px;font-size:12px;color:#5b6b5b">${inv.notes ? `<div><b style="color:#14241a">Notes:</b> ${esc(inv.notes)}</div>` : ""}${inv.terms ? `<div style="margin-top:4px"><b style="color:#14241a">Terms:</b> ${esc(inv.terms)}</div>` : ""}</div>` : ""}
-</div>`;
-}
 
 function printInvoice(inv: Invoice) {
   const win = window.open("", "_blank", "width=820,height=1040");
@@ -94,6 +44,149 @@ function printInvoice(inv: Invoice) {
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   return <Badge className={cn("border-transparent", INVOICE_STATUS[status].tone)}>{INVOICE_STATUS[status].label}</Badge>;
+}
+
+// ── Send by email / SMS ───────────────────────────────────────────────────────
+type SendOutcome = { email?: { ok: boolean; detail: string }; sms?: { ok: boolean; detail: string } };
+
+function SendInvoiceDialog({
+  invoice, open, onClose, onSent,
+}: { invoice: Invoice | null; open: boolean; onClose: () => void; onSent: (msg: string) => void }) {
+  const [useEmail, setUseEmail] = useState(true);
+  const [useSms, setUseSms] = useState(false);
+  const [to, setTo] = useState("");
+  const [phone, setPhone] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [smsBody, setSmsBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [outcome, setOutcome] = useState<SendOutcome | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const loadedFor = useRef<string | null>(null);
+
+  // Refill the form whenever a different invoice is opened.
+  if (invoice && open && loadedFor.current !== invoice.id) {
+    loadedFor.current = invoice.id;
+    setTo(invoice.billTo?.email ?? "");
+    setPhone(invoice.billTo?.phone ?? "");
+    setSubject(invoiceEmailSubject(invoice));
+    setSmsBody(invoiceSmsText(invoice));
+    setMessage("");
+    setUseEmail(true);
+    setUseSms(Boolean(invoice.billTo?.phone));
+    setOutcome(null);
+    setError(null);
+  }
+  if (!open && loadedFor.current !== null) loadedFor.current = null;
+
+  async function send() {
+    if (!invoice) return;
+    setSending(true); setError(null); setOutcome(null);
+    try {
+      const res = await fetch("/api/invoices/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice,
+          email: useEmail ? { to, subject, message } : undefined,
+          sms: useSms ? { to: phone, body: smsBody } : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.results) setOutcome(data.results as SendOutcome);
+      if (!res.ok && !data?.results) setError(data?.error || "The send failed. Please try again.");
+      if (data?.ok) {
+        const sent = [useEmail && data.results?.email?.ok ? "email" : null, useSms && data.results?.sms?.ok ? "SMS" : null].filter(Boolean).join(" and ");
+        onSent(`${invoice.number} sent by ${sent}.`);
+      }
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const nothingPicked = !useEmail && !useSms;
+  const allSent = Boolean(outcome && (!useEmail || outcome.email?.ok) && (!useSms || outcome.sms?.ok));
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto">
+        <DialogHeader><DialogTitle>Send {invoice?.number}</DialogTitle></DialogHeader>
+        {invoice && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              To {invoice.billTo?.name || invoice.client} · {usd.format(invoiceTotal(invoice))} · due {fmtDate(invoice.dueDate)}
+            </p>
+
+            {/* Channel toggles */}
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setUseEmail(!useEmail)} aria-pressed={useEmail}
+                className={cn("flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                  useEmail ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
+                <Mail className="h-4 w-4" /> Email
+              </button>
+              <button type="button" onClick={() => setUseSms(!useSms)} aria-pressed={useSms}
+                className={cn("flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                  useSms ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
+                <MessageSquare className="h-4 w-4" /> Text message
+              </button>
+            </div>
+
+            {useEmail && (
+              <section className="space-y-3 rounded-xl border border-border p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</p>
+                <FormField label="To"><Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="client@example.com" /></FormField>
+                <FormField label="Subject"><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></FormField>
+                <FormField label="Note (optional)">
+                  <Textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Added above the invoice — e.g. Thanks for a great month!" />
+                </FormField>
+                <p className="text-xs text-muted-foreground">The full invoice is rendered into the email body.</p>
+              </section>
+            )}
+
+            {useSms && (
+              <section className="space-y-3 rounded-xl border border-border p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Text message</p>
+                <FormField label="Mobile number">
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(480) 555-0100" />
+                </FormField>
+                <FormField label="Message">
+                  <Textarea rows={3} value={smsBody} onChange={(e) => setSmsBody(e.target.value)} />
+                </FormField>
+                <p className={cn("text-xs", smsBody.length > 320 ? "text-destructive" : "text-muted-foreground")}>
+                  {smsBody.length} characters · {Math.max(1, Math.ceil(smsBody.length / 160))} segment{smsBody.length > 160 ? "s" : ""}
+                </p>
+              </section>
+            )}
+
+            {/* Per-channel results */}
+            {outcome && (
+              <div className="space-y-1.5">
+                {(["email", "sms"] as const).map((k) => {
+                  const r = outcome[k];
+                  if (!r) return null;
+                  return (
+                    <p key={k} className={cn("flex items-start gap-2 text-sm", r.ok ? "text-success" : "text-destructive")}>
+                      {r.ok ? <Check className="mt-0.5 h-4 w-4 shrink-0" /> : <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />}
+                      <span>{r.detail}</span>
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>{allSent ? "Close" : "Cancel"}</Button>
+          <Button onClick={send} disabled={sending || nothingPicked || !invoice}>
+            <Send className="h-4 w-4" /> {sending ? "Sending…" : outcome ? "Send again" : "Send invoice"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function blank(): Invoice {
@@ -116,6 +209,7 @@ export function BillingPage() {
   const [editing, setEditing] = useState<{ draft: Invoice; isNew: boolean } | null>(null);
   const [deleteItem, setDeleteItem] = useState<Invoice | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [sendId, setSendId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
@@ -137,6 +231,7 @@ export function BillingPage() {
 
   const drawer = items.find((i) => i.id === drawerId) || null;
   const preview = items.find((i) => i.id === previewId) || null;
+  const sending = items.find((i) => i.id === sendId) || null;
 
   const openNew = () => setEditing({ draft: blank(), isNew: true });
   const openEdit = (i: Invoice) => setEditing({ draft: { ...blank(), ...i }, isNew: false });
@@ -159,6 +254,7 @@ export function BillingPage() {
   const move = (i: Invoice, status: InvoiceStatus) => update(i.id, { status });
   const rowActions = (i: Invoice) => [
     { label: "Open", icon: ExternalLink, onClick: () => setDrawerId(i.id) },
+    { label: "Send", icon: Send, onClick: () => setSendId(i.id) },
     { label: "Preview", icon: Printer, onClick: () => setPreviewId(i.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(i) },
     { label: "Delete", icon: Trash2, onClick: () => setDeleteItem(i), destructive: true },
@@ -198,7 +294,7 @@ export function BillingPage() {
       ) : view === "table" ? (
         <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
       ) : view === "card" ? (
-        <CardsView rows={filtered} onOpen={setDrawerId} onPreview={setPreviewId} />
+        <CardsView rows={filtered} onOpen={setDrawerId} onPreview={setPreviewId} onSend={setSendId} />
       ) : view === "kanban" ? (
         <KanbanView rows={filtered} onOpen={setDrawerId} onMove={move} />
       ) : (
@@ -241,7 +337,8 @@ export function BillingPage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => { setDrawerId(null); setPreviewId(drawer.id); }} className="flex-1"><Printer className="h-4 w-4" /> Preview / Print</Button>
+                <Button onClick={() => setSendId(drawer.id)} className="flex-1"><Send className="h-4 w-4" /> Send invoice</Button>
+                <Button variant="outline" onClick={() => { setDrawerId(null); setPreviewId(drawer.id); }}><Printer className="h-4 w-4" /> Preview / Print</Button>
                 <Button variant="outline" onClick={() => openEdit(drawer)}><Pencil className="h-4 w-4" /> Edit</Button>
                 <Button variant="outline" onClick={() => setDeleteItem(drawer)}><Trash2 className="h-4 w-4" /></Button>
               </div>
@@ -267,11 +364,17 @@ export function BillingPage() {
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader className="flex-row items-center justify-between gap-2 pr-8">
             <DialogTitle>Invoice preview</DialogTitle>
-            <Button size="sm" onClick={() => preview && printInvoice(preview)}><Printer className="h-4 w-4" /> Print / Save PDF</Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => { if (preview) { setPreviewId(null); setSendId(preview.id); } }}><Send className="h-4 w-4" /> Email / Text</Button>
+              <Button size="sm" onClick={() => preview && printInvoice(preview)}><Printer className="h-4 w-4" /> Print / Save PDF</Button>
+            </div>
           </DialogHeader>
           {preview && <InvoicePreview inv={preview} />}
         </DialogContent>
       </Dialog>
+
+      {/* Send by email / SMS */}
+      <SendInvoiceDialog invoice={sending} open={Boolean(sending)} onClose={() => setSendId(null)} onSent={flash} />
 
       {/* Delete */}
       <Dialog open={Boolean(deleteItem)} onOpenChange={(o) => !o && setDeleteItem(null)}>
@@ -335,7 +438,7 @@ function TableView({ rows, onOpen, rowActions }: { rows: Invoice[]; onOpen: (id:
   );
 }
 
-function CardsView({ rows, onOpen, onPreview }: { rows: Invoice[]; onOpen: (id: string) => void; onPreview: (id: string) => void }) {
+function CardsView({ rows, onOpen, onPreview, onSend }: { rows: Invoice[]; onOpen: (id: string) => void; onPreview: (id: string) => void; onSend: (id: string) => void }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map((i) => (
@@ -348,7 +451,8 @@ function CardsView({ rows, onOpen, onPreview }: { rows: Invoice[]; onOpen: (id: 
           <p className="text-xs text-muted-foreground">Issued {fmtDate(i.issueDate)} · due {fmtDate(i.dueDate)}</p>
           <div className="mt-3 flex gap-2">
             <Button size="sm" variant="outline" className="flex-1" onClick={() => onOpen(i.id)}>Open</Button>
-            <Button size="sm" variant="outline" onClick={() => onPreview(i.id)}><Printer className="h-3.5 w-3.5" /></Button>
+            <Button size="sm" variant="outline" onClick={() => onSend(i.id)} title="Email / text this invoice" aria-label="Send invoice"><Send className="h-3.5 w-3.5" /></Button>
+            <Button size="sm" variant="outline" onClick={() => onPreview(i.id)} title="Preview and print" aria-label="Preview invoice"><Printer className="h-3.5 w-3.5" /></Button>
           </div>
         </div>
       ))}
@@ -466,6 +570,7 @@ function InvoiceEditor({ draft, onChange }: { draft: Invoice; onChange: (d: Invo
             <FormField label="Name"><Input value={draft.billTo?.name ?? ""} onChange={(e) => setBill({ name: e.target.value })} placeholder="Client name" /></FormField>
             <FormField label="Company"><Input value={draft.billTo?.company ?? ""} onChange={(e) => setBill({ company: e.target.value })} /></FormField>
             <FormField label="Email"><Input value={draft.billTo?.email ?? ""} onChange={(e) => setBill({ email: e.target.value })} /></FormField>
+            <FormField label="Mobile (for SMS)"><Input value={draft.billTo?.phone ?? ""} onChange={(e) => setBill({ phone: e.target.value })} placeholder="(480) 555-0100" /></FormField>
             <FormField label="Address"><Textarea rows={2} value={draft.billTo?.address ?? ""} onChange={(e) => setBill({ address: e.target.value })} /></FormField>
           </div>
         </section>
