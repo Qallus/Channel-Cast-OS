@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { CalendarDays, Check, CreditCard, ExternalLink, GripVertical, LayoutGrid, List, Mail, MessageSquare, Pencil, Plus, Printer, Send, SquareKanban, Table as TableIcon, Trash2, TriangleAlert, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Check, CreditCard, ExternalLink, GripVertical, LayoutGrid, Link as LinkIcon, List, Mail, MessageSquare, Pencil, Plus, Printer, Send, SquareKanban, Table as TableIcon, Trash2, TriangleAlert, Upload } from "lucide-react";
 
 import {
   DetailField, EmptyState, FormField, PageHeader, RecordCalendar, RowActions, SearchBox, StatRow, StatTile, ViewSwitcher,
@@ -20,7 +20,7 @@ import {
   CHANNEL_CAST_FROM, DEFAULT_LOGO, INVOICE_STATUS, INVOICE_STATUS_ORDER, Invoice, InvoiceStatus, LineItem,
   invoiceSubtotal, invoiceTotal, lineAmount, seedInvoices,
 } from "@/lib/ops/invoices";
-import { fmtDate, invoiceEmailSubject, invoiceHtml, invoiceSmsText, usd } from "@/lib/ops/invoice-html";
+import { fmtDate, invoiceEmailSubject, invoiceHtml, invoiceSmsText, smsSegments, usd } from "@/lib/ops/invoice-html";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -62,11 +62,16 @@ function SendInvoiceDialog({
   const [sending, setSending] = useState(false);
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const loadedFor = useRef<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [linkState, setLinkState] = useState<"loading" | "ready" | "error">("loading");
+  const [copied, setCopied] = useState(false);
+  const invoiceId = invoice?.id;
 
-  // Refill the form whenever a different invoice is opened.
-  if (invoice && open && loadedFor.current !== invoice.id) {
-    loadedFor.current = invoice.id;
+  // Refill the form and mint the public link whenever a different invoice opens.
+  // The link is fetched up front rather than at send time so it's visible in the
+  // message before anything goes out.
+  useEffect(() => {
+    if (!open || !invoice) return;
     setTo(invoice.billTo?.email ?? "");
     setPhone(invoice.billTo?.phone ?? "");
     setSubject(invoiceEmailSubject(invoice));
@@ -76,8 +81,34 @@ function SendInvoiceDialog({
     setUseSms(Boolean(invoice.billTo?.phone));
     setOutcome(null);
     setError(null);
-  }
-  if (!open && loadedFor.current !== null) loadedFor.current = null;
+    setCopied(false);
+    setLink(null);
+    setLinkState("loading");
+
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/invoices/share-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: invoice.id }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!alive) return;
+        if (res.ok && data?.url) {
+          setLink(data.url);
+          setLinkState("ready");
+          setSmsBody(invoiceSmsText(invoice, data.url));
+        } else {
+          setLinkState("error");
+        }
+      } catch {
+        if (alive) setLinkState("error");
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, invoiceId]);
 
   async function send() {
     if (!invoice) return;
@@ -106,6 +137,7 @@ function SendInvoiceDialog({
     }
   }
 
+  const smsCount = smsSegments(smsBody);
   const nothingPicked = !useEmail && !useSms;
   const allSent = Boolean(outcome && (!useEmail || outcome.email?.ok) && (!useSms || outcome.sms?.ok));
 
@@ -154,10 +186,28 @@ function SendInvoiceDialog({
                 <FormField label="Message">
                   <Textarea rows={3} value={smsBody} onChange={(e) => setSmsBody(e.target.value)} />
                 </FormField>
-                <p className={cn("text-xs", smsBody.length > 320 ? "text-destructive" : "text-muted-foreground")}>
-                  {smsBody.length} characters · {Math.max(1, Math.ceil(smsBody.length / 160))} segment{smsBody.length > 160 ? "s" : ""}
+                <p className={cn("text-xs", smsCount.segments > 2 ? "text-destructive" : "text-muted-foreground")}>
+                  {smsBody.length} characters · {smsCount.segments} segment{smsCount.segments === 1 ? "" : "s"}
+                  {smsCount.encoding === "UCS-2" && " · a special character dropped this to 70 chars per segment"}
+                  {linkState === "loading" && " · building invoice link…"}
+                  {linkState === "error" && " · couldn't build the invoice link, so the text goes without it"}
                 </p>
               </section>
+            )}
+
+            {/* The shared link both channels point at */}
+            {link && (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                <a href={link} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-brand-strong hover:underline">{link}</a>
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+                  className="shrink-0 rounded border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
             )}
 
             {/* Per-channel results */}

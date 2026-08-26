@@ -24,6 +24,9 @@ export type Invoice = {
   notes?: string;
   terms?: string;
   contactId?: string | null;
+  // Random, unguessable id for the public /i/<token> view. Minted the first time
+  // an invoice is shared, then stable so a link already sent keeps working.
+  publicToken?: string;
 };
 
 // Default Channel Cast letterhead + logo (light backgrounds → the full-color mark).

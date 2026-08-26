@@ -70,7 +70,7 @@ export function invoiceHtml(inv: Invoice, origin?: string): string {
 // Deliberately NOT the print markup: Gmail and Outlook strip flexbox, so this is
 // table-only with inline styles. SVG logos don't render in mail clients either,
 // so the mark sits on a dark bar using the hosted PNG.
-export function invoiceEmailHtml(inv: Invoice, opts: { origin?: string; message?: string } = {}): string {
+export function invoiceEmailHtml(inv: Invoice, opts: { origin?: string; message?: string; url?: string } = {}): string {
   const base = resolveOrigin(opts.origin);
   const sub = invoiceSubtotal(inv);
   const tax = sub * ((inv.taxRate || 0) / 100);
@@ -143,6 +143,12 @@ export function invoiceEmailHtml(inv: Invoice, opts: { origin?: string; message?
         </table>
       </td></tr>
 
+      ${opts.url ? `<tr><td style="padding:18px 24px 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:#14241a;">
+          <a href="${esc(opts.url)}" style="display:inline-block;padding:11px 20px;color:#c6ff00;font-size:14px;font-weight:700;text-decoration:none;border-radius:10px;">View invoice online &rarr;</a>
+        </td></tr></table>
+      </td></tr>` : ""}
+
       <tr><td style="padding:20px 24px 24px;">
         ${inv.terms ? `<p style="margin:0;color:#8a998a;font-size:12px;line-height:1.6;"><b style="color:#14241a;">Terms:</b> ${esc(inv.terms)}</p>` : ""}
         <p style="margin:14px 0 0;color:#8a998a;font-size:12px;line-height:1.6;">
@@ -160,11 +166,42 @@ export function invoiceEmailHtml(inv: Invoice, opts: { origin?: string; message?
 export const invoiceEmailSubject = (inv: Invoice) =>
   `Invoice ${inv.number} from ${inv.from?.name || "Channel Cast"} — ${usd.format(invoiceTotal(inv))} due ${fmtDate(inv.dueDate)}`;
 
-/** Default SMS body. Kept short so it stays within two segments. */
-export function invoiceSmsText(inv: Invoice): string {
+/**
+ * Default SMS body. A text can't carry an invoice, so it carries the link to
+ * one. Kept short enough that the link still fits inside a single segment.
+ */
+export function invoiceSmsText(inv: Invoice, url?: string): string {
   const who = inv.from?.name || "Channel Cast";
-  const paid = inv.status === "paid";
-  return paid
-    ? `${who}: Invoice ${inv.number} for ${usd.format(invoiceTotal(inv))} is marked paid. Thank you! A copy is in your email.`
-    : `${who}: Invoice ${inv.number} for ${usd.format(invoiceTotal(inv))} is due ${fmtDate(inv.dueDate)}. Full invoice sent by email. Questions? Just reply.`;
+  const link = url ? ` View it here: ${url}` : "";
+  return inv.status === "paid"
+    ? `${who}: Invoice ${inv.number} for ${usd.format(invoiceTotal(inv))} is marked paid - thank you!${link}`
+    : `${who}: Invoice ${inv.number} for ${usd.format(invoiceTotal(inv))} is due ${fmtDate(inv.dueDate)}.${link}`;
+}
+
+// GSM-7 is the cheap SMS alphabet. One character outside it — a curly quote, an
+// em dash, an emoji — silently switches the whole message to UCS-2 and cuts the
+// per-segment budget from 160 to 70, so a "1 segment" count that ignores
+// encoding will under-report what a send actually costs.
+const GSM7_BASE =
+  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ" +
+  " !\"#¤%&'()*+,-./0123456789:;<=>?¡" +
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿" +
+  "abcdefghijklmnopqrstuvwxyzäöñüà";
+/** Still GSM-7, but each costs two units (escape + character). */
+const GSM7_EXTENDED = "^{}\\[~]|€";
+const GSM7 = new Set([...GSM7_BASE, ...GSM7_EXTENDED]);
+
+export function smsSegments(text: string): { segments: number; encoding: "GSM-7" | "UCS-2" } {
+  const chars = [...text];
+  let gsm = true;
+  let units = 0;
+  for (const ch of chars) {
+    if (!GSM7.has(ch)) { gsm = false; break; }
+    units += GSM7_EXTENDED.includes(ch) ? 2 : 1;
+  }
+  if (!gsm) units = chars.length;
+  const single = gsm ? 160 : 70;
+  const multi = gsm ? 153 : 67;
+  const segments = units === 0 ? 1 : units <= single ? 1 : Math.ceil(units / multi);
+  return { segments, encoding: gsm ? "GSM-7" : "UCS-2" };
 }

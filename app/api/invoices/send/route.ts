@@ -1,6 +1,7 @@
 import { sendNotificationEmail } from "@/lib/server/email";
 import { sendSms } from "@/lib/server/twilio";
 import { invoiceEmailHtml, invoiceEmailSubject, invoiceSmsText } from "@/lib/ops/invoice-html";
+import { ensureShareToken, shareUrl } from "@/lib/server/invoice-share";
 import type { Invoice } from "@/lib/ops/invoices";
 
 export const runtime = "nodejs";
@@ -26,6 +27,14 @@ export async function POST(req: Request) {
   if (!inv?.number) return Response.json({ error: "No invoice supplied." }, { status: 400 });
   if (!body?.email && !body?.sms) return Response.json({ error: "Pick email, SMS, or both." }, { status: 400 });
 
+  // Mint (or reuse) the public link so both channels can point at the same page.
+  // A saved invoice always gets one; an unsaved draft just goes without.
+  let url: string | undefined;
+  if (inv.id) {
+    const shared = await ensureShareToken(inv.id);
+    if (shared) url = shareUrl(shared.token);
+  }
+
   const results: { email?: ChannelResult; sms?: ChannelResult } = {};
 
   if (body.email) {
@@ -36,7 +45,7 @@ export async function POST(req: Request) {
       const res = await sendNotificationEmail({
         to: [to],
         subject: body.email.subject?.trim() || invoiceEmailSubject(inv),
-        html: invoiceEmailHtml(inv, { origin: origin(), message: body.email.message?.trim() || undefined }),
+        html: invoiceEmailHtml(inv, { origin: origin(), message: body.email.message?.trim() || undefined, url }),
         // Sends from the verified Channel Cast domain; replies go to whoever the
         // invoice bills as. Set EMAIL_FROM_INVOICES once that domain is verified.
         from: process.env.EMAIL_FROM_INVOICES || undefined,
@@ -53,7 +62,7 @@ export async function POST(req: Request) {
     if (!to) {
       results.sms = { ok: false, detail: "No mobile number on this invoice." };
     } else {
-      const sid = await sendSms(to, body.sms.body?.trim() || invoiceSmsText(inv));
+      const sid = await sendSms(to, body.sms.body?.trim() || invoiceSmsText(inv, url));
       results.sms = sid
         ? { ok: true, detail: `Texted to ${to}` }
         : { ok: false, detail: "Twilio didn't accept the message — check the number and TWILIO_* env vars." };
@@ -61,5 +70,5 @@ export async function POST(req: Request) {
   }
 
   const anyOk = Boolean(results.email?.ok || results.sms?.ok);
-  return Response.json({ ok: anyOk, results }, { status: anyOk ? 200 : 502 });
+  return Response.json({ ok: anyOk, results, url }, { status: anyOk ? 200 : 502 });
 }
