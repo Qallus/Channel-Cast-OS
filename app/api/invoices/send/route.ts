@@ -14,6 +14,29 @@ type Body = {
 
 type ChannelResult = { ok: boolean; detail: string };
 
+/**
+ * Builds the From header as "Jeremy Waters <hello@channelcast.io>".
+ *
+ * The address has to stay on a Resend-verified domain, but the display name is
+ * free — and without one, mail clients fall back to showing the address's local
+ * part, so a bare `hello@channelcast.io` lands in the inbox as "hello". The name
+ * comes off the invoice, so each one sends under whoever owns it.
+ */
+function fromHeader(inv: Invoice): string | undefined {
+  if (process.env.EMAIL_FROM_INVOICES) return process.env.EMAIL_FROM_INVOICES;
+
+  const configured = (process.env.EMAIL_FROM || "").trim();
+  const address = configured.match(/<([^>]+)>/)?.[1]?.trim() || configured;
+  if (!address.includes("@")) return undefined;
+
+  // Invoice fields are user-authored, so strip anything that could forge a header.
+  const name = (inv.owner || inv.from?.name || "").replace(/[\r\n]+/g, " ").replace(/["\\]/g, "").trim();
+  if (!name) return undefined;
+
+  // A display name containing RFC 5322 specials (a comma, most often) must be quoted.
+  return /[,;:<>@[\]]/.test(name) ? `"${name}" <${address}>` : `${name} <${address}>`;
+}
+
 const origin = () =>
   (process.env.NEXT_PUBLIC_APP_URL || process.env.PUBLIC_APP_URL || "https://os.channelcast.io")
     .split(",")[0].trim().replace(/\/$/, "");
@@ -46,9 +69,9 @@ export async function POST(req: Request) {
         to: [to],
         subject: body.email.subject?.trim() || invoiceEmailSubject(inv),
         html: invoiceEmailHtml(inv, { origin: origin(), message: body.email.message?.trim() || undefined, url }),
-        // Sends from the verified Channel Cast domain; replies go to whoever the
-        // invoice bills as. Set EMAIL_FROM_INVOICES once that domain is verified.
-        from: process.env.EMAIL_FROM_INVOICES || undefined,
+        // Sends from the verified Channel Cast domain under the invoice owner's
+        // name; replies go to whoever the invoice bills as.
+        from: fromHeader(inv),
         replyTo: inv.from?.email || undefined,
       });
       results.email = res.ok
