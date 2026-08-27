@@ -52,9 +52,9 @@ function blankDeal(): Deal {
     name: "",
     client: "",
     contactId: null,
-    stage: "new_lead",
+    stage: "new_working",
     value: 0,
-    probability: DEAL_STAGE.new_lead.defaultProb,
+    probability: DEAL_STAGE.new_working.defaultProb,
     closeDate: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),
     owner: "Jeremy Waters",
     products: [],
@@ -100,9 +100,9 @@ export function PipelinePage() {
     const open = items.filter((d) => OPEN_STAGES.includes(d.stage));
     const openValue = open.reduce((s, d) => s + d.value, 0);
     const weighted = open.reduce((s, d) => s + (d.value * d.probability) / 100, 0);
-    const won = items.filter((d) => d.stage === "won");
+    const won = items.filter((d) => d.stage === "closed_won");
     const wonValue = won.reduce((s, d) => s + d.value, 0);
-    const decided = items.filter((d) => d.stage === "won" || d.stage === "lost").length;
+    const decided = items.filter((d) => d.stage === "closed_won" || d.stage === "closed_lost").length;
     const winRate = decided ? Math.round((won.length / decided) * 100) : 0;
     return { openCount: open.length, openValue, weighted, wonValue, winRate };
   }, [items]);
@@ -137,7 +137,7 @@ export function PipelinePage() {
   // On Deal Won, connect the record to a paying Client: mark the linked contact as a
   // client (so the relationship lives on the contact profile) and mark the deal won.
   function convertToClient(d: Deal) {
-    if (d.stage !== "won") update(d.id, { stage: "won", probability: 100 });
+    if (d.stage !== "closed_won") update(d.id, { stage: "closed_won", probability: 100 });
     const c = dealContact(d);
     if (c) contactsCol.update(c.id, { ...c, type: "client", status: "active" });
     clientsCol.create({ id: genId("client"), name: c ? contactName(c) : d.client, company: d.client, email: c?.email ?? "", phone: c?.phone ?? "", status: "active", type: "Client", value: d.value, source: d.source ?? "Pipeline", createdAt: now() });
@@ -240,7 +240,7 @@ export function PipelinePage() {
               <div className="rounded-lg border border-border bg-muted/30 p-3">
                 <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Connect to records</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => convertToClient(drawer)}><ExternalLink className="h-3.5 w-3.5" /> {drawer.stage === "won" ? "Create Client" : "Mark won & Client"}</Button>
+                  <Button size="sm" variant="outline" onClick={() => convertToClient(drawer)}><ExternalLink className="h-3.5 w-3.5" /> {drawer.stage === "closed_won" ? "Create Client" : "Mark won & Client"}</Button>
                   <Button size="sm" variant="outline" onClick={() => connectAdvertiser(drawer)}>Advertiser</Button>
                   <Button size="sm" variant="outline" onClick={() => connectPartner(drawer)}>Partner</Button>
                 </div>

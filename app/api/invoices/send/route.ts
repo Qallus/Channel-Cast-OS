@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     if (!to) {
       results.sms = { ok: false, detail: "No mobile number on this invoice." };
     } else {
-      const sid = await sendSms(to, body.sms.body?.trim() || invoiceSmsText(inv, url));
+      const sid = await sendSms(to, body.sms.body?.trim() || invoiceSmsText(inv, url), { contactId: inv.contactId ?? null, owner: inv.owner ?? null, actor: inv.owner ?? null });
       results.sms = sid
         ? { ok: true, detail: `Texted to ${to}` }
         : { ok: false, detail: "Twilio didn't accept the message — check the number and TWILIO_* env vars." };

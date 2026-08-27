@@ -25,7 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { LEAD_SOURCES, LEAD_STAGE, LEAD_STAGE_ORDER, Lead, LeadStage, seedLeads } from "@/lib/crm/leads";
+import { LEAD_SOURCES, LEAD_STATUS, LEAD_STATUS_ORDER, Lead, LeadStatus, LeadView, phoneKey, seedLeads, toLeadView } from "@/lib/crm/leads";
+import { Contact, seedContacts } from "@/lib/crm/contacts";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -40,35 +41,35 @@ const VIEWS = [
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
-function StageBadge({ stage }: { stage: LeadStage }) {
-  return <Badge className={cn("border-transparent", LEAD_STAGE[stage].tone)}>{LEAD_STAGE[stage].label}</Badge>;
+function StageBadge({ stage }: { stage: LeadStatus }) {
+  const s = LEAD_STATUS[stage] ?? LEAD_STATUS.new;
+  return <Badge className={cn("border-transparent", s.tone)}>{s.label}</Badge>;
 }
 
-function blankLead(): Lead {
+function blankLead(): LeadView {
   return {
-    id: genId("ld"),
-    name: "",
-    company: "",
-    title: "",
-    source: "Website",
-    stage: "new",
-    value: 0,
-    email: "",
-    phone: "",
-    owner: "Alex Rivera",
-    notes: "",
-    createdAt: new Date().toISOString(),
+    id: genId("ld"), contactId: null, status: "new", source: "Website", value: 0,
+    owner: "Alex Rivera", notes: "", opportunityId: null, createdAt: new Date().toISOString(),
+    name: "", company: "", title: "", email: "", phone: "", linked: false,
   };
 }
 
 export function LeadsPage() {
-  const { items, create, update, remove } = useCollection<Lead>("leads", seedLeads);
+  const { items: rawLeads, create, update, remove } = useCollection<Lead>("leads", seedLeads);
+  const contactsCol = useCollection<Contact>("contacts", seedContacts);
+
+  // Identity is joined in at read time so a lead and its contact can never drift
+  // into two different people.
+  const items = useMemo(() => {
+    const byId = new Map(contactsCol.items.map((c) => [c.id, c]));
+    return rawLeads.map((l) => toLeadView(l, l.contactId ? byId.get(l.contactId) : null));
+  }, [rawLeads, contactsCol.items]);
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [drawerId, setDrawerId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ draft: Lead; isNew: boolean } | null>(null);
-  const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
+  const [editing, setEditing] = useState<{ draft: LeadView; isNew: boolean } | null>(null);
+  const [deleteItem, setDeleteItem] = useState<LeadView | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function flash(msg: string) {
@@ -86,25 +87,75 @@ export function LeadsPage() {
   }, [items, search, sourceFilter]);
 
   const stats = useMemo(() => {
-    const open = items.filter((l) => l.stage !== "unqualified");
-    const qualified = items.filter((l) => l.stage === "qualified").length;
+    const open = items.filter((l) => LEAD_STATUS[l.status]?.open);
+    const qualified = items.filter((l) => l.status === "qualified").length;
     const pipeline = open.reduce((s, l) => s + (l.value || 0), 0);
-    return { total: items.length, new: items.filter((l) => l.stage === "new").length, qualified, pipeline };
+    return { total: items.length, new: items.filter((l) => l.status === "new").length, qualified, pipeline };
   }, [items]);
 
   const drawer = items.find((l) => l.id === drawerId) || null;
 
   const openNew = () => setEditing({ draft: blankLead(), isNew: true });
-  const openEdit = (l: Lead) => setEditing({ draft: { ...l }, isNew: false });
+  const openEdit = (l: LeadView) => setEditing({ draft: { ...l }, isNew: false });
   function saveDraft() {
     if (!editing || !editing.draft.name.trim()) return;
-    if (editing.isNew) {
-      create(editing.draft);
-      flash("Lead added.");
+    const d = editing.draft;
+
+    // The person is written to contacts, matched on email/phone first so editing
+    // a lead never creates a second copy of someone already in the CRM.
+    const match =
+      (d.contactId ? contactsCol.items.find((c) => c.id === d.contactId) : undefined) ||
+      contactsCol.items.find(
+        (c) =>
+          (d.email !== "" && (c.email || "").toLowerCase() === d.email.toLowerCase()) ||
+          (d.phone !== "" && phoneKey(c.phone) !== "" && phoneKey(c.phone) === phoneKey(d.phone)),
+      );
+
+    let contactId: string;
+    if (match) {
+      contactId = match.id;
+      contactsCol.update(match.id, {
+        ...match,
+        name: d.name || match.name,
+        company: d.company || match.company,
+        title: d.title || match.title,
+        email: d.email || match.email,
+        phone: d.phone || match.phone,
+      });
     } else {
-      update(editing.draft.id, editing.draft);
-      flash("Lead updated.");
+      contactId = genId("ct");
+      contactsCol.create({
+        id: contactId,
+        name: d.name,
+        firstName: d.name.split(" ")[0] || "",
+        lastName: d.name.split(" ").slice(1).join(" "),
+        title: d.title,
+        company: d.company,
+        type: "lead",
+        status: "active",
+        email: d.email,
+        phone: d.phone,
+        city: "",
+        state: "",
+        source: d.source,
+        owner: d.owner,
+        tags: [],
+        notes: "",
+        lastContact: new Date().toISOString().slice(0, 10),
+        createdAt: new Date().toISOString(),
+      });
     }
+
+    const lead: Lead = {
+      id: d.id, contactId, status: d.status, source: d.source, campaign: d.campaign,
+      interest: d.interest, kind: d.kind, subject: d.subject, message: d.message, meta: d.meta,
+      value: d.value, owner: d.owner, notes: d.notes, opportunityId: d.opportunityId || null,
+      createdAt: d.createdAt,
+      capturedName: d.name || undefined, capturedEmail: d.email || undefined,
+      capturedPhone: d.phone || undefined, capturedCompany: d.company || undefined,
+    };
+    if (editing.isNew) { create(lead); flash("Lead added."); }
+    else { update(lead.id, lead); flash("Lead updated."); }
     setEditing(null);
   }
   function confirmDelete() {
@@ -114,9 +165,9 @@ export function LeadsPage() {
     setDeleteItem(null);
     flash("Lead deleted.");
   }
-  const move = (l: Lead, stage: LeadStage) => update(l.id, { stage });
+  const move = (l: LeadView, status: LeadStatus) => update(l.id, { status });
 
-  const rowActions = (l: Lead) => [
+  const rowActions = (l: LeadView) => [
     { label: "Open", icon: ExternalLink, onClick: () => setDrawerId(l.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(l) },
     { label: "Delete", icon: Trash2, onClick: () => setDeleteItem(l), destructive: true },
@@ -186,7 +237,7 @@ export function LeadsPage() {
                 </div>
               </SheetHeader>
               <div className="flex flex-wrap items-center gap-2">
-                <StageBadge stage={drawer.stage} />
+                <StageBadge stage={drawer.status} />
                 <Badge variant="outline">{drawer.source}</Badge>
                 <span className="text-sm font-semibold text-foreground">{usd.format(drawer.value)}</span>
               </div>
@@ -202,9 +253,9 @@ export function LeadsPage() {
               <div>
                 <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">Move to stage</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {LEAD_STAGE_ORDER.map((s) => (
-                    <Button key={s} size="sm" variant={s === drawer.stage ? "default" : "outline"} onClick={() => update(drawer.id, { stage: s })}>
-                      {LEAD_STAGE[s].label}
+                  {LEAD_STATUS_ORDER.map((s) => (
+                    <Button key={s} size="sm" variant={s === drawer.status ? "default" : "outline"} onClick={() => update(drawer.id, { status: s })}>
+                      {LEAD_STATUS[s].label}
                     </Button>
                   ))}
                 </div>
@@ -251,11 +302,11 @@ export function LeadsPage() {
   );
 }
 
-function KanbanView({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (id: string) => void; onMove: (l: Lead, s: LeadStage) => void }) {
+function KanbanView({ leads, onOpen, onMove }: { leads: LeadView[]; onOpen: (id: string) => void; onMove: (l: LeadView, s: LeadStatus) => void }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      {LEAD_STAGE_ORDER.map((stage) => {
-        const col = leads.filter((l) => l.stage === stage);
+      {LEAD_STATUS_ORDER.map((stage) => {
+        const col = leads.filter((l) => l.status === stage);
         const total = col.reduce((s, l) => s + l.value, 0);
         return (
           <div key={stage} className="rounded-lg border border-border bg-card p-2">
@@ -276,11 +327,11 @@ function KanbanView({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (id: str
                   <div className="mt-2 flex items-center justify-between">
                     <Badge variant="outline" className="text-[10px]">{l.source}</Badge>
                     <div className="flex gap-1">
-                      {LEAD_STAGE_ORDER.indexOf(stage) > 0 && (
-                        <button onClick={() => onMove(l, LEAD_STAGE_ORDER[LEAD_STAGE_ORDER.indexOf(stage) - 1])} className="rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground" title="Move back">‹</button>
+                      {LEAD_STATUS_ORDER.indexOf(stage) > 0 && (
+                        <button onClick={() => onMove(l, LEAD_STATUS_ORDER[LEAD_STATUS_ORDER.indexOf(stage) - 1])} className="rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground" title="Move back">‹</button>
                       )}
-                      {LEAD_STAGE_ORDER.indexOf(stage) < LEAD_STAGE_ORDER.length - 1 && (
-                        <button onClick={() => onMove(l, LEAD_STAGE_ORDER[LEAD_STAGE_ORDER.indexOf(stage) + 1])} className="rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground" title="Move forward">›</button>
+                      {LEAD_STATUS_ORDER.indexOf(stage) < LEAD_STATUS_ORDER.length - 1 && (
+                        <button onClick={() => onMove(l, LEAD_STATUS_ORDER[LEAD_STATUS_ORDER.indexOf(stage) + 1])} className="rounded border border-border px-1.5 text-xs text-muted-foreground hover:text-foreground" title="Move forward">›</button>
                       )}
                     </div>
                   </div>
@@ -295,9 +346,9 @@ function KanbanView({ leads, onOpen, onMove }: { leads: Lead[]; onOpen: (id: str
   );
 }
 
-type LeadRowActions = (l: Lead) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
+type LeadRowActions = (l: LeadView) => { label: string; icon: typeof Pencil; onClick: () => void; destructive?: boolean }[];
 
-function ListView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
+function ListView({ leads, onOpen, rowActions }: { leads: LeadView[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
   return (
     <div className="space-y-2">
       {leads.map((l) => (
@@ -307,7 +358,7 @@ function ListView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: s
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-medium text-foreground">{l.name}</p>
-                <StageBadge stage={l.stage} />
+                <StageBadge stage={l.status} />
               </div>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{l.company} · {l.source}</p>
             </div>
@@ -320,7 +371,7 @@ function ListView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: s
   );
 }
 
-function CardsView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
+function CardsView({ leads, onOpen, rowActions }: { leads: LeadView[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {leads.map((l) => (
@@ -337,7 +388,7 @@ function CardsView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: 
               <RowActions actions={rowActions(l)} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <StageBadge stage={l.stage} />
+              <StageBadge stage={l.status} />
               <Badge variant="outline">{l.source}</Badge>
             </div>
             <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
@@ -351,7 +402,7 @@ function CardsView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: 
   );
 }
 
-function TableView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
+function TableView({ leads, onOpen, rowActions }: { leads: LeadView[]; onOpen: (id: string) => void; rowActions: LeadRowActions }) {
   return (
     <Card>
       <CardContent className="pt-4">
@@ -381,7 +432,7 @@ function TableView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: 
                 </TableCell>
                 <TableCell className="text-muted-foreground">{l.company}</TableCell>
                 <TableCell className="text-muted-foreground">{l.source}</TableCell>
-                <TableCell><StageBadge stage={l.stage} /></TableCell>
+                <TableCell><StageBadge stage={l.status} /></TableCell>
                 <TableCell className="text-right text-foreground">{usd.format(l.value)}</TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{l.owner}</TableCell>
                 <TableCell><RowActions actions={rowActions(l)} /></TableCell>
@@ -394,8 +445,8 @@ function TableView({ leads, onOpen, rowActions }: { leads: Lead[]; onOpen: (id: 
   );
 }
 
-function LeadForm({ draft, onChange }: { draft: Lead; onChange: (d: Lead) => void }) {
-  const set = <K extends keyof Lead>(key: K, value: Lead[K]) => onChange({ ...draft, [key]: value });
+function LeadForm({ draft, onChange }: { draft: LeadView; onChange: (d: LeadView) => void }) {
+  const set = <K extends keyof LeadView>(key: K, value: LeadView[K]) => onChange({ ...draft, [key]: value });
   const num = (v: string) => (v.trim() === "" ? 0 : Math.max(0, Number(v) || 0));
   return (
     <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
@@ -419,9 +470,9 @@ function LeadForm({ draft, onChange }: { draft: Lead; onChange: (d: Lead) => voi
           </Select>
         </FormField>
         <FormField label="Stage">
-          <Select value={draft.stage} onValueChange={(v) => set("stage", v as LeadStage)}>
+          <Select value={draft.status} onValueChange={(v) => set("status", v as LeadStatus)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{LEAD_STAGE_ORDER.map((s) => <SelectItem key={s} value={s}>{LEAD_STAGE[s].label}</SelectItem>)}</SelectContent>
+            <SelectContent>{LEAD_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{LEAD_STATUS[s].label}</SelectItem>)}</SelectContent>
           </Select>
         </FormField>
         <FormField label="Email">

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { defaultNumber, jsonError, smsNumbers, twilioClient, twilioConfigured } from "@/lib/server/twilio";
+import { recordCommunicationSafe } from "@/lib/server/communications";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,14 @@ export async function POST(request: Request) {
     const msg = await twilioClient().messages.create({ from, to, body: text });
     await supabaseAdmin().from("sms_messages").insert({
       sid: msg.sid, direction: "outbound", from_number: from, to_number: to, body: text, status: msg.status,
+    });
+    // Record ids arrive when the send is initiated from a lead/opportunity view;
+    // otherwise the row is stored unlinked and can be attached later.
+    await recordCommunicationSafe({
+      kind: "sms", direction: "outbound", externalId: msg.sid,
+      from, to, body: text, status: msg.status,
+      opportunityId: body?.opportunityId ?? null, contactId: body?.contactId ?? null,
+      leadId: body?.leadId ?? null, owner: body?.owner ?? null, actor: body?.actor ?? null,
     });
     return Response.json({ sent: true, sid: msg.sid, status: msg.status });
   } catch (e) {

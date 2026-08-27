@@ -32,7 +32,16 @@ export const defaultNumber = () => process.env.TWILIO_PHONE_NUMBER || ownedNumbe
 
 // Best-effort outbound SMS from the default SMS number. Returns the SID or null.
 // Logs to sms_messages when possible. Never throws (booking flow is unaffected).
-export async function sendSms(to: string, body: string): Promise<string | null> {
+export type SmsContext = {
+  opportunityId?: string | null;
+  contactId?: string | null;
+  leadId?: string | null;
+  accountId?: string | null;
+  owner?: string | null;
+  actor?: string | null;
+};
+
+export async function sendSms(to: string, body: string, ctx?: SmsContext): Promise<string | null> {
   if (!twilioConfigured()) return null;
   const from = smsNumbers()[0] || defaultNumber();
   const dest = (to || "").replace(/[^\d+]/g, "");
@@ -43,6 +52,17 @@ export async function sendSms(to: string, body: string): Promise<string | null> 
       const { supabaseAdmin } = await import("@/lib/server/supabase");
       await supabaseAdmin().from("sms_messages").insert({ sid: msg.sid, direction: "outbound", from_number: from, to_number: dest, body, status: msg.status });
     } catch { /* logging best-effort */ }
+    // Mirror into the unified communications log so the message lands on the
+    // related lead/opportunity timeline without anyone logging it by hand.
+    try {
+      const { recordCommunicationSafe } = await import("@/lib/server/communications");
+      await recordCommunicationSafe({
+        kind: "sms", direction: "outbound", externalId: msg.sid,
+        from, to: dest, body, status: msg.status,
+        opportunityId: ctx?.opportunityId, contactId: ctx?.contactId, leadId: ctx?.leadId,
+        accountId: ctx?.accountId, owner: ctx?.owner, actor: ctx?.actor,
+      });
+    } catch { /* capture is best-effort */ }
     return msg.sid;
   } catch {
     return null;

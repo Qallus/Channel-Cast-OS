@@ -1,37 +1,170 @@
-export type LeadStage = "new" | "contacted" | "qualified" | "unqualified";
+// Leads — the pre-opportunity capture record.
+//
+// A Lead is NOT a person. The person lives once in `contacts`; a Lead points at
+// that contact via `contactId` and holds only what's true about the *inquiry*:
+// where it came from, what they asked about, enrichment captured at the time,
+// and where it sits in the lead lifecycle. That split is what keeps a Riley Chen
+// in Leads and a Riley Chen in Contacts from being two different people.
+//
+// Two shapes fed this collection historically — seeded CRM leads carrying
+// `stage`, and live website/RSVP submissions carrying `status` + `kind`.
+// `normalizeLead` folds both into the model below, so callers never branch.
+
+export type LeadStatus =
+  | "new"
+  | "unassigned"
+  | "assigned"
+  | "attempting"
+  | "contacted"
+  | "nurture"
+  | "qualified"
+  | "disqualified"
+  | "in_pipeline"
+  | "converted";
 
 export type Lead = {
   id: string;
+  /** The person record. Every lead resolves its identity through this. */
+  contactId: string | null;
+  status: LeadStatus;
+  source: string;
+  campaign?: string;
+  /** What the inquiry was about — "Placement — Paid", "Advertise", etc. */
+  interest?: string;
+  /** Inbound submission type: contact | placement | booking | rsvp | card. */
+  kind?: string;
+  subject?: string;
+  message?: string;
+  /** Enrichment captured with the inquiry (venue qualification, traffic, etc). */
+  meta?: Record<string, unknown>;
+  value: number;
+  owner: string;
+  notes: string;
+  /** Set once the lead is worked in the pipeline. Never cleared on role change. */
+  opportunityId?: string | null;
+  createdAt: string;
+
+  // Snapshot of the inquiry as submitted. Kept for provenance only — never read
+  // for display, since the contact is the source of truth for identity.
+  capturedName?: string;
+  capturedEmail?: string;
+  capturedPhone?: string;
+  capturedCompany?: string;
+};
+
+export const LEAD_STATUS: Record<LeadStatus, { label: string; tone: string; open: boolean }> = {
+  new: { label: "New", tone: "bg-brand/15 text-brand-strong", open: true },
+  unassigned: { label: "Unassigned", tone: "bg-warning/15 text-warning", open: true },
+  assigned: { label: "Assigned", tone: "bg-accent text-accent-foreground", open: true },
+  attempting: { label: "Attempting contact", tone: "bg-accent text-accent-foreground", open: true },
+  contacted: { label: "Contacted", tone: "bg-accent text-accent-foreground", open: true },
+  nurture: { label: "Nurture", tone: "bg-secondary text-secondary-foreground", open: true },
+  qualified: { label: "Qualified", tone: "bg-success/15 text-success", open: true },
+  disqualified: { label: "Disqualified", tone: "bg-muted text-muted-foreground", open: false },
+  in_pipeline: { label: "In pipeline", tone: "bg-brand/15 text-brand-strong", open: false },
+  converted: { label: "Converted", tone: "bg-success/15 text-success", open: false },
+};
+
+export const LEAD_STATUS_ORDER: LeadStatus[] = [
+  "new", "unassigned", "assigned", "attempting", "contacted", "nurture", "qualified", "disqualified", "in_pipeline", "converted",
+];
+
+/** Statuses still worth working — drives the Leads board and "open leads" counts. */
+export const OPEN_LEAD_STATUSES: LeadStatus[] = ["new", "unassigned", "assigned", "attempting", "contacted", "nurture", "qualified"];
+
+export const LEAD_SOURCES = [
+  "Manual entry", "Lead generation", "Data enrichment", "Website", "Advertising inquiry",
+  "Venue inquiry", "Partner inquiry", "Referral", "Phone", "SMS", "Email", "Event",
+  "Campaign", "CSV import", "API / integration", "Existing contact", "Business card", "Other",
+];
+
+// Legacy `stage` values (seeded CRM leads) and inbound `status` values (website
+// forms, RSVPs) both land on a LeadStatus.
+const LEGACY_STAGE_TO_STATUS: Record<string, LeadStatus> = {
+  new: "new",
+  contacted: "contacted",
+  qualified: "qualified",
+  unqualified: "disqualified",
+};
+const INBOUND_STATUS_TO_STATUS: Record<string, LeadStatus> = {
+  new: "new",
+  unread: "new",
+  read: "new", // "read" only means someone opened it — not that it was worked.
+  archived: "disqualified",
+};
+
+type RawLead = Partial<Lead> & Record<string, unknown>;
+
+/** Fold any historical lead shape into the current model. Safe to call twice. */
+export function normalizeLead(raw: RawLead): Lead {
+  const legacyStage = typeof raw.stage === "string" ? raw.stage : "";
+  const rawStatus = typeof raw.status === "string" ? raw.status : "";
+  const status: LeadStatus =
+    (LEAD_STATUS[rawStatus as LeadStatus] ? (rawStatus as LeadStatus) : undefined) ??
+    LEGACY_STAGE_TO_STATUS[legacyStage] ??
+    INBOUND_STATUS_TO_STATUS[rawStatus] ??
+    "new";
+
+  const name = String(raw.capturedName ?? raw.name ?? [raw.firstName, raw.lastName].filter(Boolean).join(" ") ?? "").trim();
+
+  return {
+    id: String(raw.id ?? ""),
+    contactId: (raw.contactId as string | null) ?? null,
+    status,
+    source: String(raw.source ?? "Other"),
+    campaign: raw.campaign as string | undefined,
+    interest: raw.interest as string | undefined,
+    kind: raw.kind as string | undefined,
+    subject: raw.subject as string | undefined,
+    message: raw.message as string | undefined,
+    meta: (raw.meta as Record<string, unknown>) ?? undefined,
+    value: Number(raw.value ?? 0) || 0,
+    owner: String(raw.owner ?? ""),
+    notes: String(raw.notes ?? ""),
+    opportunityId: (raw.opportunityId as string | null) ?? null,
+    createdAt: String(raw.createdAt ?? new Date(0).toISOString()),
+    capturedName: name || undefined,
+    capturedEmail: String(raw.capturedEmail ?? raw.email ?? "").trim().toLowerCase() || undefined,
+    capturedPhone: String(raw.capturedPhone ?? raw.phone ?? "").trim() || undefined,
+    capturedCompany: String(raw.capturedCompany ?? raw.company ?? "").trim() || undefined,
+  };
+}
+
+/** Digits-only phone key used to match a lead to an existing contact. */
+export const phoneKey = (v: string | undefined | null) => (v || "").replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+
+/** True once the lead has been handed to the pipeline. */
+export const leadIsInPipeline = (l: Lead) => Boolean(l.opportunityId);
+
+// ── Display view ──────────────────────────────────────────────────────────────
+// Identity is resolved from the linked contact at read time, never copied onto
+// the lead. Captured values are the fallback for a lead not yet linked.
+
+export type LeadPerson = { id: string; name?: string; company?: string; title?: string; email?: string; phone?: string };
+
+export type LeadView = Lead & {
   name: string;
   company: string;
   title: string;
-  source: string;
-  stage: LeadStage;
-  value: number; // estimated deal value if it converts
   email: string;
   phone: string;
-  owner: string;
-  notes: string;
-  createdAt: string;
+  linked: boolean;
 };
 
-export const LEAD_STAGE: Record<LeadStage, { label: string; tone: string }> = {
-  new: { label: "New", tone: "bg-brand/15 text-brand-strong" },
-  contacted: { label: "Contacted", tone: "bg-accent text-accent-foreground" },
-  qualified: { label: "Qualified", tone: "bg-success/15 text-success" },
-  unqualified: { label: "Unqualified", tone: "bg-muted text-muted-foreground" },
-};
-export const LEAD_STAGE_ORDER: LeadStage[] = ["new", "contacted", "qualified", "unqualified"];
+export function toLeadView(lead: Lead, contact?: LeadPerson | null): LeadView {
+  return {
+    ...lead,
+    name: contact?.name || lead.capturedName || "Unnamed lead",
+    company: contact?.company || lead.capturedCompany || "",
+    title: contact?.title || "",
+    email: contact?.email || lead.capturedEmail || "",
+    phone: contact?.phone || lead.capturedPhone || "",
+    linked: Boolean(contact),
+  };
+}
 
-export const LEAD_SOURCES = ["Website", "Referral", "Event", "Cold outreach", "Inbound call", "Partner", "Social"];
-
-export const seedLeads: Lead[] = [
-  { id: "ld_summit", name: "Riley Chen", company: "Summit Outfitters", title: "Store Owner", source: "Event", stage: "qualified", value: 24000, email: "riley@summitoutfitters.co", phone: "+1 303 555 0166", owner: "Alex Rivera", notes: "Met at retail expo. Pilot proposal sent; strong intent.", createdAt: "2026-07-14T00:00:00.000Z" },
-  { id: "ld_windy", name: "Tony Bruno", company: "Windy City Pizza Co", title: "Owner", source: "Inbound call", stage: "contacted", value: 18000, email: "tony@windycitypizza.com", phone: "+1 312 555 0129", owner: "Jordan Cole", notes: "Wants revenue-share terms. Sending a proposal this week.", createdAt: "2026-07-25T00:00:00.000Z" },
-  { id: "ld_bayside", name: "Grace Kim", company: "Bayside Wellness", title: "Founder", source: "Website", stage: "new", value: 9000, email: "grace@baysidewellness.com", phone: "+1 415 555 0121", owner: "Alex Rivera", notes: "Filled out demo form. Two studio locations.", createdAt: "2026-07-29T00:00:00.000Z" },
-  { id: "ld_ironpeak", name: "Derek Vaughn", company: "Iron Peak Gyms", title: "Operations Manager", source: "Referral", stage: "qualified", value: 31000, email: "derek@ironpeakgyms.com", phone: "+1 720 555 0158", owner: "Jordan Cole", notes: "Referred by Northwind. 8 locations, motion-triggered audio fit.", createdAt: "2026-07-22T00:00:00.000Z" },
-  { id: "ld_maplewood", name: "Sara Lindqvist", company: "Maplewood Malls", title: "Marketing Lead", source: "Partner", stage: "contacted", value: 42000, email: "sara@maplewoodmalls.com", phone: "+1 651 555 0173", owner: "Alex Rivera", notes: "Partner intro. Large footprint; needs procurement sign-off.", createdAt: "2026-07-20T00:00:00.000Z" },
-  { id: "ld_coastal", name: "Miguel Santos", company: "Coastal Auto Group", title: "GM", source: "Cold outreach", stage: "new", value: 15000, email: "miguel@coastalauto.com", phone: "+1 858 555 0190", owner: "Jordan Cole", notes: "Opened outreach email twice. Follow up with a case study.", createdAt: "2026-07-28T00:00:00.000Z" },
-  { id: "ld_verde", name: "Ana Torres", company: "Verde Cafes", title: "Owner", source: "Social", stage: "unqualified", value: 0, email: "ana@verdecafes.com", phone: "+1 512 555 0144", owner: "Alex Rivera", notes: "Single location, budget too small for now. Nurture.", createdAt: "2026-07-11T00:00:00.000Z" },
-  { id: "ld_lakeside", name: "Paul Nguyen", company: "Lakeside Events", title: "Director", source: "Event", stage: "contacted", value: 12000, email: "paul@lakesideevents.com", phone: "+1 206 555 0167", owner: "Jordan Cole", notes: "Seasonal need. Interested in short campaign flights.", createdAt: "2026-07-24T00:00:00.000Z" },
-];
+/**
+ * Leads are captured from live inbound traffic, never seeded — a demo person
+ * here would become a real duplicate contact the moment someone worked it.
+ */
+export const seedLeads: Lead[] = [];
