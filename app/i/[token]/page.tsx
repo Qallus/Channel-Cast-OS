@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { invoiceHtml, usd, fmtDate } from "@/lib/ops/invoice-html";
-import { INVOICE_STATUS, invoiceTotal } from "@/lib/ops/invoices";
+import { invoiceTotal } from "@/lib/ops/invoices";
 import { findInvoiceByToken, publicOrigin } from "@/lib/server/invoice-share";
 import { PrintButton } from "./print-button";
 
@@ -27,15 +27,13 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
   const inv = await findInvoiceByToken(token);
   if (!inv) notFound();
 
-  const status = INVOICE_STATUS[inv.status];
-  const paid = inv.status === "paid";
-
   return (
     <main className="min-h-screen bg-[#f1f5ea] px-4 py-8 print:bg-white print:p-0">
       {/* Force US Letter and keep rows/totals from splitting, exactly as the
           dashboard's print window does. */}
       <style>{`
         @page { size: 8.5in 11in; margin: 0.5in }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact }
         @media print {
           .no-print { display: none !important }
           .sheet { box-shadow: none !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important }
@@ -47,18 +45,10 @@ export default async function SharedInvoicePage({ params }: { params: Promise<{ 
 
       <div className="mx-auto max-w-[8.5in]">
         <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-[#14241a]">
-              Invoice {inv.number} · {usd.format(invoiceTotal(inv))}
-            </span>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${
-                paid ? "bg-[#dff0e0] text-[#2f7d4f]" : inv.status === "overdue" ? "bg-[#fae8e4] text-[#b3402f]" : "bg-[#e6ecdb] text-[#3c6a1b]"
-              }`}
-            >
-              {status.label}
-            </span>
-          </div>
+          {/* The status badge lives on the sheet itself, so it isn't repeated here. */}
+          <span className="text-sm font-semibold text-[#14241a]">
+            Invoice {inv.number} · {usd.format(invoiceTotal(inv))}
+          </span>
           <PrintButton />
         </div>
 

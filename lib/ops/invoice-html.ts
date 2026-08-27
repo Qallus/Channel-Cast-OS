@@ -1,7 +1,30 @@
 // Invoice rendering — shared by the print window (client) and outbound email
 // (server), so a printed invoice and an emailed one can never drift apart.
 
-import { DEFAULT_LOGO, Invoice, invoiceSubtotal, invoiceTotal, lineAmount } from "@/lib/ops/invoices";
+import { DEFAULT_LOGO, Invoice, InvoiceStatus, invoiceSubtotal, invoiceTotal, lineAmount } from "@/lib/ops/invoices";
+
+/**
+ * Client-facing status wording. Deliberately not the dashboard's labels: "Sent"
+ * is an internal workflow state and means nothing to whoever receives the
+ * invoice, so it reads as "Due" on the document itself.
+ *
+ * Colours are literal hex because these render in a print window and in email,
+ * where the app's CSS variables don't exist. Each badge also carries a border so
+ * it still reads on a black-and-white printer that drops the background.
+ */
+export const DOCUMENT_STATUS: Record<InvoiceStatus, { label: string; ink: string; bg: string; border: string }> = {
+  draft: { label: "Draft", ink: "#5b6b5b", bg: "#eef2e9", border: "#c3cfbb" },
+  sent: { label: "Due", ink: "#3c6a1b", bg: "#eaf3dc", border: "#b7cf95" },
+  paid: { label: "Paid", ink: "#2f7d4f", bg: "#e2f1e8", border: "#a2cdb5" },
+  overdue: { label: "Past due", ink: "#b3402f", bg: "#fae8e4", border: "#e5ada2" },
+  void: { label: "Void", ink: "#8a8a8a", bg: "#f2f2f2", border: "#d4d4d4" },
+};
+
+function statusBadge(status: InvoiceStatus, opts: { size?: "print" | "email" } = {}): string {
+  const s = DOCUMENT_STATUS[status] ?? DOCUMENT_STATUS.draft;
+  const pad = opts.size === "email" ? "4px 11px" : "3px 10px";
+  return `<span style="display:inline-block;padding:${pad};border:1px solid ${s.border};background:${s.bg};color:${s.ink};font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;border-radius:3px;line-height:1.3;">${esc(s.label)}</span>`;
+}
 
 export const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 export const fmtDate = (iso: string) =>
@@ -40,7 +63,8 @@ export function invoiceHtml(inv: Invoice, origin?: string): string {
     <div style="text-align:right">
       <div style="font-size:24px;font-weight:800">INVOICE</div>
       <div style="font-size:13px;color:#5b6b5b">${esc(inv.number)}</div>
-      <div style="font-size:12px;color:#5b6b5b;margin-top:4px">Issued ${fmtDate(inv.issueDate)}</div>
+      <div style="margin-top:7px">${statusBadge(inv.status)}</div>
+      <div style="font-size:12px;color:#5b6b5b;margin-top:7px">Issued ${fmtDate(inv.issueDate)}</div>
       <div style="font-size:12px;color:#5b6b5b">Due ${fmtDate(inv.dueDate)}</div>
     </div>
   </div>
@@ -109,7 +133,8 @@ export function invoiceEmailHtml(inv: Invoice, opts: { origin?: string; message?
             </td>
             <td style="vertical-align:top;text-align:right;white-space:nowrap;">
               <p style="margin:0;color:#14241a;font-size:17px;font-weight:800;">${esc(inv.number)}</p>
-              <p style="margin:3px 0 0;color:#8a998a;font-size:12px;">Issued ${esc(fmtDate(inv.issueDate))}</p>
+              <p style="margin:7px 0 0;">${statusBadge(inv.status, { size: "email" })}</p>
+              <p style="margin:7px 0 0;color:#8a998a;font-size:12px;">Issued ${esc(fmtDate(inv.issueDate))}</p>
               <p style="margin:1px 0 0;color:#8a998a;font-size:12px;">Due ${esc(fmtDate(inv.dueDate))}</p>
             </td>
           </tr>
