@@ -73,6 +73,7 @@ export async function POST(req: Request) {
         // name; replies go to whoever the invoice bills as.
         from: fromHeader(inv),
         replyTo: inv.from?.email || undefined,
+        context: { contactId: inv.contactId ?? null, owner: inv.owner ?? null, actor: inv.owner ?? null },
       });
       results.email = res.ok
         ? { ok: true, detail: `Emailed to ${to}` }

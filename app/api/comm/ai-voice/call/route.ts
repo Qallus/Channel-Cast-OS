@@ -1,4 +1,5 @@
 import { listRecords } from "@/lib/server/crm-db";
+import { recordCommunicationSafe } from "@/lib/server/communications";
 import { defaultNumber, jsonError, twilioClient, twilioConfigured } from "@/lib/server/twilio";
 
 export const runtime = "nodejs";
@@ -32,6 +33,22 @@ export async function POST(req: Request) {
       to, from,
       url: `${APP_ORIGIN}/api/webhooks/twilio/ai-voice`,
       record: true,
+    });
+    // The agent conversation is a communication like any other — log it now so
+    // the row exists, and let the recording/transcript sync enrich it later.
+    await recordCommunicationSafe({
+      kind: "ai_voice",
+      direction: "outbound",
+      externalId: call.sid,
+      from,
+      to,
+      status: call.status,
+      recordingUrl: `/api/comm/recordings?callSid=${encodeURIComponent(call.sid)}`,
+      contactId: body?.contactId ?? null,
+      opportunityId: body?.opportunityId ?? null,
+      leadId: body?.leadId ?? null,
+      owner: body?.owner ?? null,
+      actor: "xAI Voice Agent",
     });
     return Response.json({ ok: true, sid: call.sid, status: call.status });
   } catch (e) {

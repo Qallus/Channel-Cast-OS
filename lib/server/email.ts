@@ -1,7 +1,17 @@
 // Outbound email via Resend. Sends FROM hello@channelcast.io to the team.
 // No-op (skipped) when RESEND_API_KEY isn't set, so local/dev never breaks.
 
-type SendArgs = { subject: string; html: string; replyTo?: string; to?: string[]; from?: string };
+/** Record ids so the send lands on the right lead/opportunity timeline. */
+export type CommContext = {
+  opportunityId?: string | null;
+  contactId?: string | null;
+  leadId?: string | null;
+  accountId?: string | null;
+  owner?: string | null;
+  actor?: string | null;
+};
+
+type SendArgs = { subject: string; html: string; replyTo?: string; to?: string[]; from?: string; context?: CommContext };
 
 const DEFAULT_TO = "jw@channelcast.io,hello@channelcast.io,jwaters@qallus.co";
 
@@ -9,7 +19,7 @@ const DEFAULT_TO = "jw@channelcast.io,hello@channelcast.io,jwaters@qallus.co";
 // SVG doesn't render in Gmail/Outlook, so email logos must be hosted PNGs.
 const BRAND_ORIGIN = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").split(",")[0].trim().replace(/\/$/, "");
 
-export async function sendNotificationEmail({ subject, html, replyTo, to, from: fromArg }: SendArgs): Promise<{ ok: boolean; skipped?: boolean }> {
+export async function sendNotificationEmail({ subject, html, replyTo, to, from: fromArg, context }: SendArgs): Promise<{ ok: boolean; skipped?: boolean }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, skipped: true };
 
@@ -24,6 +34,28 @@ export async function sendNotificationEmail({ subject, html, replyTo, to, from: 
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to: recipients, subject, html, reply_to: replyTo || undefined }),
     });
+    // Email was previously fire-and-forget, so nothing reached the activity
+    // timeline. Log every send, linked when the caller knows the records.
+    try {
+      const { recordCommunicationSafe } = await import("@/lib/server/communications");
+      const sent = await res.clone().json().catch(() => null);
+      await recordCommunicationSafe({
+        kind: "email",
+        direction: "outbound",
+        externalId: (sent as { id?: string } | null)?.id ?? null,
+        from,
+        to: recipients.join(", "),
+        subject,
+        body: html,
+        status: res.ok ? "sent" : "failed",
+        opportunityId: context?.opportunityId,
+        contactId: context?.contactId,
+        leadId: context?.leadId,
+        accountId: context?.accountId,
+        owner: context?.owner,
+        actor: context?.actor,
+      });
+    } catch { /* capture is best-effort */ }
     return { ok: res.ok };
   } catch {
     return { ok: false };
