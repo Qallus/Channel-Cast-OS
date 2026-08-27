@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, ExternalLink, GitBranchPlus, LayoutGrid, List, Pencil, Plus, Table as TableIcon, Trash2, TrendingUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarDays, ExternalLink, Eye, GitBranchPlus, LayoutGrid, List, Pencil, Plus, Table as TableIcon, Trash2, TrendingUp } from "lucide-react";
 
 import {
   DetailField,
@@ -67,6 +68,7 @@ function blankDeal(): Deal {
 type AnyRec = { id: string } & Record<string, unknown>;
 
 export function PipelinePage() {
+  const router = useRouter();
   const { items, create, update, remove } = useCollection<Deal>("deals", seedDeals);
   const contactsCol = useCollection<Contact>("contacts", seedContacts);
   const clientsCol = useCollection<AnyRec>("clients", []);
@@ -158,7 +160,8 @@ export function PipelinePage() {
   }
 
   const rowActions = (d: Deal) => [
-    { label: "Open", icon: ExternalLink, onClick: () => setDrawerId(d.id) },
+    { label: "Open workspace", icon: ExternalLink, onClick: () => router.push(`/app/admin/pipeline/${d.id}`) },
+    { label: "Quick view", icon: Eye, onClick: () => setDrawerId(d.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(d) },
     { label: "Delete", icon: Trash2, onClick: () => setDeleteItem(d), destructive: true },
   ];
