@@ -86,10 +86,16 @@ if (Test-Path $p) {
 }
 '@ | Set-Content -Encoding ASCII (Join-Path $Dir "clear-restore.ps1")
 
+# Windowed mode keeps the title bar and F11, which is what you want while you're
+# still setting the screen up. Set CC_WINDOWED=1 before running the installer.
+$KioskFlags = if ($env:CC_WINDOWED -eq "1") { "--start-maximized" } else { "--kiosk --edge-kiosk-type=fullscreen --start-fullscreen" }
+if ($env:CC_WINDOWED -eq "1") { Write-Host "[channelcast-display] windowed mode (testing) - not full kiosk." }
+
 @"
 @echo off
 powershell -NoProfile -ExecutionPolicy Bypass -File "$Dir\\clear-restore.ps1"
-start "" "$Browser" --user-data-dir="$ProfileDir" --kiosk "$PlayerUrl" --edge-kiosk-type=fullscreen --start-fullscreen --no-first-run --noerrdialogs --disable-infobars --disable-session-crashed-bubble --hide-crash-restore-bubble --disable-features=TranslateUI --check-for-update-interval=31536000 --autoplay-policy=no-user-gesture-required --disable-pinch --overscroll-history-navigation=0
+start "" /min powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$Dir\\hotkey-exit.ps1"
+start "" "$Browser" --user-data-dir="$ProfileDir" $KioskFlags "$PlayerUrl" --no-first-run --noerrdialogs --disable-infobars --disable-session-crashed-bubble --hide-crash-restore-bubble --disable-features=TranslateUI --check-for-update-interval=31536000 --autoplay-policy=no-user-gesture-required --disable-pinch --overscroll-history-navigation=0
 "@ | Set-Content -Encoding ASCII (Join-Path $Dir "run-display.cmd")
 
 # A way out. A kiosk browser with no title bar is genuinely hard to quit if you
@@ -110,6 +116,45 @@ Write-Host "It reopens at the next sign-in. To stop that too, run: schtasks /Cha
 powershell -NoProfile -ExecutionPolicy Bypass -File "$Dir\\stop-display.ps1"
 pause
 "@ | Set-Content -Encoding ASCII (Join-Path $Dir "stop-display.cmd")
+
+# CTRL+ALT+X, from anywhere, with no cursor and no window focus.
+#
+# A kiosk browser owns the whole screen: no title bar, no taskbar, and nothing
+# the page itself can do about it — a web page cannot close the browser hosting
+# it. So the escape has to live outside the browser. This polls the keyboard
+# directly, which needs no window of its own and works even while Chromium has
+# every input grabbed. It exits on its own once the player is gone, so watchers
+# never pile up across restarts.
+@'
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class CcKeys {
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+}
+"@
+
+$VK_CONTROL = 0x11; $VK_MENU = 0x12; $VK_X = 0x58
+function Down($k) { return ([CcKeys]::GetAsyncKeyState($k) -band 0x8000) -ne 0 }
+function PlayerProcs {
+  Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe' OR Name = 'chrome.exe'" |
+    Where-Object { $_.CommandLine -and $_.CommandLine -like "*channelcast*display*profile*" }
+}
+
+# Give the browser a moment to appear before the idle check can end this watcher.
+Start-Sleep -Seconds 20
+$idle = 0
+while ($true) {
+  if ((Down $VK_CONTROL) -and (Down $VK_MENU) -and (Down $VK_X)) {
+    PlayerProcs | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    break
+  }
+  # No player for ~30s running means it was closed some other way.
+  if (@(PlayerProcs).Count -eq 0) { $idle++ } else { $idle = 0 }
+  if ($idle -ge 200) { break }
+  Start-Sleep -Milliseconds 150
+}
+'@ | Set-Content -Encoding ASCII (Join-Path $Dir "hotkey-exit.ps1")
 
 # Put it somewhere findable, not just in ProgramData.
 try {
@@ -145,9 +190,11 @@ Write-Host ""
 Write-Host "================================================================"
 Write-Host " Channel Cast display installed and started."
 Write-Host ""
-Write-Host " TO CLOSE THE SCREEN:  press Alt+F4"
-Write-Host "   or Start Menu -> 'Stop Channel Cast Display'"
+Write-Host " TO EXIT THE SCREEN:   press  CTRL + ALT + X"
+Write-Host "   works with no cursor, from anywhere, even in full kiosk."
+Write-Host "   Also: Alt+F4, Start Menu -> 'Stop Channel Cast Display',"
 Write-Host "   or run: $Dir\\stop-display.cmd"
+Write-Host "   Last resort: Ctrl+Alt+Delete -> Task Manager -> end Edge."
 Write-Host ""
 Write-Host " It reopens at every sign-in. To stop that as well:"
 Write-Host "   schtasks /Change /TN ChannelCastDisplay /DISABLE"

@@ -112,6 +112,18 @@ export function DisplayPlayer({ token }: { token: string }) {
     return () => { void lock?.release().catch(() => {}); };
   }, []);
 
+  // Esc puts the way out on screen, over live creative too. A kiosk browser
+  // gives you no title bar and often no cursor, so someone standing at the
+  // screen needs one key that reliably produces instructions.
+  const [help, setHelp] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setHelp((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Preload the next creative so a transition never shows an empty frame.
   const next = items.length > 1 ? items[(index + 1) % items.length] : null;
 
@@ -172,6 +184,24 @@ export function DisplayPlayer({ token }: { token: string }) {
       {offline && (
         <span className="absolute bottom-2 right-3 text-[10px] text-white/25">offline · cached</span>
       )}
+
+      {help && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/85 p-6 text-center">
+          <div className="max-w-sm space-y-3">
+            <p className="text-xs uppercase tracking-widest text-white/40">Channel Cast player</p>
+            <p className="text-2xl font-semibold text-white">Ctrl + Alt + X</p>
+            <p className="text-sm text-white/60">Closes the player on this PC. Works with no cursor.</p>
+            <p className="text-xs text-white/35">
+              Also: Alt+F4, or Start Menu → &ldquo;Stop Channel Cast Display&rdquo;.
+              Last resort: Ctrl+Alt+Delete → Task Manager → end Edge.
+            </p>
+            {manifest?.device.deviceCode && (
+              <p className="pt-2 font-mono text-[11px] tracking-widest text-white/30">{manifest.device.deviceCode}</p>
+            )}
+            <p className="text-[10px] text-white/25">Press Esc to hide this.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -213,6 +243,9 @@ function IdleScreen({
         <p className="mt-4 font-mono text-[11px] tracking-widest text-white/20">{deviceCode}</p>
       )}
       <p className="mt-1 text-[10px] text-white/15">Checking for a loop every 15 seconds.</p>
+      {/* Only on the dark screen, never over live creative: the moment anyone is
+          looking at a blank display is exactly when they need the way out. */}
+      <p className="mt-6 text-[10px] text-white/25">Press Ctrl + Alt + X to exit the player</p>
     </div>
   );
 }
