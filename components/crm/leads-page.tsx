@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, ExternalLink, LayoutGrid, List, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Briefcase, CalendarDays, ExternalLink, LayoutGrid, List, Pencil, Plus, SquareKanban, Table as TableIcon, Trash2, UserPlus } from "lucide-react";
 
 import {
   Avatar,
@@ -55,6 +56,7 @@ function blankLead(): LeadView {
 }
 
 export function LeadsPage() {
+  const router = useRouter();
   const { items: rawLeads, create, update, remove } = useCollection<Lead>("leads", seedLeads);
   const contactsCol = useCollection<Contact>("contacts", seedContacts);
 
@@ -168,6 +170,9 @@ export function LeadsPage() {
   const move = (l: LeadView, status: LeadStatus) => update(l.id, { status });
 
   const rowActions = (l: LeadView) => [
+    ...(l.opportunityId
+      ? [{ label: "Open opportunity", icon: Briefcase, onClick: () => router.push(`/app/admin/pipeline/${l.opportunityId}`) }]
+      : []),
     { label: "Open", icon: ExternalLink, onClick: () => setDrawerId(l.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(l) },
     { label: "Delete", icon: Trash2, onClick: () => setDeleteItem(l), destructive: true },
@@ -267,7 +272,12 @@ export function LeadsPage() {
                 </div>
               )}
               <div className="flex gap-2">
-                <Button onClick={() => openEdit(drawer)} className="flex-1"><Pencil className="h-4 w-4" /> Edit</Button>
+                {drawer.opportunityId && (
+                  <Button onClick={() => router.push(`/app/admin/pipeline/${drawer.opportunityId}`)} className="flex-1">
+                    <Briefcase className="h-4 w-4" /> Open opportunity
+                  </Button>
+                )}
+                <Button variant={drawer.opportunityId ? "outline" : "default"} onClick={() => openEdit(drawer)} className={drawer.opportunityId ? "" : "flex-1"}><Pencil className="h-4 w-4" /> Edit</Button>
                 <Button variant="outline" onClick={() => setDeleteItem(drawer)}><Trash2 className="h-4 w-4" /> Delete</Button>
               </div>
             </div>

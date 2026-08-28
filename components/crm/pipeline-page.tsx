@@ -159,8 +159,9 @@ export function PipelinePage() {
     flash("Tagged as a Partner.");
   }
 
+  const openWorkspace = (id: string) => router.push(`/app/admin/pipeline/${id}`);
   const rowActions = (d: Deal) => [
-    { label: "Open workspace", icon: ExternalLink, onClick: () => router.push(`/app/admin/pipeline/${d.id}`) },
+    { label: "Open workspace", icon: ExternalLink, onClick: () => openWorkspace(d.id) },
     { label: "Quick view", icon: Eye, onClick: () => setDrawerId(d.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(d) },
     { label: "Delete", icon: Trash2, onClick: () => setDeleteItem(d), destructive: true },
@@ -204,15 +205,15 @@ export function PipelinePage() {
       {filtered.length === 0 ? (
         <EmptyState message={items.length === 0 ? "No deals yet. Add your first opportunity." : "No deals match your filters."} />
       ) : view === "kanban" ? (
-        <BoardView deals={filtered} onOpen={setDrawerId} onMove={move} />
+        <BoardView deals={filtered} onOpen={openWorkspace} onMove={move} />
       ) : view === "list" ? (
-        <ListView deals={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+        <ListView deals={filtered} onOpen={openWorkspace} rowActions={rowActions} />
       ) : view === "table" ? (
-        <TableView deals={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+        <TableView deals={filtered} onOpen={openWorkspace} rowActions={rowActions} />
       ) : view === "cards" ? (
-        <CardsView deals={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+        <CardsView deals={filtered} onOpen={openWorkspace} rowActions={rowActions} />
       ) : (
-        <RecordCalendar items={filtered} getId={(d) => d.id} getDate={(d) => d.closeDate} getTitle={(d) => d.name} onOpen={setDrawerId} footer="Deals placed by expected close date. Click one to open." />
+        <RecordCalendar items={filtered} getId={(d) => d.id} getDate={(d) => d.closeDate} getTitle={(d) => d.name} onOpen={openWorkspace} footer="Deals placed by expected close date. Click one to open its workspace." />
       )}
 
       {/* Drawer */}
