@@ -15,9 +15,10 @@ import {
   type DisplayLoop, type DisplayLoopItem, type DisplayMedia,
   DEFAULT_IMAGE_SECONDS, formatSeconds, loopSeconds,
 } from "@/lib/displays/types";
+import { ScreensTab } from "@/components/displays/screens-tab";
 import { cn } from "@/lib/utils";
 
-type Tab = "media" | "loops";
+type Tab = "media" | "loops" | "screens";
 
 export function DisplaysPage() {
   const [tab, setTab] = useState<Tab>("media");
@@ -46,7 +47,7 @@ export function DisplaysPage() {
       <PageHeader icon={Monitor} title="Digital Displays" description="Creative library, playback loops, and what each screen is showing." />
 
       <div className="flex flex-wrap items-center gap-1 border-b border-border">
-        {([["media", "Creative"], ["loops", "Loops"]] as [Tab, string][]).map(([id, label]) => (
+        {([["media", "Creative"], ["loops", "Loops"], ["screens", "Screens"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
             className={cn("-mb-px rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               tab === id ? "border-brand-strong text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
@@ -60,8 +61,10 @@ export function DisplaysPage() {
         <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
       ) : tab === "media" ? (
         <MediaLibrary media={media} onChanged={load} flash={flash} />
-      ) : (
+      ) : tab === "loops" ? (
         <LoopBuilder loops={loops} media={media} onChanged={load} flash={flash} />
+      ) : (
+        <ScreensTab loops={loops} flash={flash} />
       )}
     </div>
   );
