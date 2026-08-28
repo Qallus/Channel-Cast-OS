@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
 import { LinkedRecords, OpportunityRecords, RECORD_ACTIONS, type RecordAction } from "@/components/crm/opportunity-records";
 import { AppointmentsCard, ScheduleDialog } from "@/components/crm/opportunity-schedule";
+import { useSidebarCollapsed } from "@/components/layout/sidebar-state";
 import { WorkspaceEditorSurface } from "@/components/workspace/plate-editor";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
@@ -188,7 +189,7 @@ function StagePath({ stage, onSet }: { stage: DealStage; onSet: (s: DealStage) =
   const lost = stage === "closed_lost";
 
   return (
-    <div className="flex w-full min-w-0 gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Sales stage">
+    <div className="flex w-full min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Sales stage">
       {PIPELINE_PATH.map((s, i) => {
         const done = idx >= 0 && i < idx;
         const active = i === idx;
@@ -366,6 +367,46 @@ function ToolModal({
   );
 }
 
+type RailItem = { key: string; label: string; icon: typeof Phone; run: () => void };
+
+/**
+ * The opportunity's actions. Horizontal in the header normally; a vertical rail
+ * beside the content when the main sidebar is collapsed, which is the only time
+ * there's width to spare for one. Either way it's the same list in the same
+ * order, so muscle memory survives the switch.
+ */
+function ActionRail({ items, vertical }: { items: RailItem[]; vertical: boolean }) {
+  if (vertical) {
+    return (
+      <nav aria-label="Opportunity actions" className="sticky top-4 flex flex-col gap-1 rounded-xl border border-border bg-card p-2">
+        {items.map((a) => (
+          <button
+            key={a.key}
+            type="button"
+            onClick={a.run}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <a.icon className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{a.label}</span>
+          </button>
+        ))}
+      </nav>
+    );
+  }
+
+  // Never wraps: on a narrow screen the row scrolls sideways rather than
+  // stacking into three ragged lines and pushing the record off the fold.
+  return (
+    <div className="-mx-1 flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {items.map((a) => (
+        <Button key={a.key} size="sm" variant="outline" onClick={a.run} className="shrink-0">
+          <a.icon className="h-3.5 w-3.5" /> {a.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 // ── Workspace ────────────────────────────────────────────────────────────────
 export function OpportunityDetail({ id }: { id: string }) {
   const { items, update } = useCollection<Deal>("deals", seedDeals);
@@ -398,6 +439,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [nextStepOpen, setNextStepOpen] = useState(false);
   const [recordAction, setRecordAction] = useState<RecordAction | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const sidebarCollapsed = useSidebarCollapsed();
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600); };
 
@@ -528,6 +570,17 @@ export function OpportunityDetail({ id }: { id: string }) {
     flash(closing === "won" ? "Marked Closed Won." : "Marked Closed Lost.");
   }
 
+  // Comms first, then the records an opportunity spawns — the order you'd work in.
+  const railItems: RailItem[] = [
+    ...(Object.keys(TOOL_META) as ToolId[]).map((t) => ({
+      key: t,
+      label: TOOL_META[t].label,
+      icon: TOOL_META[t].icon,
+      run: () => (t === "schedule" ? setScheduleOpen(true) : setTool(t)),
+    })),
+    ...RECORD_ACTIONS.map((a) => ({ key: a.key, label: a.label, icon: a.icon, run: () => setRecordAction(a.key) })),
+  ];
+
   const ctx = {
     opportunityId: deal.id,
     contactId: deal.contactId ?? null,
@@ -552,28 +605,15 @@ export function OpportunityDetail({ id }: { id: string }) {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Reaching the client is the most common action on this page, so the
-                channels sit in the header rather than buried in the timeline. */}
-            {(Object.keys(TOOL_META) as ToolId[]).map((t) => {
-              const m = TOOL_META[t];
-              return (
-                <Button key={t} size="sm" variant="outline" onClick={() => (t === "schedule" ? setScheduleOpen(true) : setTool(t))}>
-                  <m.icon className="h-3.5 w-3.5" /> {m.label}
-                </Button>
-              );
-            })}
-            <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
-            {RECORD_ACTIONS.map((a) => (
-              <Button key={a.key} size="sm" variant="outline" onClick={() => setRecordAction(a.key)}>
-                <a.icon className="h-3.5 w-3.5" /> {a.label}
-              </Button>
-            ))}
-            <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
             {needsNextStep(deal) && <Badge className="border-transparent bg-warning/15 text-warning"><CircleAlert className="mr-1 h-3 w-3" />No next step</Badge>}
             {!closed && <Button size="sm" variant="outline" onClick={() => setClosing("won")}><Trophy className="h-3.5 w-3.5" /> Closed Won</Button>}
             {!closed && <Button size="sm" variant="outline" onClick={() => setClosing("lost")}><Ban className="h-3.5 w-3.5" /> Closed Lost</Button>}
           </div>
         </div>
+
+        {/* Actions live here while the sidebar is expanded; collapsed, they move
+            to the vertical rail beside the content. */}
+        {!sidebarCollapsed && <div className="mt-3"><ActionRail items={railItems} vertical={false} /></div>}
 
         {/* Compact field strip, as on the Salesforce record header */}
         <div className="mt-4 grid gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -613,7 +653,13 @@ export function OpportunityDetail({ id }: { id: string }) {
       </div>
 
       {/* Three-column record layout */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,300px)]">
+      <div className={cn(
+        "grid gap-4",
+        sidebarCollapsed
+          ? "xl:grid-cols-[minmax(0,170px)_minmax(0,290px)_minmax(0,1fr)_minmax(0,290px)]"
+          : "xl:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,300px)]",
+      )}>
+        {sidebarCollapsed && <ActionRail items={railItems} vertical />}
         {/* Left rail — who this is */}
         <div className="space-y-4">
           <Panel title="Lead / contact details">
@@ -778,7 +824,7 @@ export function OpportunityDetail({ id }: { id: string }) {
           <Panel
             title="Activity timeline"
             action={
-              <div className="-mb-px flex flex-wrap items-center gap-0.5" role="tablist" aria-label="Activity channels">
+              <div className="-mb-px flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Activity channels">
                 {TIMELINE_TABS.map((t) => {
                   const c = tabCounts[t.key] ?? { total: 0, unseen: 0 };
                   const active = filter === t.key;
@@ -790,7 +836,7 @@ export function OpportunityDetail({ id }: { id: string }) {
                       aria-selected={active}
                       onClick={() => openTab(t.key)}
                       className={cn(
-                        "flex items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-colors",
+                        "flex shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active ? "border-brand-strong text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                       )}
                     >

@@ -7,6 +7,7 @@ import { AppTopbar } from "@/components/layout/app-topbar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { Fab } from "@/components/fab/fab";
 import { QuickRecorder } from "@/components/recordings/quick-recorder";
+import { SidebarStateProvider } from "@/components/layout/sidebar-state";
 import { cn } from "@/lib/utils";
 
 export function DashboardShell({
@@ -59,7 +60,9 @@ export function DashboardShell({
       {/* Content */}
       <div className={cn("flex min-h-screen flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[76px]" : "lg:pl-64")}>
         <AppTopbar onOpenMobileNav={() => setMobileOpen(true)} roleLabel={roleLabel} userEmail={userEmail} />
-        <main className="flex-1 px-4 py-6 pb-28 md:px-6 lg:px-8 lg:pb-8">{children}</main>
+        <main className="flex-1 px-4 py-6 pb-28 md:px-6 lg:px-8 lg:pb-8">
+          <SidebarStateProvider value={{ collapsed }}>{children}</SidebarStateProvider>
+        </main>
       </div>
 
       {/* Fixed mobile bottom navigation */}
