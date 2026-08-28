@@ -123,7 +123,19 @@ export function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
+export function Avatar({ name, className, src }: { name: string; className?: string; src?: string | null }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        // A broken photo URL should fall back to initials, not a torn-image icon.
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        className={cn("h-9 w-9 shrink-0 rounded-lg object-cover", className)}
+      />
+    );
+  }
   return (
     <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-xs font-semibold text-brand-strong", className)}>
       {initialsOf(name)}

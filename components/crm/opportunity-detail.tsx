@@ -19,7 +19,7 @@ import { WorkspaceEditorSurface } from "@/components/workspace/plate-editor";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
 import {
-  DEAL_STAGE, Deal, DealStage, LOST_REASONS, PIPELINE_PATH,
+  DEAL_STAGE, DEAL_STAGE_ORDER, Deal, DealStage, LOST_REASONS, NEXT_STEP_TYPES, type NextStep, type NextStepType, OPPORTUNITY_TYPES, PIPELINE_PATH,
   daysInStage, daysOpen, isClosed, needsNextStep, seedDeals, weightedValue,
 } from "@/lib/crm/deals";
 import { STAGE_GUIDE, blockingItems, checklistFor } from "@/lib/crm/pipeline-guidance";
@@ -81,6 +81,86 @@ function readSeen(opportunityId: string): SeenMap {
   } catch {
     return {};
   }
+}
+
+/**
+ * Click-to-edit field. Everything on this page describes a live deal — value,
+ * close date, owner — and those move constantly, so reading and changing them
+ * should be the same gesture rather than a trip to a separate edit form.
+ */
+function Editable({
+  value, onSave, type = "text", options, placeholder = "—", align = "right", format,
+}: {
+  value: string | number | null | undefined;
+  onSave: (next: string) => void;
+  type?: "text" | "number" | "date" | "select";
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  align?: "left" | "right";
+  format?: (v: string | number | null | undefined) => React.ReactNode;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function begin() {
+    setDraft(value === null || value === undefined ? "" : String(value));
+    setEditing(true);
+  }
+  function commit() {
+    setEditing(false);
+    if (draft !== String(value ?? "")) onSave(draft);
+  }
+
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  if (editing && type === "select") {
+    return (
+      <Select
+        value={draft}
+        onValueChange={(v) => { setEditing(false); if (v !== String(value ?? "")) onSave(v); }}
+        open
+        onOpenChange={(o) => !o && setEditing(false)}
+      >
+        <SelectTrigger className="h-7 w-full text-sm"><SelectValue /></SelectTrigger>
+        <SelectContent>{(options ?? []).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+      </Select>
+    );
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        type={type === "number" ? "number" : type === "date" ? "date" : "text"}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          // Escape must discard, not save — a mistyped deal value is worse than none.
+          if (e.key === "Escape") { e.preventDefault(); setEditing(false); }
+        }}
+        className={cn("h-7 text-sm", align === "right" && "text-right")}
+      />
+    );
+  }
+
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <button
+      type="button"
+      onClick={begin}
+      title="Click to edit"
+      className={cn(
+        "w-full rounded px-1 py-0.5 text-sm transition-colors hover:bg-muted/60",
+        align === "right" ? "text-right" : "text-left",
+        empty ? "text-muted-foreground/60" : "text-foreground",
+      )}
+    >
+      {empty ? placeholder : format ? format(value) : String(value)}
+    </button>
+  );
 }
 
 // ── Panels ───────────────────────────────────────────────────────────────────
@@ -312,6 +392,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [lostReason, setLostReason] = useState(LOST_REASONS[0]);
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [blocked, setBlocked] = useState<string[] | null>(null);
+  const [nextStepOpen, setNextStepOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600); };
 
@@ -379,6 +460,21 @@ export function OpportunityDetail({ id }: { id: string }) {
   const checklist = checklistFor(deal);
   const nextStage = stageIdx >= 0 && stageIdx < PIPELINE_PATH.length - 1 ? PIPELINE_PATH[stageIdx + 1] : null;
   const lastActivity = activities[0]?.occurredAt ?? null;
+
+  /** Patch the opportunity. Every inline edit funnels through here. */
+  function save(patch: Partial<Deal>) {
+    update(deal!.id, patch);
+  }
+
+  /** Owner changes are tracked, since who owns a deal is auditable. */
+  function changeOwner(owner: string) {
+    if (owner === deal!.owner) return;
+    save({
+      owner,
+      ownerHistory: [...(deal!.ownerHistory ?? []), { owner, at: new Date().toISOString(), by: deal!.owner || "You" }],
+    });
+    flash(owner ? `Owner set to ${owner}.` : "Owner cleared.");
+  }
 
   function setStage(next: DealStage) {
     const forward = PIPELINE_PATH.indexOf(next) > stageIdx;
@@ -470,13 +566,25 @@ export function OpportunityDetail({ id }: { id: string }) {
 
         {/* Compact field strip, as on the Salesforce record header */}
         <div className="mt-4 grid gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2 lg:grid-cols-5">
-          <DetailField label="Account name">{deal.client || "—"}</DetailField>
-          <DetailField label="Close date">{fmtDate(deal.closeDate)}</DetailField>
-          <DetailField label="Amount">{usd.format(deal.value)}</DetailField>
-          <DetailField label="Opportunity owner">
-            {deal.owner ? <span className="inline-flex items-center gap-1.5"><Avatar name={deal.owner} className="h-5 w-5 text-[10px]" />{deal.owner}</span> : <span className="text-warning">Unassigned</span>}
+          <DetailField label="Account name">
+            <Editable value={deal.client} align="left" onSave={(v) => save({ client: v })} placeholder="Add an account" />
           </DetailField>
-          <DetailField label="Stage"><Badge className={cn("border-transparent", DEAL_STAGE[deal.stage].tone)}>{DEAL_STAGE[deal.stage].label}</Badge></DetailField>
+          <DetailField label="Close date">
+            <Editable value={deal.closeDate} type="date" align="left" onSave={(v) => save({ closeDate: v })} format={(v) => fmtDate(String(v))} />
+          </DetailField>
+          <DetailField label="Amount">
+            <Editable value={deal.value} type="number" align="left" onSave={(v) => save({ value: Number(v) || 0 })} format={(v) => usd.format(Number(v) || 0)} />
+          </DetailField>
+          <DetailField label="Opportunity owner">
+            <Editable value={deal.owner} align="left" placeholder="Unassigned" onSave={(v) => changeOwner(v)}
+              format={(v) => <span className="inline-flex items-center gap-1.5"><Avatar name={String(v)} className="h-5 w-5 text-[10px]" />{String(v)}</span>} />
+          </DetailField>
+          <DetailField label="Stage">
+            <Editable value={deal.stage} type="select" align="left"
+              options={DEAL_STAGE_ORDER.map((sKey) => ({ value: sKey, label: DEAL_STAGE[sKey].label }))}
+              onSave={(v) => setStage(v as DealStage)}
+              format={(v) => <Badge className={cn("border-transparent", DEAL_STAGE[v as DealStage].tone)}>{DEAL_STAGE[v as DealStage].label}</Badge>} />
+          </DetailField>
         </div>
       </div>
 
@@ -501,7 +609,7 @@ export function OpportunityDetail({ id }: { id: string }) {
             {contact ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2.5">
-                  <Avatar name={contactName(contact)} className="h-9 w-9" />
+                  <Avatar name={contactName(contact)} src={contact.photoUrl} className="h-9 w-9" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{contactName(contact)}</p>
                     <p className="truncate text-xs text-muted-foreground">{contact.title || "—"}</p>
@@ -568,10 +676,18 @@ export function OpportunityDetail({ id }: { id: string }) {
 
           <Panel title="Opportunity information">
             <div>
-              <DetailField label="Type">{deal.opportunityType || "—"}</DetailField>
-              <DetailField label="Probability">{deal.probability}%</DetailField>
+              <DetailField label="Type">
+                <Editable value={deal.opportunityType} type="select" placeholder="Pick a type"
+                  options={OPPORTUNITY_TYPES.map((t) => ({ value: t, label: t }))}
+                  onSave={(v) => save({ opportunityType: v })} />
+              </DetailField>
+              <DetailField label="Probability">
+                <Editable value={deal.probability} type="number" onSave={(v) => save({ probability: Math.max(0, Math.min(100, Number(v) || 0)) })} format={(v) => `${v}%`} />
+              </DetailField>
               <DetailField label="Weighted value">{usd.format(weightedValue(deal))}</DetailField>
-              <DetailField label="Lead source">{deal.source || "—"}</DetailField>
+              <DetailField label="Lead source">
+                <Editable value={deal.source} placeholder="Add a source" onSave={(v) => save({ source: v })} />
+              </DetailField>
               <DetailField label="Days open">{daysOpen(deal)}</DetailField>
               <DetailField label="Days in stage">{daysInStage(deal)}</DetailField>
               {deal.lostReason ? <DetailField label="Lost reason">{deal.lostReason}</DetailField> : null}
@@ -584,14 +700,27 @@ export function OpportunityDetail({ id }: { id: string }) {
           <div className="grid gap-4 md:grid-cols-2">
             <Panel title="Key fields">
               <div>
-                <DetailField label="Opportunity owner">{deal.owner || <span className="text-warning">Unassigned</span>}</DetailField>
-                <DetailField label="Amount">{usd.format(deal.value)}</DetailField>
-                <DetailField label="Expected close">{fmtDate(deal.closeDate)}</DetailField>
+                <DetailField label="Opportunity owner">
+                  <Editable value={deal.owner} placeholder="Unassigned" onSave={(v) => changeOwner(v)} />
+                </DetailField>
+                <DetailField label="Amount">
+                  <Editable value={deal.value} type="number" onSave={(v) => save({ value: Number(v) || 0 })} format={(v) => usd.format(Number(v) || 0)} />
+                </DetailField>
+                <DetailField label="Expected close">
+                  <Editable value={deal.closeDate} type="date" onSave={(v) => save({ closeDate: v })} format={(v) => fmtDate(String(v))} />
+                </DetailField>
                 <DetailField label="Next step">
-                  {deal.nextStep?.action ? `${deal.nextStep.action} · ${fmtDate(deal.nextStep.dueDate)}` : <span className="text-warning">Not set</span>}
+                  <button type="button" onClick={() => setNextStepOpen(true)}
+                    className={cn("w-full rounded px-1 py-0.5 text-right text-sm transition-colors hover:bg-muted/60",
+                      deal.nextStep?.action ? "text-foreground" : "text-warning")}>
+                    {deal.nextStep?.action ? `${deal.nextStep.action} · ${fmtDate(deal.nextStep.dueDate)}` : "Set a next step"}
+                  </button>
                 </DetailField>
                 <DetailField label="Last activity">{lastActivity ? fmtWhen(lastActivity) : "None yet"}</DetailField>
-                <DetailField label="Products">{deal.products?.length ? deal.products.join(", ") : "—"}</DetailField>
+                <DetailField label="Products">
+                  <Editable value={deal.products?.join(", ")} placeholder="Add products"
+                    onSave={(v) => save({ products: v.split(",").map((p) => p.trim()).filter(Boolean) })} />
+                </DetailField>
               </div>
             </Panel>
 
@@ -723,6 +852,14 @@ export function OpportunityDetail({ id }: { id: string }) {
           </Panel>
         </div>
       </div>
+
+      <NextStepDialog
+        open={nextStepOpen}
+        current={deal.nextStep ?? null}
+        owner={deal.owner}
+        onClose={() => setNextStepOpen(false)}
+        onSave={(step) => { save({ nextStep: step }); setNextStepOpen(false); flash(step ? "Next step set." : "Next step cleared."); }}
+      />
 
       <ToolModal tool={tool} onClose={() => setTool(null)} full={toolFull} setFull={setToolFull}>
         {tool === "call" && <DialpadPanel seed={tel} context={ctx} onPlaced={() => { flash("Call logged."); void loadTimeline(); }} />}
@@ -883,5 +1020,73 @@ function NotePanel({
         </div>
       </div>
     </div>
+  );
+}
+
+
+// ── Next step ────────────────────────────────────────────────────────────────
+function NextStepDialog({
+  open, current, owner, onClose, onSave,
+}: {
+  open: boolean;
+  current: NextStep | null;
+  owner: string;
+  onClose: () => void;
+  onSave: (step: NextStep | null) => void;
+}) {
+  const [action, setAction] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [type, setType] = useState<NextStepType>("call");
+  const [priority, setPriority] = useState<"low" | "normal" | "high">("normal");
+
+  // Refill from the record each time it opens, so a cancelled edit leaves nothing behind.
+  useEffect(() => {
+    if (!open) return;
+    setAction(current?.action ?? "");
+    setDueDate(current?.dueDate ?? new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10));
+    setType(current?.type ?? "call");
+    setPriority(current?.priority ?? "normal");
+  }, [open, current]);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Next step</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <FormField label="What happens next">
+            <Input value={action} onChange={(e) => setAction(e.target.value)} placeholder="Send the media plan" autoFocus />
+          </FormField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Due"><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></FormField>
+            <FormField label="Type">
+              <Select value={type} onValueChange={(v) => setType(v as NextStepType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{NEXT_STEP_TYPES.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </FormField>
+          </div>
+          <FormField label="Priority">
+            <Select value={priority} onValueChange={(v) => setPriority(v as "low" | "normal" | "high")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <p className="text-xs text-muted-foreground">
+            An opportunity with no future next step is flagged in the header and on the board.
+          </p>
+        </div>
+        <DialogFooter>
+          {current && <Button variant="outline" onClick={() => onSave(null)}>Clear</Button>}
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => onSave({ action: action.trim(), dueDate, assignee: owner, type, priority })} disabled={!action.trim() || !dueDate}>
+            Save next step
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
