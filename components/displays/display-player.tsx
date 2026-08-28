@@ -159,7 +159,12 @@ export function DisplayPlayer({ token }: { token: string }) {
             : <link rel="prefetch" href={next.url} />)}
         </>
       ) : (
-        <IdleScreen name={manifest?.device.name} hasLoop={Boolean(manifest?.loop)} />
+        <IdleScreen
+          name={manifest?.device.name}
+          deviceCode={manifest?.device.deviceCode}
+          idle={manifest?.idle}
+          hasLoop={Boolean(manifest?.loop)}
+        />
       )}
 
       {/* Deliberately tiny and low contrast: an operator can see the screen is
@@ -171,13 +176,43 @@ export function DisplayPlayer({ token }: { token: string }) {
   );
 }
 
-function IdleScreen({ name, hasLoop }: { name?: string; hasLoop: boolean }) {
+const IDLE_MESSAGE: Record<string, string> = {
+  unscheduled: "No loop scheduled for this screen yet.",
+  off_air: "Off air — outside this screen's scheduled hours.",
+  empty_loop: "The scheduled loop has nothing to play.",
+};
+
+/**
+ * The dark state. Whoever is standing in front of a black screen needs to know
+ * which screen it is and why it's dark — the device code is what they'd search
+ * for in the dashboard, and without it a wrongly-assigned loop looks identical
+ * to a broken player.
+ */
+function IdleScreen({
+  name, deviceCode, idle, hasLoop,
+}: {
+  name?: string;
+  deviceCode?: string | null;
+  idle?: { reason: string; nextWindow?: string | null } | null;
+  hasLoop: boolean;
+}) {
+  const message = idle
+    ? IDLE_MESSAGE[idle.reason] ?? "Nothing to play right now."
+    : hasLoop
+      ? "Nothing scheduled for right now."
+      : "No loop scheduled for this screen yet.";
+
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-black text-center">
       <p className="text-sm font-medium tracking-wide text-white/60">{name ?? "Channel Cast"}</p>
-      <p className="text-xs text-white/30">
-        {hasLoop ? "Nothing scheduled for right now." : "No loop assigned to this screen yet."}
-      </p>
+      <p className="text-xs text-white/30">{message}</p>
+      {idle?.reason === "off_air" && idle.nextWindow && (
+        <p className="text-xs text-white/20">Next window starts at {idle.nextWindow}.</p>
+      )}
+      {deviceCode && (
+        <p className="mt-4 font-mono text-[11px] tracking-widest text-white/20">{deviceCode}</p>
+      )}
+      <p className="mt-1 text-[10px] text-white/15">Checking for a loop every 15 seconds.</p>
     </div>
   );
 }

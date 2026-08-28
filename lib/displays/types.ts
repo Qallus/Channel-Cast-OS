@@ -65,8 +65,14 @@ export type DisplayDeployment = {
 
 /** What the player fetches: everything needed to run offline until the version moves. */
 export type PlayerManifest = {
-  device: { id: string; name: string; orientation: "landscape" | "portrait" };
+  device: { id: string; name: string; deviceCode?: string | null; orientation: "landscape" | "portrait" };
   loop: { id: string; name: string; version: number } | null;
+  /**
+   * Why the screen is dark, when it is. "unscheduled" means no schedule exists
+   * at all; "off_air" means one does but its daypart doesn't cover now — very
+   * different problems, and the screen is the only place anyone sees them.
+   */
+  idle?: { reason: "unscheduled" | "off_air" | "empty_loop"; nextWindow?: string | null } | null;
   items: {
     id: string;
     kind: DisplayMediaKind;

@@ -17,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
 
   const sb = supabaseAdmin();
   const { data: device } = await sb
-    .from("devices").select("id, name, status").eq("device_token", token).single();
+    .from("devices").select("id, name, status, device_code").eq("device_token", token).single();
   if (!device) return Response.json({ error: "Unknown device." }, { status: 404 });
 
   const { data: deployments } = await sb
@@ -41,17 +41,32 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
     return start <= end ? clock >= start && clock <= end : clock >= start || clock <= end;
   });
 
-  const empty: PlayerManifest = {
-    device: { id: device.id, name: device.name, orientation: "landscape" },
+  // A dark screen re-checks four times as often. There is nothing to interrupt,
+  // and it means assigning a loop lights the screen up while you're still
+  // standing in front of it rather than up to a minute later.
+  const idleManifest = (
+    reason: "unscheduled" | "off_air" | "empty_loop",
+    nextWindow?: string | null,
+  ): PlayerManifest => ({
+    device: { id: device.id, name: device.name, deviceCode: device.device_code, orientation: "landscape" },
     loop: null,
+    idle: { reason, nextWindow: nextWindow ?? null },
     items: [],
-    pollSeconds: 60,
-  };
-  if (!active?.loop_id) return Response.json(empty);
+    pollSeconds: 15,
+  });
+
+  // "No schedule at all" and "scheduled, but not now" look identical on a black
+  // screen unless they're told apart here.
+  const scheduled = (deployments ?? []).filter((d) => d.loop_id);
+  if (!active?.loop_id) {
+    if (!scheduled.length) return Response.json(idleManifest("unscheduled"));
+    const starts = scheduled.map((d) => String(d.start_time).slice(0, 5)).sort();
+    return Response.json(idleManifest("off_air", starts.find((t) => t > clock) ?? starts[0]));
+  }
 
   const { data: loop } = await sb
     .from("display_loops").select("id, name, version, orientation").eq("id", active.loop_id).single();
-  if (!loop) return Response.json(empty);
+  if (!loop) return Response.json(idleManifest("unscheduled"));
 
   const { data: items } = await sb
     .from("display_loop_items")
@@ -82,8 +97,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
       embed: i.media!.source === "link" && i.media!.provider !== "direct" ? i.media!.embed_url : null,
     }));
 
+  if (!playable.length) return Response.json(idleManifest("empty_loop"));
+
   return Response.json({
-    device: { id: device.id, name: device.name, orientation: loop.orientation === "portrait" ? "portrait" : "landscape" },
+    device: { id: device.id, name: device.name, deviceCode: device.device_code, orientation: loop.orientation === "portrait" ? "portrait" : "landscape" },
     loop: { id: loop.id, name: loop.name, version: loop.version },
     items: playable,
     pollSeconds: 60,

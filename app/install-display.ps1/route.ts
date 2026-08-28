@@ -92,6 +92,36 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$Dir\\clear-restore.ps1"
 start "" "$Browser" --user-data-dir="$ProfileDir" --kiosk "$PlayerUrl" --edge-kiosk-type=fullscreen --start-fullscreen --no-first-run --noerrdialogs --disable-infobars --disable-session-crashed-bubble --hide-crash-restore-bubble --disable-features=TranslateUI --check-for-update-interval=31536000 --autoplay-policy=no-user-gesture-required --disable-pinch --overscroll-history-navigation=0
 "@ | Set-Content -Encoding ASCII (Join-Path $Dir "run-display.cmd")
 
+# A way out. A kiosk browser with no title bar is genuinely hard to quit if you
+# don't know the keystroke, so ship a stop button rather than a folk remedy.
+# Matches on the profile path so it only kills this screen's browser, never the
+# operator's own browsing session.
+@'
+$dir = $PSScriptRoot
+Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe' OR Name = 'chrome.exe'" |
+  Where-Object { $_.CommandLine -and $_.CommandLine -like "*channelcast*display*profile*" } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Write-Host "Channel Cast display stopped."
+Write-Host "It reopens at the next sign-in. To stop that too, run: schtasks /Change /TN ChannelCastDisplay /DISABLE"
+'@ | Set-Content -Encoding ASCII (Join-Path $Dir "stop-display.ps1")
+
+@"
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "$Dir\\stop-display.ps1"
+pause
+"@ | Set-Content -Encoding ASCII (Join-Path $Dir "stop-display.cmd")
+
+# Put it somewhere findable, not just in ProgramData.
+try {
+  $sm = Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs"
+  $ws = New-Object -ComObject WScript.Shell
+  $lnk = $ws.CreateShortcut((Join-Path $sm "Stop Channel Cast Display.lnk"))
+  $lnk.TargetPath = Join-Path $Dir "stop-display.cmd"
+  $lnk.WorkingDirectory = $Dir
+  $lnk.Description = "Close the Channel Cast display player on this PC"
+  $lnk.Save()
+} catch { Write-Host "[channelcast-display] (could not create the Start Menu shortcut)" }
+
 # Runs in the interactive session at logon — a kiosk browser has no desktop from
 # session 0. For an unattended screen, enable Windows auto-login on this PC.
 $action    = New-ScheduledTaskAction -Execute (Join-Path $Dir "run-display.cmd")
@@ -112,10 +142,20 @@ try {
 Start-ScheduledTask -TaskName "ChannelCastDisplay"
 
 Write-Host ""
-Write-Host "[channelcast-display] Installed and started."
-Write-Host "[channelcast-display] The screen should appear in your dashboard within ~30 seconds."
-Write-Host "[channelcast-display] It reopens at every sign-in. For an unattended screen, enable Windows auto-login."
-Write-Host "[channelcast-display] Press Ctrl+Alt+Delete or Alt+F4 to leave kiosk mode."
+Write-Host "================================================================"
+Write-Host " Channel Cast display installed and started."
+Write-Host ""
+Write-Host " TO CLOSE THE SCREEN:  press Alt+F4"
+Write-Host "   or Start Menu -> 'Stop Channel Cast Display'"
+Write-Host "   or run: $Dir\\stop-display.cmd"
+Write-Host ""
+Write-Host " It reopens at every sign-in. To stop that as well:"
+Write-Host "   schtasks /Change /TN ChannelCastDisplay /DISABLE"
+Write-Host ""
+Write-Host " The screen appears in your dashboard within ~30 seconds, and"
+Write-Host " picks up a newly assigned loop within ~15 seconds."
+Write-Host " For an unattended screen, enable Windows auto-login."
+Write-Host "================================================================"
 `;
 
   return new Response(script, {
