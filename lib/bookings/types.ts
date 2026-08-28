@@ -58,6 +58,8 @@ export type Booking = {
   clientId?: string | null;
   projectId?: string | null;
   planId?: string | null;
+  /** Set when booked from a Pipeline opportunity. */
+  opportunityId?: string | null;
   workspaceId?: string | null;
   assignedStaff?: string | null;
   reminded?: boolean;   // 24h reminder SMS sent

@@ -62,7 +62,13 @@ export async function POST(req: Request) {
     clientVisible: true,
     showOnTimeline: false,
     reminded: false,
-    source: "website",
+    // Records the booking came in with when it was raised from a CRM record, so
+    // it lands on that opportunity's timeline rather than floating unattached.
+    contactId: body.contactId ? s(body.contactId, 64) : null,
+    opportunityId: body.opportunityId ? s(body.opportunityId, 64) : null,
+    projectId: body.projectId ? s(body.projectId, 64) : null,
+    assignedStaff: body.assignedStaff ? s(body.assignedStaff, 120) : null,
+    source: body.source === "dashboard" ? "dashboard" : "website",
     createdAt: new Date().toISOString(),
   };
   if (!rec.date || !rec.time || !rec.email) {
@@ -71,6 +77,29 @@ export async function POST(req: Request) {
 
   try { await upsertRecords("bookings", [rec as unknown as { id: string }]); }
   catch { /* best-effort — the visitor is still confirmed */ }
+
+  // Mirror onto the unified activity timeline when it belongs to a record.
+  if (rec.contactId || rec.opportunityId) {
+    try {
+      const { recordCommunicationSafe } = await import("@/lib/server/communications");
+      await recordCommunicationSafe({
+        kind: "meeting",
+        direction: "outbound",
+        externalId: rec.id,
+        association: "linked",
+        subject: rec.typeName,
+        body: [rec.notes, `${rec.minutes} minutes · ${rec.location}`].filter(Boolean).join("\n\n"),
+        status: rec.status,
+        durationSeconds: rec.minutes * 60,
+        to: rec.email || rec.phone || null,
+        occurredAt: new Date(`${rec.date}T${rec.time || "00:00"}:00`),
+        contactId: rec.contactId,
+        opportunityId: rec.opportunityId,
+        owner: rec.assignedStaff,
+        actor: rec.assignedStaff,
+      });
+    } catch { /* capture is best-effort */ }
+  }
 
   const detailRows: [string, string | undefined][] = [
     ["Appointment", rec.typeName],

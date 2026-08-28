@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
 import { LinkedRecords, OpportunityRecords, RECORD_ACTIONS, type RecordAction } from "@/components/crm/opportunity-records";
+import { AppointmentsCard, ScheduleDialog } from "@/components/crm/opportunity-schedule";
 import { WorkspaceEditorSurface } from "@/components/workspace/plate-editor";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
@@ -316,12 +317,13 @@ function ActivityDetail({ a, onClose }: { a: Activity | null; onClose: () => voi
   );
 }
 
-type ToolId = "call" | "email" | "sms" | "note" | "voice" | "agent";
+type ToolId = "call" | "email" | "sms" | "schedule" | "note" | "voice" | "agent";
 
 const TOOL_META: Record<ToolId, { label: string; title: string; icon: typeof Phone; wide?: boolean }> = {
   call: { label: "Call", title: "Dialpad", icon: Phone },
   email: { label: "Email", title: "Send an email", icon: Mail, wide: true },
   sms: { label: "Text", title: "Send a text", icon: MessageSquare },
+  schedule: { label: "Schedule", title: "Schedule an appointment", icon: CalendarClock },
   note: { label: "Note", title: "Add a note", icon: StickyNote, wide: true },
   voice: { label: "Voice note", title: "Record a voice note", icon: Mic },
   agent: { label: "AI Agent", title: "Nicole — AI voice agent", icon: Bot, wide: true },
@@ -395,6 +397,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [blocked, setBlocked] = useState<string[] | null>(null);
   const [nextStepOpen, setNextStepOpen] = useState(false);
   const [recordAction, setRecordAction] = useState<RecordAction | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600); };
 
@@ -554,7 +557,7 @@ export function OpportunityDetail({ id }: { id: string }) {
             {(Object.keys(TOOL_META) as ToolId[]).map((t) => {
               const m = TOOL_META[t];
               return (
-                <Button key={t} size="sm" variant="outline" onClick={() => setTool(t)}>
+                <Button key={t} size="sm" variant="outline" onClick={() => (t === "schedule" ? setScheduleOpen(true) : setTool(t))}>
                   <m.icon className="h-3.5 w-3.5" /> {m.label}
                 </Button>
               );
@@ -831,6 +834,10 @@ export function OpportunityDetail({ id }: { id: string }) {
             ) : <p className="text-sm text-muted-foreground">No products or services yet.</p>}
           </Panel>
 
+          <Panel title="Appointments">
+            <AppointmentsCard deal={deal} />
+          </Panel>
+
           <Panel title="Connected records">
             <LinkedRecords deal={deal} />
           </Panel>
@@ -874,6 +881,14 @@ export function OpportunityDetail({ id }: { id: string }) {
           onDone={flash}
         />
       )}
+
+      <ScheduleDialog
+        deal={deal}
+        contact={contact}
+        open={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        onBooked={(m) => { flash(m); void loadTimeline(); }}
+      />
 
       <NextStepDialog
         open={nextStepOpen}
