@@ -60,6 +60,6 @@ export const config = {
   // Run on pages only — skip static assets, images, the device installers,
   // and API routes (those authenticate with their own tokens, not the session).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/|agent.py|install.ps1|install.sh|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/|agent.py|install.ps1|install.sh|install-display.sh|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)",
   ],
 };

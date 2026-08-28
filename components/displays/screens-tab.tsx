@@ -96,7 +96,10 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
 
   if (screens.length === 0) {
     return (
-      <EmptyState message="No display devices registered yet. Add a device with type Digital Display, then assign it a loop here." />
+      <div className="space-y-4">
+        <EmptyState message="No screens registered yet. Provision one below, then assign it a loop." />
+        <SetupCard />
+      </div>
     );
   }
 
@@ -106,6 +109,8 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
         Point each screen at its player URL, then schedule which loop it runs. Several schedules can stack —
         the highest priority whose window covers the moment wins.
       </p>
+
+      <SetupCard />
 
       {screens.map((screen) => (
         <div key={screen.id} className="rounded-xl border border-border bg-card">
@@ -208,6 +213,37 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/** How a Pi becomes a screen. Shown here because this is where you look. */
+function SetupCard() {
+  const [copied, setCopied] = useState(false);
+  const origin = typeof window === "undefined" ? "https://os.channelcast.io" : window.location.origin;
+  const command = `curl -fsSL ${origin}/install-display.sh | sudo bash -s -- --claim YOUR-CLAIM-CODE`;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">Set up a new screen</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Register a Digital Display device to get a claim code, then run this on the Pi or mini-PC.
+            It installs Chromium in kiosk mode and starts on boot.
+          </p>
+        </div>
+        <Button size="sm" variant="outline"
+          onClick={() => { navigator.clipboard?.writeText(command); setCopied(true); setTimeout(() => setCopied(false), 1600); }}>
+          {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy command</>}
+        </Button>
+      </div>
+      <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">{command}</pre>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Add <code className="rounded bg-muted px-1">--rotate left</code> for a portrait screen, or
+        <code className="ml-1 rounded bg-muted px-1">--user pi</code> if the desktop user isn&apos;t detected.
+      </p>
     </div>
   );
 }
