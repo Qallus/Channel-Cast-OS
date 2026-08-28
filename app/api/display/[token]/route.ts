@@ -62,7 +62,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
   type Row = {
     id: string; duration_sec: number; transition: string;
     starts_on: string | null; ends_on: string | null; enabled: boolean;
-    media: { id: string; name: string; kind: string; url: string | null; duration_sec: number | null } | null;
+    media: {
+      id: string; name: string; kind: string; url: string | null; duration_sec: number | null;
+      source?: string | null; provider?: string | null; embed_url?: string | null;
+    } | null;
   };
 
   const playable = ((items ?? []) as unknown as Row[])
@@ -75,6 +78,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
       // Video runs its own length unless the loop overrides it.
       durationSec: Number(i.duration_sec) || Number(i.media!.duration_sec) || DEFAULT_IMAGE_SECONDS,
       transition: (i.transition === "none" ? "none" : "fade") as "fade" | "none",
+      // YouTube and Vimeo have to render in an iframe; everything else is native.
+      embed: i.media!.source === "link" && i.media!.provider !== "direct" ? i.media!.embed_url : null,
     }));
 
   return Response.json({

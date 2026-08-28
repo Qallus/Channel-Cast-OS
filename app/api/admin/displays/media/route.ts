@@ -1,6 +1,6 @@
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { supabaseAdmin } from "@/lib/server/supabase";
-import { ACCEPTED_MIME, MAX_UPLOAD_BYTES, kindForMime } from "@/lib/displays/types";
+import { ACCEPTED_MIME, MAX_UPLOAD_BYTES, kindForMime, parseVideoLink } from "@/lib/displays/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,6 +32,31 @@ export async function GET() {
 export async function POST(request: Request) {
   try { await requireUser(); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+
+  // A JSON body means a hosted link rather than a file upload.
+  if (request.headers.get("content-type")?.includes("application/json")) {
+    const body = await request.json().catch(() => null);
+    const parsed = parseVideoLink(String(body?.url || ""));
+    if (!parsed) {
+      return Response.json(
+        { error: "Paste a YouTube or Vimeo link, or a direct .mp4/.webm URL." },
+        { status: 400 },
+      );
+    }
+    const { data, error } = await supabaseAdmin().from("display_media").insert({
+      name: String(body?.name || "").trim() || `${parsed.provider} video`,
+      kind: "video",
+      source: "link",
+      provider: parsed.provider,
+      // `url` is what a direct file plays from; `embed_url` is the iframe source.
+      url: parsed.provider === "direct" ? parsed.url : parsed.embedUrl,
+      embed_url: parsed.embedUrl,
+      storage_path: null,
+      duration_sec: Number(body?.duration) || null,
+    }).select("*").single();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ media: data });
+  }
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
@@ -83,6 +108,7 @@ export async function DELETE(request: Request) {
 
   const sb = supabaseAdmin();
   const { data: row } = await sb.from("display_media").select("storage_path").eq("id", id).single();
+  // Linked creative has no object to remove.
   if (row?.storage_path) await sb.storage.from(BUCKET).remove([row.storage_path]).catch(() => {});
   const { error } = await sb.from("display_media").delete().eq("id", id);
   if (error) return Response.json({ error: error.message }, { status: 500 });

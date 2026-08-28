@@ -97,8 +97,9 @@ export function DisplayPlayer({ token }: { token: string }) {
       durationSec: current.durationSec,
       playedAt: new Date().toISOString(),
     });
-    // Video drives its own timing via onEnded; stills use the loop's dwell.
-    if (current.kind === "video") return;
+    // Native video drives its own timing via onEnded. Stills — and embedded
+    // providers, whose end event never reaches us — use the loop's dwell.
+    if (current.kind === "video" && !current.embed) return;
     const id = window.setTimeout(advance, Math.max(1, current.durationSec) * 1000);
     return () => window.clearTimeout(id);
   }, [current, advance, manifest?.loop?.id]);
@@ -118,7 +119,18 @@ export function DisplayPlayer({ token }: { token: string }) {
     <div className="fixed inset-0 overflow-hidden bg-black">
       {current ? (
         <>
-          {current.kind === "video" ? (
+          {current.embed ? (
+            // Provider iframes handle their own playback, so the loop timer
+            // advances them rather than an onEnded event we never receive.
+            <iframe
+              key={`${current.id}-${index}`}
+              src={current.embed}
+              title={current.name}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              referrerPolicy="strict-origin-when-cross-origin"
+              className={`h-full w-full border-0 transition-opacity duration-[400ms] ${visible ? "opacity-100" : "opacity-0"}`}
+            />
+          ) : current.kind === "video" ? (
             <video
               ref={videoRef}
               key={`${current.id}-${index}`}

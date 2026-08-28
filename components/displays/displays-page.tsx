@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Clapperboard, Copy, ImageIcon, Loader2, Monitor, Plus, Trash2, Upload,
+  Clapperboard, Copy, ImageIcon, Link as LinkIcon, Loader2, Monitor, Plus, Trash2, Upload,
 } from "lucide-react";
 
 import { EmptyState, FormField, PageHeader } from "@/components/crm/crm-ui";
@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import {
   type DisplayLoop, type DisplayLoopItem, type DisplayMedia,
-  DEFAULT_IMAGE_SECONDS, formatSeconds, loopSeconds,
+  DEFAULT_IMAGE_SECONDS, PROVIDER_LABEL, formatSeconds, loopSeconds, parseVideoLink,
 } from "@/lib/displays/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScreensTab } from "@/components/displays/screens-tab";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +76,26 @@ function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onCh
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkName, setLinkName] = useState("");
+  const [linkSeconds, setLinkSeconds] = useState("30");
+
+  // Parsed live, so the provider is confirmed before anything is saved.
+  const parsedLink = parseVideoLink(linkUrl);
+
+  async function addLink() {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/admin/displays/media", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: linkUrl, name: linkName, duration: Number(linkSeconds) || 30 }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d?.error || "That link could not be added."); return; }
+      setLinkOpen(false); setLinkUrl(""); setLinkName(""); flash("Video link added."); onChanged();
+    } finally { setBusy(false); }
+  }
 
   /**
    * Dimensions and video duration are read in the browser and sent with the
@@ -127,19 +148,50 @@ function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onCh
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Images and video shown on screens. JPG, PNG, WEBP, GIF, MP4 or WEBM, up to 200MB.</p>
+        <p className="text-sm text-muted-foreground">Images and video shown on screens. Upload a file (up to 200MB) or link a YouTube, Vimeo or direct video URL.</p>
         <div className="flex items-center gap-2">
           {error && <span className="text-sm text-destructive">{error}</span>}
           <input ref={fileRef} type="file" accept="image/*,video/mp4,video/webm" multiple className="hidden"
             onChange={(e) => { if (e.target.files?.length) void upload(e.target.files); e.target.value = ""; }} />
+          <Button variant="outline" onClick={() => { setLinkOpen(true); setError(null); }}><LinkIcon className="h-4 w-4" /> Add video link</Button>
           <Button onClick={() => fileRef.current?.click()} disabled={busy}>
             {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : <><Upload className="h-4 w-4" /> Upload creative</>}
           </Button>
         </div>
       </div>
 
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add a video link</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <FormField label="Video URL">
+              <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://youtube.com/watch?v=… or https://…/spot.mp4" autoFocus />
+            </FormField>
+            {linkUrl.trim() && (
+              <p className={cn("text-xs", parsedLink ? "text-brand-strong" : "text-destructive")}>
+                {parsedLink
+                  ? `Recognised as ${PROVIDER_LABEL[parsedLink.provider]}.`
+                  : "Not a supported link — use YouTube, Vimeo, or a direct .mp4/.webm URL."}
+              </p>
+            )}
+            <FormField label="Name"><Input value={linkName} onChange={(e) => setLinkName(e.target.value)} placeholder="Spring promo" /></FormField>
+            <FormField label="How long to show it (seconds)">
+              <Input type="number" min={1} value={linkSeconds} onChange={(e) => setLinkSeconds(e.target.value)} />
+            </FormField>
+            <p className="text-xs text-muted-foreground">
+              YouTube and Vimeo play in an embed, so the loop advances on this timer rather than when the video ends. A direct file plays natively.
+            </p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkOpen(false)}>Cancel</Button>
+            <Button onClick={addLink} disabled={busy || !parsedLink}>Add video</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {media.length === 0 ? (
-        <EmptyState message="No creative yet. Upload an image or video to get started." />
+        <EmptyState message="No creative yet. Upload a file or add a video link to get started." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {media.map((m) => (
@@ -148,6 +200,11 @@ function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onCh
                 {m.kind === "image" && m.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={m.url} alt="" className="h-full w-full object-cover" />
+                ) : m.source === "link" && m.provider !== "direct" ? (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
+                    <LinkIcon className="h-5 w-5" />
+                    <span className="text-[10px] uppercase tracking-wide">{PROVIDER_LABEL[(m.provider ?? "direct") as keyof typeof PROVIDER_LABEL]}</span>
+                  </div>
                 ) : m.url ? (
                   <video src={m.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                 ) : (
@@ -158,6 +215,7 @@ function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onCh
                 <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <Badge className="border-transparent bg-muted text-[10px] capitalize">{m.kind}</Badge>
+                  {m.source === "link" && <Badge className="border-transparent bg-brand/15 text-[10px] text-brand-strong">{PROVIDER_LABEL[(m.provider ?? "direct") as keyof typeof PROVIDER_LABEL] ?? "Link"}</Badge>}
                   {m.width && m.height ? <span>{m.width}×{m.height}</span> : null}
                   {m.duration_sec ? <span>· {formatSeconds(Number(m.duration_sec))}</span> : null}
                 </p>
