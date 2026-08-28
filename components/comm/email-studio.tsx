@@ -22,6 +22,9 @@ import {
   BLOCK_LABELS, BLOCK_ORDER, type BlockType, type EmailBlock, type EmailSchema,
   MERGE_FIELDS, createBlock, createDefaultSchema, schemaToHtml, schemaToText,
 } from "@/lib/email/blocks";
+import {
+  EMAIL_TRIGGERS, type EmailAutomation, RECIPIENT_OPTIONS, TRIGGER_BY_KEY, TRIGGER_GROUPS,
+} from "@/lib/email/automations";
 import { cn } from "@/lib/utils";
 
 export type EmailTemplate = {
@@ -43,7 +46,7 @@ const BLOCK_ICON: Record<BlockType, typeof Type> = {
   button: Check, image: ImageIcon, divider: Minus, spacer: MoveVertical, footer: LayoutTemplate,
 };
 
-type Tab = "send" | "templates" | "editor";
+type Tab = "send" | "templates" | "editor" | "automations" | "history";
 
 export function EmailStudio() {
   const [tab, setTab] = useState<Tab>("send");
@@ -67,7 +70,7 @@ export function EmailStudio() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1 border-b border-border">
-        {([["send", "Send Email"], ["templates", "Templates"], ["editor", "Template Editor"]] as [Tab, string][]).map(([id, label]) => (
+        {([["send", "Send Email"], ["templates", "Templates"], ["editor", "Template Editor"], ["automations", "Automations"], ["history", "History"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
             className={cn("-mb-px rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               tab === id ? "border-brand-strong text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
@@ -79,6 +82,8 @@ export function EmailStudio() {
       {tab === "send" && <SendEmail templates={templates} />}
       {tab === "templates" && <TemplateLibrary templates={templates} loading={loading} onEdit={openEditor} onChanged={load} />}
       {tab === "editor" && <TemplateEditor template={editing} onSaved={() => { void load(); setTab("templates"); }} />}
+      {tab === "automations" && <Automations templates={templates} />}
+      {tab === "history" && <History />}
     </div>
   );
 }
@@ -526,3 +531,255 @@ function TemplateEditor({ template, onSaved }: { template: EmailTemplate | null;
 }
 
 export const EMAIL_STUDIO_ICON = Mail;
+
+
+// ── Automations ──────────────────────────────────────────────────────────────
+type Run = { id: string; automation_id: string; trigger_key: string; to_addr: string | null; status: string; detail: string | null; created_at: string };
+
+const blankRule = (): Partial<EmailAutomation> => ({
+  name: "", trigger_key: "stage_changed", template_id: null, enabled: false,
+  conditions: {}, delay_minutes: 0, recipient: "contact", custom_email: null,
+});
+
+function Automations({ templates }: { templates: EmailTemplate[] }) {
+  const [rules, setRules] = useState<EmailAutomation[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [draft, setDraft] = useState<Partial<EmailAutomation> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/email/automations");
+      const d = await res.json();
+      setRules(d.automations ?? []);
+      setRuns(d.runs ?? []);
+    } catch { /* list stays empty */ }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  async function save() {
+    if (!draft) return;
+    setError(null);
+    const res = await fetch("/api/email/automations", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d?.error || "Save failed."); return; }
+    setDraft(null); void load();
+  }
+
+  async function toggle(rule: EmailAutomation) {
+    await fetch("/api/email/automations", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...rule, enabled: !rule.enabled }),
+    });
+    void load();
+  }
+
+  async function remove(rule: EmailAutomation) {
+    if (!confirm(`Delete "${rule.name}"?`)) return;
+    await fetch(`/api/email/automations?id=${encodeURIComponent(rule.id)}`, { method: "DELETE" });
+    void load();
+  }
+
+  const trigger = draft?.trigger_key ? TRIGGER_BY_KEY[draft.trigger_key] : null;
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">A pipeline event fires a template. Rules are off until you enable them.</p>
+          <Button onClick={() => setDraft(blankRule())}><Plus className="h-4 w-4" /> New rule</Button>
+        </div>
+
+        {draft && (
+          <div className="space-y-3 rounded-xl border border-brand-strong/40 bg-card p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField label="Rule name">
+                <Input value={draft.name ?? ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Welcome new client" />
+              </FormField>
+              <FormField label="Trigger">
+                <Select value={draft.trigger_key} onValueChange={(v) => setDraft({ ...draft, trigger_key: v, conditions: {} })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TRIGGER_GROUPS.map((g) => (
+                      <div key={g}>
+                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{g}</div>
+                        {EMAIL_TRIGGERS.filter((t) => t.group === g).map((t) => (
+                          <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+            </div>
+            {trigger && <p className="text-xs text-muted-foreground">{trigger.hint}</p>}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField label="Template">
+                <Select value={draft.template_id ?? "none"} onValueChange={(v) => setDraft({ ...draft, template_id: v === "none" ? null : v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a template…</SelectItem>
+                    {templates.filter((t) => t.status === "active").map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <FormField label="Send to">
+                <Select value={draft.recipient ?? "contact"} onValueChange={(v) => setDraft({ ...draft, recipient: v as EmailAutomation["recipient"] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{RECIPIENT_OPTIONS.map((o) => <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </FormField>
+            </div>
+
+            {draft.recipient === "custom" && (
+              <FormField label="Fixed address">
+                <Input value={draft.custom_email ?? ""} onChange={(e) => setDraft({ ...draft, custom_email: e.target.value })} placeholder="alerts@channelcast.io" />
+              </FormField>
+            )}
+
+            {trigger?.conditions?.map((c) => (
+              <FormField key={c.key} label={c.label}>
+                <Input
+                  value={(draft.conditions ?? {})[c.key] ?? ""}
+                  onChange={(e) => setDraft({ ...draft, conditions: { ...(draft.conditions ?? {}), [c.key]: e.target.value } })}
+                  placeholder="Leave blank for any"
+                />
+              </FormField>
+            ))}
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <Button onClick={save} disabled={!draft.name?.trim()}>Save rule</Button>
+              <Button variant="outline" onClick={() => setDraft(null)}>Cancel</Button>
+              {error && <span className="text-sm text-destructive">{error}</span>}
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading rules…</div>
+        ) : rules.length === 0 ? (
+          <EmptyState message="No automations yet. Create a rule to send a template when a pipeline event fires." />
+        ) : (
+          <div className="space-y-2">
+            {rules.map((r) => {
+              const t = TRIGGER_BY_KEY[r.trigger_key];
+              const tpl = templates.find((x) => x.id === r.template_id);
+              return (
+                <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
+                  <button type="button" onClick={() => toggle(r)} role="switch" aria-checked={r.enabled}
+                    className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", r.enabled ? "bg-brand-strong" : "bg-muted")}>
+                    <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform", r.enabled ? "translate-x-4" : "translate-x-0.5")} />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {t?.label ?? r.trigger_key} → {tpl?.name ?? <span className="text-warning">no template</span>}
+                      {Object.entries(r.conditions ?? {}).filter(([, v]) => v).map(([k, v]) => ` · ${k}=${v}`)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">{r.runs} runs</span>
+                  <Button size="sm" variant="outline" onClick={() => setDraft(r)}>Edit</Button>
+                  <Button size="sm" variant="outline" onClick={() => remove(r)} aria-label="Delete rule"><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-4 py-2.5">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent firings</h3>
+        </div>
+        <div className="max-h-[560px] overflow-y-auto p-3">
+          {runs.length === 0 ? <p className="p-4 text-center text-xs text-muted-foreground">Nothing has fired yet.</p> : (
+            <ol className="space-y-2">
+              {runs.map((r) => (
+                <li key={r.id} className="text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full",
+                      r.status === "sent" ? "bg-success" : r.status === "failed" ? "bg-destructive" : "bg-muted-foreground/50")} />
+                    <span className="font-medium text-foreground">{TRIGGER_BY_KEY[r.trigger_key]?.label ?? r.trigger_key}</span>
+                    <span className="text-muted-foreground">{r.status}</span>
+                  </span>
+                  <span className="ml-3 block text-muted-foreground">{r.to_addr ?? "—"} · {new Date(r.created_at).toLocaleString()}</span>
+                  {r.detail && <span className="ml-3 block text-muted-foreground/80">{r.detail}</span>}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── History ──────────────────────────────────────────────────────────────────
+type LogRow = {
+  id: string; to_addr: string; subject: string | null; status: string; error: string | null;
+  created_at: string; opportunity_id: string | null; owner: string | null;
+  email_templates?: { name: string } | null;
+};
+
+function History() {
+  const [logs, setLogs] = useState<LogRow[]>([]);
+  const [status, setStatus] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/email/history?status=${status}`)
+      .then((r) => r.json())
+      .then((d) => setLogs(d.logs ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [status]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All sends</SelectItem>
+            <SelectItem value="sent">Sent</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">{logs.length} messages</span>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading history…</div>
+      ) : logs.length === 0 ? (
+        <EmptyState message="No emails sent yet." />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr><th className="p-3">To</th><th className="p-3">Subject</th><th className="p-3">Template</th><th className="p-3">Status</th><th className="p-3">Sent</th></tr>
+            </thead>
+            <tbody>
+              {logs.map((l) => (
+                <tr key={l.id} className="border-b border-border last:border-0">
+                  <td className="p-3 text-foreground">{l.to_addr}</td>
+                  <td className="max-w-[280px] truncate p-3 text-muted-foreground">{l.subject ?? "—"}</td>
+                  <td className="p-3 text-muted-foreground">{l.email_templates?.name ?? "—"}</td>
+                  <td className="p-3">
+                    <Badge className={cn("border-transparent text-[10px] uppercase", l.status === "sent" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>{l.status}</Badge>
+                    {l.error && <span className="ml-2 text-xs text-destructive">{l.error}</span>}
+                  </td>
+                  <td className="whitespace-nowrap p-3 text-muted-foreground">{new Date(l.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

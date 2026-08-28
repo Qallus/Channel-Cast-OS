@@ -342,6 +342,19 @@ export function OpportunityDetail({ id }: { id: string }) {
       ...(isClosed(next) ? { closedAt: now } : { closedAt: null }),
     });
     flash(`Moved to ${DEAL_STAGE[next].label}.`);
+
+    // Let the email automations react. Fire-and-forget: a rule failing must
+    // never block the stage change the user just made.
+    const triggers = ["stage_changed"];
+    if (next === "proposal") triggers.push("proposal_sent");
+    if (next === "closed_won") triggers.push("closed_won");
+    if (next === "closed_lost") triggers.push("closed_lost");
+    for (const trigger of triggers) {
+      void fetch("/api/email/trigger", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trigger, opportunityId: deal!.id, contactId: deal!.contactId, leadId: lead?.id ?? null, attributes: { stage: next } }),
+      }).catch(() => {});
+    }
   }
 
   function toggleCheck(itemId: string) {
