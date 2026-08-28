@@ -387,8 +387,10 @@ function SpotsStep({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Google Drive videos are copied into Channel Cast so they autoplay properly. Share the file as
-        <b className="font-medium text-foreground"> Anyone with the link</b> first.
+        Google Drive: open the <b className="font-medium text-foreground">video itself</b> (not the folder
+        it&apos;s in), click <b className="font-medium text-foreground">Share → Copy link</b>, and set access to
+        <b className="font-medium text-foreground"> Anyone with the link</b>. We copy the file into Channel
+        Cast so it autoplays properly.
       </p>
 
       {spots.length === 0 ? (

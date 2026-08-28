@@ -1,6 +1,6 @@
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { supabaseAdmin } from "@/lib/server/supabase";
-import { ACCEPTED_MIME, MAX_UPLOAD_BYTES, driveDownloadUrls, driveFileId, kindForMime, parseVideoLink } from "@/lib/displays/types";
+import { ACCEPTED_MIME, MAX_UPLOAD_BYTES, driveDownloadUrls, driveFileId, driveLink, kindForMime, parseVideoLink } from "@/lib/displays/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -100,6 +100,26 @@ export async function POST(request: Request) {
   if (request.headers.get("content-type")?.includes("application/json")) {
     const body = await request.json().catch(() => null);
     const raw = String(body?.url || "");
+
+    // A Drive link that isn't a file is worth naming precisely — "paste a valid
+    // link" is useless when the link looked perfectly valid to the person who
+    // copied it out of their address bar.
+    const drive = driveLink(raw);
+    if (drive?.kind === "folder") {
+      return Response.json({
+        error:
+          "That's a link to a Drive folder, not a video. Open the video inside the folder, " +
+          "click Share → Copy link, and paste that instead.",
+      }, { status: 400 });
+    }
+    if (drive?.kind === "other") {
+      return Response.json({
+        error:
+          "That Google link doesn't point at a file. Open the video in Drive, " +
+          "click Share → Copy link, and paste that.",
+      }, { status: 400 });
+    }
+
     const parsed = parseVideoLink(raw);
     if (!parsed) {
       return Response.json(

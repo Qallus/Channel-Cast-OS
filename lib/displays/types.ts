@@ -126,16 +126,47 @@ export function itemIsLive(item: Pick<DisplayLoopItem, "starts_on" | "ends_on" |
 
 export type MediaProvider = "youtube" | "vimeo" | "drive" | "direct";
 
-/** Pull the file id out of any of Google Drive's share-link shapes. */
-export function driveFileId(input: string): string | null {
+/** Is this a Google host at all? */
+function isDriveHost(parsed: URL): boolean {
+  return /(^|\.)drive\.google\.com$/.test(parsed.hostname)
+    || /(^|\.)docs\.google\.com$/.test(parsed.hostname)
+    || /(^|\.)drive\.usercontent\.google\.com$/.test(parsed.hostname);
+}
+
+/**
+ * What a pasted Drive link actually points at.
+ *
+ * Folder links are the common mistake — copying the address bar while looking
+ * at a folder gives you /drive/u/1/folders/…, which contains no file to play.
+ * Telling those apart is the difference between a useful message and "nope".
+ */
+export type DriveLink =
+  | { kind: "file"; id: string }
+  | { kind: "folder"; id: string }
+  | { kind: "other" }
+  | null;
+
+export function driveLink(input: string): DriveLink {
   let parsed: URL;
   try { parsed = new URL(input.trim()); } catch { return null; }
-  if (!/(^|\.)drive\.google\.com$/.test(parsed.hostname) && !/(^|\.)docs\.google\.com$/.test(parsed.hostname)) return null;
+  if (!isDriveHost(parsed)) return null;
 
-  // /file/d/<id>/view  ·  /open?id=<id>  ·  /uc?id=<id>  ·  /d/<id>/
+  // /drive/folders/<id>  ·  /drive/u/1/folders/<id>
+  const folder = parsed.pathname.match(/\/folders\/([A-Za-z0-9_-]{10,})/);
+  if (folder) return { kind: "folder", id: folder[1] };
+
+  // /file/d/<id>/view  ·  /drive/u/1/file/d/<id>  ·  /d/<id>/  ·  ?id=<id>
   const path = parsed.pathname.match(/\/(?:file\/)?d\/([A-Za-z0-9_-]{10,})/);
   const id = path?.[1] || parsed.searchParams.get("id");
-  return id && /^[A-Za-z0-9_-]{10,}$/.test(id) ? id : null;
+  if (id && /^[A-Za-z0-9_-]{10,}$/.test(id)) return { kind: "file", id };
+
+  return { kind: "other" };
+}
+
+/** Pull the file id out of any of Google Drive's share-link shapes. */
+export function driveFileId(input: string): string | null {
+  const link = driveLink(input);
+  return link?.kind === "file" ? link.id : null;
 }
 
 export type ParsedVideoLink = { provider: MediaProvider; embedUrl: string; url: string } | null;
