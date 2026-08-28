@@ -214,7 +214,7 @@ function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onCh
               <div className="p-3">
                 <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <Badge className="border-transparent bg-muted text-[10px] capitalize">{m.kind}</Badge>
+                  <Badge className="border-transparent bg-muted text-[10px] capitalize text-muted-foreground">{m.kind}</Badge>
                   {m.source === "link" && <Badge className="border-transparent bg-brand/15 text-[10px] text-brand-strong">{PROVIDER_LABEL[(m.provider ?? "direct") as keyof typeof PROVIDER_LABEL] ?? "Link"}</Badge>}
                   {m.width && m.height ? <span>{m.width}×{m.height}</span> : null}
                   {m.duration_sec ? <span>· {formatSeconds(Number(m.duration_sec))}</span> : null}
@@ -394,7 +394,7 @@ function LoopBuilder({ loops, media, onChanged, flash }: {
                   <p className="truncate text-sm font-semibold text-foreground">{l.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{l.description || "No description"}</p>
                 </div>
-                <Badge className="border-transparent bg-muted text-[10px] capitalize">{l.orientation}</Badge>
+                <Badge className="border-transparent bg-muted text-[10px] capitalize text-muted-foreground">{l.orientation}</Badge>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 {(l.items ?? []).length} item{(l.items ?? []).length === 1 ? "" : "s"} · {formatSeconds(loopSeconds(l.items ?? []))} · v{l.version}

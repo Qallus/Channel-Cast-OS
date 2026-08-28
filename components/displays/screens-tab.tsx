@@ -159,8 +159,8 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
                       </span>
                       <span className="text-xs text-muted-foreground">{describeDays(s.days ?? [])}</span>
                       <span className="text-xs tabular-nums text-muted-foreground">{hhmm(s.start_time)}–{hhmm(s.end_time)}</span>
-                      {s.priority > 0 && <Badge className="border-transparent bg-muted text-[10px]">priority {s.priority}</Badge>}
-                      {!s.enabled && <Badge className="border-transparent bg-muted text-[10px]">paused</Badge>}
+                      {s.priority > 0 && <Badge className="border-transparent bg-muted text-[10px] text-muted-foreground">priority {s.priority}</Badge>}
+                      {!s.enabled && <Badge className="border-transparent bg-muted text-[10px] text-muted-foreground">paused</Badge>}
                       <Button size="sm" variant="outline" onClick={() => { setDraft({ ...s }); setError(null); }}>Edit</Button>
                       <Button size="sm" variant="outline" onClick={() => remove(s)} aria-label="Remove schedule"><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>

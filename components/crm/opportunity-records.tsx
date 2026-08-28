@@ -245,7 +245,9 @@ export function LinkedRecords({ deal }: { deal: Deal }) {
       {rows.map((r) => (
         <li key={`${r.kind}-${r.id}`}>
           <Link href={r.href} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm transition-colors hover:border-brand/40">
-            <Badge className={cn("border-transparent bg-muted text-[10px]")}>{r.kind}</Badge>
+            {/* Brand fill with brand ink — both tokens hold their contrast in
+                either theme, unlike the Badge default's text-primary-foreground. */}
+            <Badge className={cn("shrink-0 border-transparent bg-brand text-[10px] text-brand-foreground")}>{r.kind}</Badge>
             <span className="min-w-0 flex-1 truncate text-foreground">{r.label}</span>
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </Link>

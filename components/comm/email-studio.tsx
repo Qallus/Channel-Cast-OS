@@ -311,7 +311,7 @@ function TemplateLibrary({ templates, loading, onEdit, onChanged }: {
                 <Badge className={cn("border-transparent text-[10px] uppercase", STATUS_TONE[t.status])}>{t.status}</Badge>
               </div>
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <Badge className="border-transparent bg-muted text-[10px]">{t.category}</Badge>
+                <Badge className="border-transparent bg-muted text-[10px] text-muted-foreground">{t.category}</Badge>
                 <span>{t.sends} sends</span>
               </div>
               <div className="mt-3 flex gap-2">

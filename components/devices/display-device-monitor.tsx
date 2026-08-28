@@ -197,7 +197,7 @@ export function DisplayDeviceMonitor({ device, now }: { device: Device; now: num
                     <span className="text-xs text-muted-foreground">{describeDays(s.days)}</span>
                     <span className="text-xs tabular-nums text-muted-foreground">{s.startTime}–{s.endTime}</span>
                     {data.active?.id === s.id && <Badge className="border-transparent bg-brand/15 text-[10px] text-brand-strong">Live now</Badge>}
-                    {!s.enabled && <Badge className="border-transparent bg-muted text-[10px]">paused</Badge>}
+                    {!s.enabled && <Badge className="border-transparent bg-muted text-[10px] text-muted-foreground">paused</Badge>}
                   </li>
                 ))}
               </ul>
