@@ -3,15 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Archive, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List,
-  ListChecks, Mail, Maximize2, Minimize2, MessageSquare, Pencil, Phone, Plus, Send, Shuffle, SquareKanban,
-  StickyNote, Table as TableIcon, Trash2, Upload, X,
-} from "lucide-react";
+import { Archive, Briefcase, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List, ListChecks, Mail, Maximize2, MessageSquare, Minimize2, Pencil, Phone, Plus, Send, Shuffle, SquareKanban, StickyNote, Table as TableIcon, Trash2, Upload, X } from "lucide-react";
 
 import {
   EmptyState, FormField, PageHeader, RecordCalendar, RowActions, SearchBox, StatRow, StatTile, ViewSwitcher, initialsOf,
 } from "@/components/crm/crm-ui";
+import { Lead, seedLeads } from "@/lib/crm/leads";
+import { buildOpportunity, openOpportunityFor, roleForPipeline } from "@/lib/crm/to-pipeline";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +86,7 @@ export function ContactsPage() {
   const { items, create, update, remove } = useCollection<Contact>("contacts", seedContacts);
   const activitiesCol = useCollection<Activity>("activities", seedActivities);
   const dealsCol = useCollection<Deal>("deals", seedDeals);
+  const leadsCol = useCollection<Lead>("leads", seedLeads);
   const [view, setView] = useState<View>("list");
   const [tab, setTab] = useState<ContactType | "all">("all");
   const [search, setSearch] = useState("");
@@ -165,7 +164,54 @@ export function ContactsPage() {
   const clearSel = () => setSelected(new Set());
   function bulkApply(fn: (c: Contact) => void, msg: string) { contacts.filter((c) => selected.has(c.id)).forEach(fn); clearSel(); flash(msg); }
 
+  /**
+   * Put a contact into the pipeline. Returns what happened so the caller can
+   * report it — a contact already being worked is left alone rather than given
+   * a second opportunity.
+   */
+  function addToPipeline(contact: Contact): "created" | "exists" {
+    const existing = openOpportunityFor(contact.id, dealsCol.items);
+    if (existing) return "exists";
+
+    const lead = leadsCol.items.find((l) => l.contactId === contact.id) ?? null;
+    const deal = buildOpportunity(contact, { id: genId("dl"), owner: contact.owner || "Jeremy Waters", lead });
+    dealsCol.create(deal);
+
+    // Role and pipeline stage are separate concepts, but a contact being worked
+    // is a prospect at minimum — never downgrade an existing client.
+    const role = roleForPipeline(contact);
+    if (role !== contact.type) update(contact.id, { ...contact, type: role as Contact["type"] });
+
+    // Mark the originating lead so Leads shows it as handed over, not still open.
+    if (lead) leadsCol.update(lead.id, { status: "in_pipeline", opportunityId: deal.id });
+    return "created";
+  }
+
+  function addOneToPipeline(contact: Contact) {
+    const result = addToPipeline(contact);
+    if (result === "exists") {
+      const deal = openOpportunityFor(contact.id, dealsCol.items)!;
+      flash(`${contactName(contact)} is already in the pipeline.`);
+      router.push(`/app/admin/pipeline/${deal.id}`);
+      return;
+    }
+    flash(`${contactName(contact)} added to the pipeline.`);
+  }
+
+  function bulkAddToPipeline() {
+    const chosen = contacts.filter((c) => selected.has(c.id));
+    let created = 0, existed = 0;
+    for (const c of chosen) (addToPipeline(c) === "created" ? created++ : existed++);
+    clearSel();
+    flash(
+      existed
+        ? `${created} added to the pipeline · ${existed} already there.`
+        : `${created} added to the pipeline.`,
+    );
+  }
+
   const rowActions = (c: Contact) => [
+    { label: "Add to Pipeline", icon: Briefcase, onClick: () => addOneToPipeline(c) },
     { label: "Work Lead", icon: Shuffle, onClick: () => router.push(`/app/admin/contacts/${c.id}`) },
     { label: "Quick view", icon: ExternalLink, onClick: () => setViewId(c.id) },
     { label: "Edit", icon: Pencil, onClick: () => openEdit(c) },
@@ -241,6 +287,7 @@ export function ContactsPage() {
             <SelectContent>{CONTACT_TYPE_ORDER.map((t) => <SelectItem key={t} value={t}>{CONTACT_TYPE[t].label}</SelectItem>)}</SelectContent>
           </Select>
           <Button size="sm" variant="outline" onClick={() => bulkApply((c) => update(c.id, { ...c, type: bulkType }), `Converted ${selected.size} to ${CONTACT_TYPE[bulkType].label}.`)}>Apply</Button>
+          <Button size="sm" onClick={bulkAddToPipeline}><Briefcase className="h-3.5 w-3.5" /> Add to Pipeline</Button>
           <Button size="sm" variant="outline" onClick={() => bulkApply((c) => update(c.id, { ...c, status: "archived" }), "Archived.")}><Archive className="h-3.5 w-3.5" /> Archive</Button>
           <Button size="sm" variant="outline" className="text-destructive" onClick={() => bulkApply((c) => remove(c.id), "Deleted.")}><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
           <Button size="sm" variant="ghost" onClick={clearSel} className="ml-auto"><X className="h-3.5 w-3.5" /> Clear</Button>
@@ -267,6 +314,7 @@ export function ContactsPage() {
           {drawer && (
             <ContactProfile
               contact={drawer} expanded={expanded} onToggleExpand={() => setExpanded((v) => !v)} onClose={() => { setViewId(null); setExpanded(false); }}
+              onAddToPipeline={addOneToPipeline}
               onEdit={() => openEdit(drawer)} onDelete={() => setDeleteItem(drawer)}
               onConvert={(t) => setType(drawer, t)} onStatus={(s) => setStatus(drawer, s)}
               activities={activitiesCol.items.filter((a) => a.contactId === drawer.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))}
@@ -309,11 +357,12 @@ export function ContactsPage() {
 // ── The rich contact profile modal ──────────────────────────────────────────────
 
 function ContactProfile({
-  contact, expanded, onToggleExpand, onClose, onEdit, onDelete, onConvert, onStatus, activities, onLog, deals,
+  contact, expanded, onToggleExpand, onClose, onEdit, onDelete, onConvert, onStatus, activities, onLog, deals, onAddToPipeline,
 }: {
   contact: Contact; expanded: boolean; onToggleExpand: () => void; onClose: () => void;
   onEdit: () => void; onDelete: () => void; onConvert: (t: ContactType) => void; onStatus: (s: ContactStatus) => void;
   activities: Activity[]; onLog: (kind: ActivityKind, body: string) => void; deals: Deal[];
+  onAddToPipeline: (c: Contact) => void;
 }) {
   const next = CONTACT_TYPE_NEXT[contact.type];
   const [smsOpen, setSmsOpen] = useState(false);
@@ -338,7 +387,8 @@ function ContactProfile({
       <div className={cn("min-h-0 flex-1 overflow-y-auto p-5", expanded && "mx-auto w-full max-w-3xl")}>
         {/* Quick actions */}
         <div className="flex flex-wrap gap-1.5">
-          <Button asChild size="sm"><Link href={`/app/admin/contacts/${contact.id}`}><Shuffle className="h-3.5 w-3.5" /> Work Lead</Link></Button>
+          <Button size="sm" onClick={() => onAddToPipeline(contact)}><Briefcase className="h-3.5 w-3.5" /> Add to Pipeline</Button>
+          <Button asChild size="sm" variant="outline"><Link href={`/app/admin/contacts/${contact.id}`}><Shuffle className="h-3.5 w-3.5" /> Work Lead</Link></Button>
           {contact.phone && <ActionBtn href={`tel:${contact.phone}`} icon={Phone} label="Call" onLog={() => onLog("call", `Call to ${contact.phone}`)} />}
           {(contact.sms || contact.phone) && <Button size="sm" variant="outline" onClick={() => setSmsOpen(true)}><MessageSquare className="h-3.5 w-3.5" /> Text</Button>}
           {contact.email && <ActionBtn href={`mailto:${contact.email}`} icon={Mail} label="Email" onLog={() => onLog("email", `Email to ${contact.email}`)} />}
