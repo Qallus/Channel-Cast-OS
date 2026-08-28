@@ -791,12 +791,19 @@ export function WorkspaceReadOnlyPreview({ value }: { value: any }) {
 }
 
 export function WorkspaceEditorSurface({
-  initialValue, onChange, titleSlot, statusSlot, left, right, mentionUsers = [], autoFocus = false,
+  initialValue, onChange, titleSlot, statusSlot, left, right, mentionUsers = [], autoFocus = false, embedded = false,
 }: {
   initialValue: any;
   onChange: (value: any) => void;
   /** Place the caret in the document on mount — used when the editor opens in a modal. */
   autoFocus?: boolean;
+  /**
+   * Render for a container rather than the Workspace page. The sticky offsets
+   * below assume the app's 4rem header; inside a modal there is none, so the
+   * toolbar would float 4rem down and cover the top of the canvas — which also
+   * makes that strip unclickable.
+   */
+  embedded?: boolean;
   titleSlot?: React.ReactNode;
   statusSlot?: React.ReactNode;
   left?: React.ReactNode;
@@ -808,6 +815,9 @@ export function WorkspaceEditorSurface({
   const actionToken = "";
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  // Sticky offsets: clear of the app header on the page, flush to the top in a container.
+  const stickyTop = embedded ? "top-0" : "top-16";
+  const asideMaxH = embedded ? "max-h-full" : "max-h-[calc(100vh-6rem)]";
   const [sizeOpen, setSizeOpen] = useState(false);
 
   const toggle = (key: string) => { try { (editor.tf as any)?.[key]?.toggle?.(); } catch { /* no-op */ } };
@@ -922,8 +932,8 @@ export function WorkspaceEditorSurface({
 
   return (
     <Plate editor={editor} onChange={({ value }: any) => { onChange(value); setTick((t) => t + 1); }}>
-      <div className="sticky top-16 z-20 flex flex-wrap items-center gap-0.5 rounded-md border bg-card p-1 shadow-sm">
-        <TBtn icon={leftOpen ? PanelLeftClose : PanelLeftOpen} title={leftOpen ? "Hide files" : "Show files"} onClick={() => setLeftOpen((o) => !o)} />
+      <div className={cn("sticky z-20 flex flex-wrap items-center gap-0.5 rounded-md border bg-card p-1 shadow-sm", stickyTop)}>
+        {left ? <TBtn icon={leftOpen ? PanelLeftClose : PanelLeftOpen} title={leftOpen ? "Hide files" : "Show files"} onClick={() => setLeftOpen((o) => !o)} /> : null}
         <Sep />
         {/* Quip-style menus — alternative access points for actions also on the toolbar. */}
         <DropdownMenu>
@@ -938,8 +948,8 @@ export function WorkspaceEditorSurface({
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center gap-0.5 rounded px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none data-[state=open]:bg-accent data-[state=open]:text-foreground">View<ChevronDown className="h-3 w-3 opacity-60" /></DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuCheckboxItem checked={leftOpen} onCheckedChange={(v) => setLeftOpen(!!v)}>Show files</DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem checked={rightOpen} onCheckedChange={(v) => setRightOpen(!!v)}>Show comments</DropdownMenuCheckboxItem>
+            {left ? <DropdownMenuCheckboxItem checked={leftOpen} onCheckedChange={(v) => setLeftOpen(!!v)}>Show files</DropdownMenuCheckboxItem> : null}
+            {right ? <DropdownMenuCheckboxItem checked={rightOpen} onCheckedChange={(v) => setRightOpen(!!v)}>Show comments</DropdownMenuCheckboxItem> : null}
             <DropdownMenuCheckboxItem checked={outlineOpen} onCheckedChange={(v) => setOutlineOpen(!!v)}>Show outline</DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={focusMode}><Maximize2 /> Focus mode</DropdownMenuItem>
@@ -1105,18 +1115,18 @@ export function WorkspaceEditorSurface({
         <TBtn icon={Sparkles} title="Ask AI" onClick={() => setAiOpen(true)} />
         <div className="ml-auto flex items-center gap-1">
           {statusSlot}
-          <TBtn icon={rightOpen ? PanelRightClose : PanelRightOpen} title={rightOpen ? "Hide panel" : "Show panel"} onClick={() => setRightOpen((o) => !o)} />
+          {right ? <TBtn icon={rightOpen ? PanelRightClose : PanelRightOpen} title={rightOpen ? "Hide panel" : "Show panel"} onClick={() => setRightOpen((o) => !o)} /> : null}
         </div>
       </div>
 
       <div className="mt-3 flex gap-3">
-        {left && leftOpen ? <aside className="sticky top-16 hidden max-h-[calc(100vh-6rem)] w-56 shrink-0 self-start overflow-y-auto lg:block">{left}</aside> : null}
-        {outlineOpen ? <aside className="sticky top-16 hidden max-h-[calc(100vh-6rem)] w-52 shrink-0 self-start overflow-y-auto md:block"><OutlineNav editor={editor} /></aside> : null}
+        {left && leftOpen ? <aside className={cn("sticky hidden w-56 shrink-0 self-start overflow-y-auto lg:block", stickyTop, asideMaxH)}>{left}</aside> : null}
+        {outlineOpen ? <aside className={cn("sticky hidden w-52 shrink-0 self-start overflow-y-auto md:block", stickyTop, asideMaxH)}><OutlineNav editor={editor} /></aside> : null}
         <div className="min-w-0 flex-1">
           {titleSlot}
           <PlateContent
             autoFocus={autoFocus}
-            className={cn("min-h-[62vh] rounded-md border bg-background px-4 py-3 text-[15px] leading-7 focus:outline-none [&_p]:my-1.5")}
+            className={cn("rounded-md border bg-background px-4 py-3 text-[15px] leading-7 focus:outline-none [&_p]:my-1.5", embedded ? "min-h-[240px]" : "min-h-[62vh]")}
             placeholder="Start writing… type / for blocks, or use Markdown (# heading, > quote, ** bold, ` code)"
             onKeyDown={(ev: any) => {
               const sel = typeof window !== "undefined" ? window.getSelection() : null;
@@ -1148,7 +1158,7 @@ export function WorkspaceEditorSurface({
             }}
           />
         </div>
-        {right && rightOpen ? <aside className="sticky top-16 hidden max-h-[calc(100vh-6rem)] w-72 shrink-0 self-start overflow-y-auto xl:block">{right}</aside> : null}
+        {right && rightOpen ? <aside className={cn("sticky hidden w-72 shrink-0 self-start overflow-y-auto xl:block", stickyTop, asideMaxH)}>{right}</aside> : null}
       </div>
       <CommandMenu open={menu.open} pos={{ top: menu.top, left: menu.left }} commands={menu.cmds} onClose={closeMenu} />
       {docLinkPos ? <DocLinkMenu pos={docLinkPos} onClose={() => setDocLinkPos(null)} onPick={(d) => { insertDocLink(d); setDocLinkPos(null); }} onTab={() => { insertText("#"); setDocLinkPos(null); }} /> : null}

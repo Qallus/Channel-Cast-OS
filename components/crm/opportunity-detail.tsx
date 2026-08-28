@@ -795,12 +795,10 @@ function NotePanel({
         onMouseDown={focusEditor}
         className={cn(
           "cursor-text overflow-y-auto rounded-lg border border-border",
-          full
-            ? "min-h-0 flex-1 [&_[data-slate-editor]]:!min-h-[60vh]"
-            : "h-[340px] [&_[data-slate-editor]]:!min-h-[220px]",
+          full ? "min-h-0 flex-1" : "h-[340px]",
         )}
       >
-        <WorkspaceEditorSurface initialValue={EMPTY_DOC} onChange={(v) => setValue(v as unknown[])} autoFocus />
+        <WorkspaceEditorSurface initialValue={EMPTY_DOC} onChange={(v) => setValue(v as unknown[])} autoFocus embedded />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <a href="/app/admin/workspace" target="_blank" rel="noopener noreferrer"
