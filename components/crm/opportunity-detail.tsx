@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
+import { LinkedRecords, OpportunityRecords, RECORD_ACTIONS, type RecordAction } from "@/components/crm/opportunity-records";
 import { WorkspaceEditorSurface } from "@/components/workspace/plate-editor";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
@@ -393,6 +394,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [blocked, setBlocked] = useState<string[] | null>(null);
   const [nextStepOpen, setNextStepOpen] = useState(false);
+  const [recordAction, setRecordAction] = useState<RecordAction | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600); };
 
@@ -557,6 +559,12 @@ export function OpportunityDetail({ id }: { id: string }) {
                 </Button>
               );
             })}
+            <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
+            {RECORD_ACTIONS.map((a) => (
+              <Button key={a.key} size="sm" variant="outline" onClick={() => setRecordAction(a.key)}>
+                <a.icon className="h-3.5 w-3.5" /> {a.label}
+              </Button>
+            ))}
             <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
             {needsNextStep(deal) && <Badge className="border-transparent bg-warning/15 text-warning"><CircleAlert className="mr-1 h-3 w-3" />No next step</Badge>}
             {!closed && <Button size="sm" variant="outline" onClick={() => setClosing("won")}><Trophy className="h-3.5 w-3.5" /> Closed Won</Button>}
@@ -823,6 +831,10 @@ export function OpportunityDetail({ id }: { id: string }) {
             ) : <p className="text-sm text-muted-foreground">No products or services yet.</p>}
           </Panel>
 
+          <Panel title="Connected records">
+            <LinkedRecords deal={deal} />
+          </Panel>
+
           <Panel title="Stage history">
             {deal.stageHistory?.length ? (
               <ol className="space-y-2">
@@ -852,6 +864,16 @@ export function OpportunityDetail({ id }: { id: string }) {
           </Panel>
         </div>
       </div>
+
+      {recordAction && (
+        <OpportunityRecords
+          deal={deal}
+          contact={contact}
+          action={recordAction}
+          onClose={() => setRecordAction(null)}
+          onDone={flash}
+        />
+      )}
 
       <NextStepDialog
         open={nextStepOpen}

@@ -11,6 +11,9 @@ export type Project = {
   dueDate: string; // ISO date
   notes: string;
   createdAt: string;
+  /** Set when connected from a Pipeline opportunity. */
+  opportunityId?: string | null;
+  contactId?: string | null;
 };
 
 export const PROJECT_STATUS: Record<ProjectStatus, { label: string; tone: string }> = {

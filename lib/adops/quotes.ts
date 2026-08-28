@@ -14,6 +14,8 @@ export type QuoteRequest = {
   notes: string;
   dueDate: string; // ISO date — SLA target
   createdAt: string;
+  opportunityId?: string | null;
+  contactId?: string | null;
 };
 
 export const QUOTE_STATUS: Record<QuoteStatus, { label: string; tone: string }> = {

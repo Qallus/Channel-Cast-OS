@@ -1,5 +1,5 @@
 export type DocStatus = "draft" | "sent" | "signed" | "archived";
-export type DocType = "Contract" | "Proposal" | "Agreement" | "Invoice" | "Asset" | "Report";
+export type DocType = "Contract" | "SOW" | "Proposal" | "Agreement" | "Invoice" | "Asset" | "Report";
 
 export type Document = {
   id: string;
@@ -11,6 +11,9 @@ export type Document = {
   sizeKb: number;
   notes: string;
   createdAt: string;
+  /** The opportunity this was raised from, so Pipeline can show what it spawned. */
+  opportunityId?: string | null;
+  contactId?: string | null;
 };
 
 export const DOC_STATUS: Record<DocStatus, { label: string; tone: string }> = {
@@ -20,7 +23,7 @@ export const DOC_STATUS: Record<DocStatus, { label: string; tone: string }> = {
   archived: { label: "Archived", tone: "bg-secondary text-secondary-foreground" },
 };
 export const DOC_STATUS_ORDER: DocStatus[] = ["draft", "sent", "signed", "archived"];
-export const DOC_TYPES: DocType[] = ["Contract", "Proposal", "Agreement", "Invoice", "Asset", "Report"];
+export const DOC_TYPES: DocType[] = ["Contract", "SOW", "Proposal", "Agreement", "Invoice", "Asset", "Report"];
 
 export const seedDocuments: Document[] = [
   { id: "doc_oasis_msa", name: "Oasis Tower — Master Service Agreement", type: "Agreement", relatedTo: "Oasis Tower Resorts", status: "signed", owner: "Alex Rivera", sizeKb: 342, notes: "Two-tower expansion addendum attached.", createdAt: "2026-02-12T00:00:00.000Z" },
