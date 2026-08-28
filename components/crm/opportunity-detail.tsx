@@ -55,11 +55,33 @@ const CHANNEL: Record<string, { label: string; icon: typeof Phone; tone: string 
   task: { label: "Task", icon: Check, tone: "bg-secondary text-secondary-foreground" },
 };
 
-const FILTERS = [
-  { key: "all", label: "All" }, { key: "call", label: "Calls" }, { key: "sms", label: "SMS" },
-  { key: "email", label: "Email" }, { key: "ai_voice", label: "AI Voice" }, { key: "meeting", label: "Meetings" },
-  { key: "note", label: "Notes" },
+/**
+ * Timeline tabs. `kinds` is null for All; every other tab owns the channel kinds
+ * it displays, so a voicemail files under Voice notes rather than its own tab.
+ */
+const TIMELINE_TABS: { key: string; label: string; kinds: string[] | null }[] = [
+  { key: "all", label: "All", kinds: null },
+  { key: "call", label: "Call", kinds: ["call"] },
+  { key: "email", label: "Email", kinds: ["email"] },
+  { key: "sms", label: "Text", kinds: ["sms"] },
+  { key: "note", label: "Notes", kinds: ["note"] },
+  { key: "voice", label: "Voice notes", kinds: ["voice", "voicemail"] },
+  { key: "ai_voice", label: "AI Agent", kinds: ["ai_voice"] },
+  { key: "meeting", label: "Appointments", kinds: ["meeting"] },
 ];
+
+const SEEN_KEY = (opportunityId: string) => `cc:timeline-seen:${opportunityId}`;
+
+type SeenMap = Record<string, string>;
+
+function readSeen(opportunityId: string): SeenMap {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(SEEN_KEY(opportunityId)) || "{}") as SeenMap;
+  } catch {
+    return {};
+  }
+}
 
 // ── Panels ───────────────────────────────────────────────────────────────────
 function Panel({ title, action, children, className }: { title: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
@@ -279,6 +301,10 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState("all");
+  // Which tabs have been looked at, so a count can read as "new" or just "how many".
+  // Read after mount — localStorage isn't available during server render.
+  const [seen, setSeen] = useState<SeenMap>({});
+  useEffect(() => { if (deal?.id) setSeen(readSeen(deal.id)); }, [deal?.id]);
   const [openActivity, setOpenActivity] = useState<Activity | null>(null);
   const [tool, setTool] = useState<ToolId | null>(null);
   const [toolFull, setToolFull] = useState(false);
@@ -306,10 +332,37 @@ export function OpportunityDetail({ id }: { id: string }) {
   }, [dealId, dealContactId, dealLeadId]);
   useEffect(() => { void loadTimeline(); }, [loadTimeline]);
 
+  const tabKinds = TIMELINE_TABS.find((t) => t.key === filter)?.kinds ?? null;
   const shown = useMemo(
-    () => (filter === "all" ? activities : activities.filter((a) => a.kind === filter)),
-    [activities, filter],
+    () => (tabKinds ? activities.filter((a) => tabKinds.includes(a.kind)) : activities),
+    [activities, tabKinds],
   );
+
+  /** Total and unseen counts per tab. Unseen drives the highlighted badge. */
+  const tabCounts = useMemo(() => {
+    const out: Record<string, { total: number; unseen: number }> = {};
+    for (const tab of TIMELINE_TABS) {
+      const rows = tab.kinds ? activities.filter((a) => tab.kinds!.includes(a.kind)) : activities;
+      const mark = seen[tab.key];
+      out[tab.key] = {
+        total: rows.length,
+        // Never viewed => everything is new; otherwise anything since the visit.
+        unseen: mark ? rows.filter((a) => new Date(a.occurredAt).getTime() > new Date(mark).getTime()).length : rows.length,
+      };
+    }
+    return out;
+  }, [activities, seen]);
+
+  function openTab(key: string) {
+    setFilter(key);
+    if (!dealId) return;
+    // Viewing a tab clears its "new" state, and All clears everything.
+    const now = new Date().toISOString();
+    const next: SeenMap = { ...seen, [key]: now };
+    if (key === "all") for (const t of TIMELINE_TABS) next[t.key] = now;
+    setSeen(next);
+    try { window.localStorage.setItem(SEEN_KEY(dealId), JSON.stringify(next)); } catch { /* private mode */ }
+  }
 
   if (!deal) {
     return (
@@ -585,15 +638,34 @@ export function OpportunityDetail({ id }: { id: string }) {
           <Panel
             title="Activity timeline"
             action={
-              <div className="flex flex-wrap gap-1">
-                {FILTERS.map((f) => {
-                  const n = f.key === "all" ? activities.length : counts[f.key] ?? 0;
-                  if (f.key !== "all" && !n) return null;
+              <div className="-mb-px flex flex-wrap items-center gap-0.5" role="tablist" aria-label="Activity channels">
+                {TIMELINE_TABS.map((t) => {
+                  const c = tabCounts[t.key] ?? { total: 0, unseen: 0 };
+                  const active = filter === t.key;
                   return (
-                    <button key={f.key} type="button" onClick={() => setFilter(f.key)}
-                      className={cn("rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
-                        filter === f.key ? "border-brand-strong bg-brand/10 text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
-                      {f.label}{n ? <span className="ml-1 opacity-60">{n}</span> : null}
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => openTab(t.key)}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-t-md border-b-2 px-2.5 py-1.5 text-xs font-medium transition-colors",
+                        active ? "border-brand-strong text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {t.label}
+                      {c.total > 0 && (
+                        <span
+                          className={cn(
+                            "inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
+                            // Unread reads as a highlighted count; already-seen is just a number.
+                            c.unseen > 0 ? "bg-brand text-brand-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {c.total}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -601,7 +673,7 @@ export function OpportunityDetail({ id }: { id: string }) {
             }
           >
             {shown.length === 0 ? (
-              <EmptyState message="No activity yet. Calls, texts and emails attach here automatically." />
+              <EmptyState message={filter === "all" ? "No activity yet. Calls, texts and emails attach here automatically." : `Nothing under ${TIMELINE_TABS.find((t) => t.key === filter)?.label ?? "this channel"} yet.`} />
             ) : (
               <div className="space-y-2">{shown.map((a) => <ActivityRow key={a.id} a={a} onOpen={() => setOpenActivity(a)} />)}</div>
             )}
@@ -641,7 +713,7 @@ export function OpportunityDetail({ id }: { id: string }) {
 
           <Panel title="Activity summary">
             <dl className="space-y-1.5 text-sm">
-              {[["Calls", counts.call], ["Texts", counts.sms], ["Emails", counts.email], ["AI voice", counts.ai_voice], ["Notes", counts.note]].map(([label, n]) => (
+              {[["Calls", counts.call], ["Texts", counts.sms], ["Emails", counts.email], ["Notes", counts.note], ["Voice notes", (counts.voice ?? 0) + (counts.voicemail ?? 0)], ["AI voice", counts.ai_voice], ["Appointments", counts.meeting]].map(([label, n]) => (
                 <div key={String(label)} className="flex justify-between">
                   <dt className="text-muted-foreground">{label}</dt>
                   <dd className="font-medium text-foreground">{Number(n ?? 0)}</dd>
