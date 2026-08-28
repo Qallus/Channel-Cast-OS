@@ -17,8 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CommTemplate, seedCommTemplates } from "@/lib/ops/communications";
-import { useCollection } from "@/lib/crm/store";
+import type { EmailTemplate } from "@/components/comm/email-studio";
 import { cn } from "@/lib/utils";
 
 export type RecordContext = {
@@ -178,31 +177,37 @@ export function SmsPanel({ to: seedTo, context, onSent }: { to?: string; context
 
 // ── Email ────────────────────────────────────────────────────────────────────
 export function EmailPanel({ to: seedTo, context, onSent }: { to?: string; context: RecordContext; onSent?: () => void }) {
-  const { items: templates } = useCollection<CommTemplate>("comm_templates", seedCommTemplates);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [to, setTo] = useState(seedTo ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [templateId, setTemplateId] = useState<string>("none");
+  const [html, setHtml] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setTo(seedTo ?? ""); }, [seedTo]);
+  // One template library across Communications and Pipeline.
+  useEffect(() => {
+    fetch("/api/email/templates?status=active")
+      .then((r) => r.json())
+      .then((d) => setTemplates(d.templates ?? []))
+      .catch(() => {});
+  }, []);
 
-  const emailTemplates = useMemo(
-    () => templates.filter((t) => t.channel === "email" && t.status !== "archived"),
-    [templates],
-  );
+  const emailTemplates = templates;
 
   function applyTemplate(id: string) {
     setTemplateId(id);
-    if (id === "none") return;
+    if (id === "none") { setHtml(null); return; }
     const t = emailTemplates.find((x) => x.id === id);
     if (!t) return;
     // Tokens are left as-is; there's no merge engine yet, so silently blanking
     // them would ship {{client}} to a client either way — better to see them.
     setSubject(t.subject);
-    setBody(t.body);
+    setBody(t.text_body ?? "");
+    setHtml(t.html_body || null);
   }
 
   async function send() {
@@ -210,12 +215,12 @@ export function EmailPanel({ to: seedTo, context, onSent }: { to?: string; conte
     try {
       const res = await fetch("/api/comm/email", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject, body, ...context, actor: context.owner }),
+        body: JSON.stringify({ to, subject, body, html, ...context, actor: context.owner }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { setError(d?.error || "The email didn't send."); return; }
       setMsg("Sent — it's on the timeline.");
-      setBody(""); setSubject(""); setTemplateId("none");
+      setBody(""); setSubject(""); setTemplateId("none"); setHtml(null);
       onSent?.();
     } finally { setBusy(false); }
   }

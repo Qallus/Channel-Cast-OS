@@ -50,6 +50,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RecordCalendar } from "@/components/crm/crm-ui";
 import { Contact, ContactType, contactName, seedContacts } from "@/lib/crm/contacts";
 import { genId, useCollection } from "@/lib/crm/store";
+import { EmailStudio } from "@/components/comm/email-studio";
 import { cn } from "@/lib/utils";
 
 const SubmissionsMap = dynamic(() => import("@/components/crm/records-map"), { ssr: false });
@@ -173,7 +174,7 @@ export function Communications() {
       {tab === "sms" && <SmsTab smsNumbers={smsNumbers} defaultFrom={defaultFrom} />}
       {tab === "ai_voice" && <AiVoiceTab />}
       {tab === "contacts" && <Placeholder icon={ContactIcon} title="Contacts" note="A shared contact book across calls, SMS, and email. Wire it to your CRM Contacts next." />}
-      {tab === "email" && <Placeholder icon={Mail} title="Email" note="Inbox + compose over Resend/SMTP (already configured in your env). Reference coming from you." />}
+      {tab === "email" && <EmailStudio />}
       {tab === "notifications" && <Placeholder icon={Bell} title="Notifications (DM)" note="Web-push notifications via VAPID (keys generated). Direct-message center lands here." />}
       {tab === "social" && <Placeholder icon={Share2} title="Social Media" note="Unified social inbox. Reference coming from you." />}
       {tab === "forms" && <FormSubmissionsTab />}
