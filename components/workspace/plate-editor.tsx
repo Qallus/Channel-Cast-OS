@@ -791,10 +791,12 @@ export function WorkspaceReadOnlyPreview({ value }: { value: any }) {
 }
 
 export function WorkspaceEditorSurface({
-  initialValue, onChange, titleSlot, statusSlot, left, right, mentionUsers = [],
+  initialValue, onChange, titleSlot, statusSlot, left, right, mentionUsers = [], autoFocus = false,
 }: {
   initialValue: any;
   onChange: (value: any) => void;
+  /** Place the caret in the document on mount — used when the editor opens in a modal. */
+  autoFocus?: boolean;
   titleSlot?: React.ReactNode;
   statusSlot?: React.ReactNode;
   left?: React.ReactNode;
@@ -1113,6 +1115,7 @@ export function WorkspaceEditorSurface({
         <div className="min-w-0 flex-1">
           {titleSlot}
           <PlateContent
+            autoFocus={autoFocus}
             className={cn("min-h-[62vh] rounded-md border bg-background px-4 py-3 text-[15px] leading-7 focus:outline-none [&_p]:my-1.5")}
             placeholder="Start writing… type / for blocks, or use Markdown (# heading, > quote, ** bold, ` code)"
             onKeyDown={(ev: any) => {

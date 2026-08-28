@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Ban, Bot, Briefcase, Building2, CalendarClock, Check, ChevronRight, CircleAlert,
@@ -398,6 +398,17 @@ export function OpportunityDetail({ id }: { id: string }) {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Reaching the client is the most common action on this page, so the
+                channels sit in the header rather than buried in the timeline. */}
+            {(Object.keys(TOOL_META) as ToolId[]).map((t) => {
+              const m = TOOL_META[t];
+              return (
+                <Button key={t} size="sm" variant="outline" onClick={() => setTool(t)}>
+                  <m.icon className="h-3.5 w-3.5" /> {m.label}
+                </Button>
+              );
+            })}
+            <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
             {needsNextStep(deal) && <Badge className="border-transparent bg-warning/15 text-warning"><CircleAlert className="mr-1 h-3 w-3" />No next step</Badge>}
             {!closed && <Button size="sm" variant="outline" onClick={() => setClosing("won")}><Trophy className="h-3.5 w-3.5" /> Closed Won</Button>}
             {!closed && <Button size="sm" variant="outline" onClick={() => setClosing("lost")}><Ban className="h-3.5 w-3.5" /> Closed Lost</Button>}
@@ -589,16 +600,6 @@ export function OpportunityDetail({ id }: { id: string }) {
               </div>
             }
           >
-            <div className="mb-3 flex flex-wrap gap-2">
-              {(Object.keys(TOOL_META) as ToolId[]).map((t) => {
-                const m = TOOL_META[t];
-                return (
-                  <Button key={t} size="sm" variant="outline" onClick={() => setTool(t)}>
-                    <m.icon className="h-3.5 w-3.5" /> {m.label}
-                  </Button>
-                );
-              })}
-            </div>
             {shown.length === 0 ? (
               <EmptyState message="No activity yet. Calls, texts and emails attach here automatically." />
             ) : (
@@ -729,10 +730,34 @@ function NotePanel({
   onSaved: () => void;
 }) {
   const [title, setTitle] = useState("");
+  const editorWrap = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState<unknown[]>(EMPTY_DOC);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const text = plateToText(value);
+
+  /**
+   * An empty Plate document has one zero-length paragraph, so a click on the
+   * surrounding padding maps to no text node and never sets a selection — which
+   * is why typing only worked after inserting a block. Put the caret at the end
+   * of the editable ourselves whenever the click didn't land on real content.
+   */
+  function focusEditor(event: React.MouseEvent) {
+    const editable = editorWrap.current?.querySelector<HTMLElement>('[contenteditable="true"]');
+    if (!editable) return;
+    const target = event.target as HTMLElement | null;
+    if (target && editable.contains(target) && target.closest("[data-slate-node]")) return;
+
+    event.preventDefault();
+    editable.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(editable);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
 
   async function save() {
     setBusy(true); setError(null);
@@ -766,14 +791,16 @@ function NotePanel({
         container scroll instead of clipping.
       */}
       <div
+        ref={editorWrap}
+        onMouseDown={focusEditor}
         className={cn(
-          "overflow-y-auto rounded-lg border border-border",
+          "cursor-text overflow-y-auto rounded-lg border border-border",
           full
             ? "min-h-0 flex-1 [&_[data-slate-editor]]:!min-h-[60vh]"
             : "h-[340px] [&_[data-slate-editor]]:!min-h-[220px]",
         )}
       >
-        <WorkspaceEditorSurface initialValue={EMPTY_DOC} onChange={(v) => setValue(v as unknown[])} />
+        <WorkspaceEditorSurface initialValue={EMPTY_DOC} onChange={(v) => setValue(v as unknown[])} autoFocus />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <a href="/app/admin/workspace" target="_blank" rel="noopener noreferrer"
