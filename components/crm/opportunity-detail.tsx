@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Ban, Briefcase, Building2, CalendarClock, Check, ChevronRight, CircleAlert,
-  Mail, MessageSquare, Phone, Sparkles, StickyNote, Trophy, Voicemail,
+  ArrowLeft, Ban, Bot, Briefcase, Building2, CalendarClock, Check, ChevronRight, CircleAlert,
+  Mail, MessageSquare, Maximize2, Mic, Minimize2, Phone, Sparkles, StickyNote, Trophy, Voicemail,
 } from "lucide-react";
 
 import { Avatar, DetailField, EmptyState, FormField } from "@/components/crm/crm-ui";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
 import {
@@ -211,6 +212,54 @@ function ActivityDetail({ a, onClose }: { a: Activity | null; onClose: () => voi
   );
 }
 
+type ToolId = "call" | "email" | "sms" | "note" | "voice" | "agent";
+
+const TOOL_META: Record<ToolId, { label: string; title: string; icon: typeof Phone; wide?: boolean }> = {
+  call: { label: "Call", title: "Dialpad", icon: Phone },
+  email: { label: "Email", title: "Send an email", icon: Mail, wide: true },
+  sms: { label: "Text", title: "Send a text", icon: MessageSquare },
+  note: { label: "Note", title: "Add a note", icon: StickyNote, wide: true },
+  voice: { label: "Voice note", title: "Record a voice note", icon: Mic },
+  agent: { label: "AI Agent", title: "Nicole — AI voice agent", icon: Bot, wide: true },
+};
+
+/**
+ * Shell for the record tools. Everything opened here already carries the
+ * opportunity, contact and lead ids, so whatever the user does attaches to this
+ * record without a manual log step.
+ */
+function ToolModal({
+  tool, onClose, children,
+}: { tool: ToolId | null; onClose: () => void; children: React.ReactNode }) {
+  const [full, setFull] = useState(false);
+  useEffect(() => { if (!tool) setFull(false); }, [tool]);
+  const meta = tool ? TOOL_META[tool] : null;
+  return (
+    <Dialog open={Boolean(tool)} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        className={cn(
+          "overflow-y-auto",
+          full ? "h-[96vh] w-[96vw] max-w-none" : meta?.wide ? "max-h-[90vh] max-w-2xl" : "max-h-[90vh] max-w-md",
+        )}
+      >
+        <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0">
+          <DialogTitle className="flex items-center gap-2">
+            {meta ? <meta.icon className="h-4 w-4 text-brand-strong" /> : null}
+            {meta?.title}
+          </DialogTitle>
+          {/* Sits clear of DialogContent's own close button. */}
+          <button type="button" onClick={() => setFull((v) => !v)}
+            aria-label={full ? "Exit full screen" : "Expand to full screen"}
+            className="mr-7 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            {full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+        </DialogHeader>
+        <div className={cn(full && "flex-1")}>{children}</div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Workspace ────────────────────────────────────────────────────────────────
 export function OpportunityDetail({ id }: { id: string }) {
   const { items, update } = useCollection<Deal>("deals", seedDeals);
@@ -230,6 +279,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState("all");
   const [openActivity, setOpenActivity] = useState<Activity | null>(null);
+  const [tool, setTool] = useState<ToolId | null>(null);
   const [closing, setClosing] = useState<"won" | "lost" | null>(null);
   const [lostReason, setLostReason] = useState(LOST_REASONS[0]);
   const [outcomeNotes, setOutcomeNotes] = useState("");
@@ -309,7 +359,13 @@ export function OpportunityDetail({ id }: { id: string }) {
     flash(closing === "won" ? "Marked Closed Won." : "Marked Closed Lost.");
   }
 
-  const ctx = { opportunityId: deal.id, contactId: deal.contactId ?? null, leadId: lead?.id ?? null, owner: deal.owner };
+  const ctx = {
+    opportunityId: deal.id,
+    contactId: deal.contactId ?? null,
+    leadId: lead?.id ?? null,
+    owner: deal.owner,
+    personName: contact ? contactName(contact) : deal.client,
+  };
   const tel = contact?.phone?.replace(/[^\d+]/g, "");
 
   return (
@@ -375,10 +431,14 @@ export function OpportunityDetail({ id }: { id: string }) {
                 <div>
                   <DetailField label="Account">{contact.company || deal.client || "—"}</DetailField>
                   <DetailField label="Email">
-                    {contact.email ? <a href={`mailto:${contact.email}`} className="text-brand-strong hover:underline">{contact.email}</a> : "—"}
+                    {contact.email
+                      ? <button type="button" onClick={() => setTool("email")} className="text-left text-brand-strong hover:underline">{contact.email}</button>
+                      : "—"}
                   </DetailField>
                   <DetailField label="Phone">
-                    {contact.phone ? <a href={`tel:${tel}`} className="text-brand-strong hover:underline">{contact.phone}</a> : "—"}
+                    {contact.phone
+                      ? <button type="button" onClick={() => setTool("call")} className="text-left text-brand-strong hover:underline">{contact.phone}</button>
+                      : "—"}
                   </DetailField>
                   <DetailField label="Role">
                     <Badge className="border-transparent bg-secondary text-secondary-foreground">{contact.type}</Badge>
@@ -515,14 +575,14 @@ export function OpportunityDetail({ id }: { id: string }) {
             }
           >
             <div className="mb-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" disabled={!tel} asChild={Boolean(tel)}>
-                {tel ? <a href={`tel:${tel}`}><Phone className="h-3.5 w-3.5" /> Call</a> : <span><Phone className="h-3.5 w-3.5" /> Call</span>}
-              </Button>
-              <Button size="sm" variant="outline" disabled={!contact?.email} asChild={Boolean(contact?.email)}>
-                {contact?.email ? <a href={`mailto:${contact.email}`}><Mail className="h-3.5 w-3.5" /> Email</a> : <span><Mail className="h-3.5 w-3.5" /> Email</span>}
-              </Button>
-              <SmsAction context={ctx} to={contact?.phone ?? ""} onSent={() => { flash("Text sent."); void loadTimeline(); }} />
-              <NoteAction context={ctx} onSaved={() => { flash("Note added."); void loadTimeline(); }} />
+              {(Object.keys(TOOL_META) as ToolId[]).map((t) => {
+                const m = TOOL_META[t];
+                return (
+                  <Button key={t} size="sm" variant="outline" onClick={() => setTool(t)}>
+                    <m.icon className="h-3.5 w-3.5" /> {m.label}
+                  </Button>
+                );
+              })}
             </div>
             {shown.length === 0 ? (
               <EmptyState message="No activity yet. Calls, texts and emails attach here automatically." />
@@ -576,6 +636,15 @@ export function OpportunityDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      <ToolModal tool={tool} onClose={() => setTool(null)}>
+        {tool === "call" && <DialpadPanel seed={tel} context={ctx} onPlaced={() => { flash("Call logged."); void loadTimeline(); }} />}
+        {tool === "sms" && <SmsPanel to={contact?.phone ?? ""} context={ctx} onSent={() => { flash("Text sent."); void loadTimeline(); }} />}
+        {tool === "email" && <EmailPanel to={contact?.email ?? ""} context={ctx} onSent={() => { flash("Email sent."); void loadTimeline(); }} />}
+        {tool === "agent" && <AgentPanel context={ctx} phone={contact?.phone ?? ""} onDialed={() => { flash("Nicole is dialling."); void loadTimeline(); }} />}
+        {tool === "voice" && <VoiceNotePanel context={ctx} onSaved={() => { setTool(null); flash("Voice note saved."); void loadTimeline(); }} />}
+        {tool === "note" && <NotePanel context={ctx} onSaved={() => { setTool(null); flash("Note added."); void loadTimeline(); }} />}
+      </ToolModal>
+
       <ActivityDetail a={openActivity} onClose={() => setOpenActivity(null)} />
 
       <Dialog open={Boolean(blocked)} onOpenChange={(o) => !o && setBlocked(null)}>
@@ -619,81 +688,38 @@ export function OpportunityDetail({ id }: { id: string }) {
   );
 }
 
-// ── Quick actions ────────────────────────────────────────────────────────────
-type Ctx = { opportunityId: string; contactId: string | null; leadId: string | null; owner: string };
-
-function SmsAction({ context, to, onSent }: { context: Ctx; to: string; onSent: () => void }) {
-  const [open, setOpen] = useState(false);
+// ── Note ─────────────────────────────────────────────────────────────────────
+function NotePanel({ context, onSaved }: { context: { opportunityId: string; contactId: string | null; leadId: string | null; owner: string }; onSaved: () => void }) {
   const [body, setBody] = useState("");
-  const [num, setNum] = useState(to);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { if (open) { setNum(to); setError(null); } }, [open, to]);
-
-  async function send() {
-    setBusy(true); setError(null);
-    try {
-      const res = await fetch("/api/comm/sms", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: num, body, ...context, actor: context.owner }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(d?.error || "The text didn't send."); return; }
-      setOpen(false); setBody(""); onSent();
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}><MessageSquare className="h-3.5 w-3.5" /> Text</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Send a text</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <FormField label="To"><Input value={num} onChange={(e) => setNum(e.target.value)} placeholder="(480) 555-0100" /></FormField>
-            <FormField label="Message"><Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></FormField>
-            <p className="text-xs text-muted-foreground">Attaches to this opportunity automatically.</p>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={send} disabled={busy || !num.trim() || !body.trim()}>{busy ? "Sending…" : "Send"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-function NoteAction({ context, onSaved }: { context: Ctx; onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
 
   async function save() {
-    setBusy(true);
+    setBusy(true); setError(null);
     try {
-      await fetch("/api/comm/note", {
+      const res = await fetch("/api/comm/note", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body, ...context, actor: context.owner }),
       });
-      setOpen(false); setBody(""); onSaved();
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d?.error || "The note didn't save."); return; }
+      setBody(""); onSaved();
     } finally { setBusy(false); }
   }
 
   return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}><StickyNote className="h-3.5 w-3.5" /> Note</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Add a note</DialogTitle></DialogHeader>
-          <Textarea rows={5} value={body} onChange={(e) => setBody(e.target.value)} placeholder="What happened?" />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={busy || !body.trim()}>{busy ? "Saving…" : "Save note"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <div className="space-y-3">
+      <Textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)}
+        placeholder="What happened? This lands on the opportunity timeline." className="min-h-[200px]" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <a href="/app/admin/workspace" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-brand-strong hover:underline">
+          Open Workspace for a long-form doc <ChevronRight className="h-3 w-3" />
+        </a>
+        <div className="flex items-center gap-2">
+          {error && <span className="text-sm text-destructive">{error}</span>}
+          <Button onClick={save} disabled={busy || !body.trim()}>{busy ? "Saving…" : "Save note"}</Button>
+        </div>
+      </div>
+    </div>
   );
 }
