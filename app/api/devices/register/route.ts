@@ -13,7 +13,10 @@ export async function POST(req: Request) {
   const device = await findDeviceByClaim(String(body.registrationCode));
   if (!device) return Response.json({ error: "invalid or already-used registration code" }, { status: 404 });
 
-  const deviceToken = token();
+  // Screens are handed their player URL by the setup wizard before the hardware
+  // exists, so a display already has a token. Minting a new one here would
+  // silently invalidate every URL already copied, printed, or bookmarked.
+  const deviceToken = device.deviceToken || token();
   await updateDevice(device.id, {
     hardwareId: String(body.hardwareId),
     deviceToken,

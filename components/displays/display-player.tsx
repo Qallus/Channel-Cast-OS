@@ -15,6 +15,47 @@ type Play = { mediaId: string; loopId: string | null; name: string; durationSec:
 
 const CACHE_KEY = (token: string) => `cc:display-manifest:${token}`;
 
+/** Fast enough that the dashboard feels like a remote, slow enough to be free. */
+const CONTROL_POLL_MS = 5000;
+
+type RemoteControls = {
+  power: "playing" | "stopped";
+  muted: boolean;
+  volume: number;
+  subtitles: boolean;
+  pinnedItem: string | null;
+  revision: number;
+};
+
+const DEFAULT_REMOTE: RemoteControls = {
+  power: "playing", muted: true, volume: 0, subtitles: false, pinnedItem: null, revision: 0,
+};
+
+/**
+ * Apply sound and captions to a provider embed URL.
+ *
+ * Only YouTube exposes both as parameters. Vimeo takes `muted`; its captions
+ * are a player setting we can't reach from a URL. Drive's preview iframe
+ * ignores everything — which is exactly why the link dialog imports Drive files
+ * into our own storage instead of embedding them.
+ */
+function embedWithControls(embed: string, c: RemoteControls): string {
+  let url: URL;
+  try { url = new URL(embed); } catch { return embed; }
+
+  const host = url.hostname.replace(/^www\./, "");
+  if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+    url.searchParams.set("mute", c.muted ? "1" : "0");
+    url.searchParams.set("cc_load_policy", c.subtitles ? "1" : "0");
+    if (c.subtitles) url.searchParams.set("cc_lang_pref", "en");
+  } else if (host.endsWith("vimeo.com")) {
+    url.searchParams.set("muted", c.muted ? "1" : "0");
+    // `background` forces muted playback, so it has to go when sound is wanted.
+    if (!c.muted) url.searchParams.delete("background");
+  }
+  return url.toString();
+}
+
 export function DisplayPlayer({ token }: { token: string }) {
   const [manifest, setManifest] = useState<PlayerManifest | null>(null);
   const [index, setIndex] = useState(0);
@@ -75,8 +116,51 @@ export function DisplayPlayer({ token }: { token: string }) {
     return () => clearInterval(id);
   }, [flush]);
 
-  const items = manifest?.items ?? [];
-  const current = items.length ? items[index % items.length] : null;
+  // ── Remote control ──────────────────────────────────────────────────────────
+  // The dashboard writes desired state; the screen reconciles against it here.
+  // Polled fast and separately from the manifest, because the remote has to feel
+  // immediate while the manifest almost never changes. A revision bump also
+  // re-pulls the manifest, so switching a loop from a phone takes effect without
+  // waiting out the slow poll.
+  const [controls, setControls] = useState<RemoteControls>(DEFAULT_REMOTE);
+  const lastRevision = useRef(0);
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/display/${token}/controls`, { cache: "no-store" });
+        if (!res.ok) return;
+        const next = (await res.json()) as RemoteControls;
+        if (stop) return;
+        setControls(next);
+        if (next.revision !== lastRevision.current) {
+          lastRevision.current = next.revision;
+          void load();
+        }
+      } catch { /* the screen keeps playing on its last known state */ }
+    };
+    void tick();
+    const id = setInterval(tick, CONTROL_POLL_MS);
+    return () => { stop = true; clearInterval(id); };
+  }, [token, load]);
+
+  const allItems = manifest?.items ?? [];
+  // A pinned item means "show only this", which is how you put one spot up from
+  // the dashboard without rebuilding the loop.
+  const pinned = controls.pinnedItem ? allItems.filter((i) => i.id === controls.pinnedItem) : [];
+  const items = pinned.length ? pinned : allItems;
+  const stopped = controls.power === "stopped";
+  const current = !stopped && items.length ? items[index % items.length] : null;
+
+  // Sound follows the remote. Muted autoplay is the default because browsers
+  // demand it; the kiosk launches with the autoplay policy relaxed, so a screen
+  // can genuinely be unmuted from a phone.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = controls.muted;
+    v.volume = Math.min(1, Math.max(0, controls.volume / 100));
+  }, [controls.muted, controls.volume, current?.id]);
 
   // ── Advance ─────────────────────────────────────────────────────────────────
   const advance = useCallback(() => {
@@ -135,8 +219,8 @@ export function DisplayPlayer({ token }: { token: string }) {
             // Provider iframes handle their own playback, so the loop timer
             // advances them rather than an onEnded event we never receive.
             <iframe
-              key={`${current.id}-${index}`}
-              src={current.embed}
+              key={`${current.id}-${index}-${controls.subtitles ? "cc" : "nocc"}-${controls.muted ? "m" : "u"}`}
+              src={embedWithControls(current.embed, controls)}
               title={current.name}
               allow="autoplay; encrypted-media; picture-in-picture"
               referrerPolicy="strict-origin-when-cross-origin"
@@ -148,7 +232,7 @@ export function DisplayPlayer({ token }: { token: string }) {
               key={`${current.id}-${index}`}
               src={current.url}
               autoPlay
-              muted
+              muted={controls.muted}
               playsInline
               onEnded={advance}
               // A creative that fails to decode must not freeze the loop.
@@ -172,6 +256,7 @@ export function DisplayPlayer({ token }: { token: string }) {
         </>
       ) : (
         <IdleScreen
+          stopped={stopped}
           name={manifest?.device.name}
           deviceCode={manifest?.device.deviceCode}
           idle={manifest?.idle}
@@ -219,14 +304,17 @@ const IDLE_MESSAGE: Record<string, string> = {
  * to a broken player.
  */
 function IdleScreen({
-  name, deviceCode, idle, hasLoop,
+  name, deviceCode, idle, hasLoop, stopped,
 }: {
   name?: string;
   deviceCode?: string | null;
   idle?: { reason: string; nextWindow?: string | null } | null;
   hasLoop: boolean;
+  stopped?: boolean;
 }) {
-  const message = idle
+  const message = stopped
+    ? "Stopped from the dashboard. Press Play there to resume."
+    : idle
     ? IDLE_MESSAGE[idle.reason] ?? "Nothing to play right now."
     : hasLoop
       ? "Nothing scheduled for right now."
@@ -236,13 +324,15 @@ function IdleScreen({
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-black text-center">
       <p className="text-sm font-medium tracking-wide text-white/60">{name ?? "Channel Cast"}</p>
       <p className="text-xs text-white/30">{message}</p>
-      {idle?.reason === "off_air" && idle.nextWindow && (
+      {!stopped && idle?.reason === "off_air" && idle.nextWindow && (
         <p className="text-xs text-white/20">Next window starts at {idle.nextWindow}.</p>
       )}
       {deviceCode && (
         <p className="mt-4 font-mono text-[11px] tracking-widest text-white/20">{deviceCode}</p>
       )}
-      <p className="mt-1 text-[10px] text-white/15">Checking for a loop every 15 seconds.</p>
+      <p className="mt-1 text-[10px] text-white/15">
+        {stopped ? "Waiting for the dashboard." : "Checking for a loop every 15 seconds."}
+      </p>
       {/* Only on the dark screen, never over live creative: the moment anyone is
           looking at a blank display is exactly when they need the way out. */}
       <p className="mt-6 text-[10px] text-white/25">Press Ctrl + Alt + X to exit the player</p>

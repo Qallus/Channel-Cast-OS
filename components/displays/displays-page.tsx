@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Clapperboard, Copy, ImageIcon, Link as LinkIcon, Loader2, Monitor, Plus, Trash2, Upload,
+  Clapperboard, Copy, ImageIcon, Link as LinkIcon, Loader2, Monitor, Plus, Sparkles, Trash2, Upload,
 } from "lucide-react";
 
 import { EmptyState, FormField, PageHeader } from "@/components/crm/crm-ui";
@@ -17,12 +17,25 @@ import {
 } from "@/lib/displays/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScreensTab } from "@/components/displays/screens-tab";
+import { RemoteTab } from "@/components/displays/remote-tab";
+import { DisplaySetupWizard } from "@/components/displays/display-setup-wizard";
 import { cn } from "@/lib/utils";
 
-type Tab = "media" | "loops" | "screens";
+type Tab = "media" | "loops" | "screens" | "remote";
 
 export function DisplaysPage() {
   const [tab, setTab] = useState<Tab>("media");
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // ?tab= deep-links here from the wizard and the device page. Read after mount
+  // rather than via useSearchParams, which would drag the whole page out of
+  // static rendering for the sake of one query parameter.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested && ["media", "loops", "screens", "remote"].includes(requested)) {
+      setTab(requested as Tab);
+    }
+  }, []);
   const [media, setMedia] = useState<DisplayMedia[]>([]);
   const [loops, setLoops] = useState<DisplayLoop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +61,7 @@ export function DisplaysPage() {
       <PageHeader icon={Monitor} title="Digital Displays" description="Creative library, playback loops, and what each screen is showing." />
 
       <div className="flex flex-wrap items-center gap-1 border-b border-border">
-        {([["media", "Creative"], ["loops", "Loops"], ["screens", "Screens"]] as [Tab, string][]).map(([id, label]) => (
+        {([["media", "Creative"], ["loops", "Loops"], ["screens", "Screens"], ["remote", "Remote"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
             className={cn("-mb-px rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               tab === id ? "border-brand-strong text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
@@ -61,18 +74,26 @@ export function DisplaysPage() {
       {loading ? (
         <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
       ) : tab === "media" ? (
-        <MediaLibrary media={media} onChanged={load} flash={flash} />
+        <MediaLibrary media={media} onChanged={load} flash={flash} onSetupScreen={() => setWizardOpen(true)} />
       ) : tab === "loops" ? (
         <LoopBuilder loops={loops} media={media} onChanged={load} flash={flash} />
-      ) : (
+      ) : tab === "screens" ? (
         <ScreensTab loops={loops} flash={flash} />
+      ) : (
+        <RemoteTab loops={loops} flash={flash} />
       )}
+
+      <DisplaySetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onDone={() => { void load(); setTab("remote"); }}
+      />
     </div>
   );
 }
 
 // ── Creative ─────────────────────────────────────────────────────────────────
-function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onChanged: () => void; flash: (m: string) => void }) {
+function MediaLibrary({ media, onChanged, flash, onSetupScreen }: { media: DisplayMedia[]; onChanged: () => void; flash: (m: string) => void; onSetupScreen: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,11 +169,14 @@ function MediaLibrary({ media, onChanged, flash }: { media: DisplayMedia[]; onCh
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Images and video shown on screens. Upload a file (up to 200MB) or link a YouTube, Vimeo or direct video URL.</p>
+        <p className="text-sm text-muted-foreground">Images and video shown on screens. New here? <b className="font-medium text-foreground">Set up a screen</b> walks you through the whole thing.</p>
         <div className="flex items-center gap-2">
           {error && <span className="text-sm text-destructive">{error}</span>}
           <input ref={fileRef} type="file" accept="image/*,video/mp4,video/webm" multiple className="hidden"
             onChange={(e) => { if (e.target.files?.length) void upload(e.target.files); e.target.value = ""; }} />
+          <Button variant="outline" onClick={onSetupScreen} className="border-brand-strong/50 text-brand-strong hover:bg-brand/10">
+            <Sparkles className="h-4 w-4" /> Set up a screen
+          </Button>
           <Button variant="outline" onClick={() => { setLinkOpen(true); setError(null); }}><LinkIcon className="h-4 w-4" /> Add video link</Button>
           <Button onClick={() => fileRef.current?.click()} disabled={busy}>
             {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : <><Upload className="h-4 w-4" /> Upload creative</>}

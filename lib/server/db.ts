@@ -198,6 +198,10 @@ export async function createDevice(input: { name: string; type?: string; model?:
     location_name: input.locationName ?? null,
     status: "needs_setup",
     volume: type === "digital_display" ? 100 : 80,
+    // A screen's player URL is its token, and the setup wizard hands that URL
+    // over before anyone has touched the hardware — so a display gets its token
+    // at creation rather than at registration. Registration preserves it.
+    device_token: type === "digital_display" ? token() : null,
   };
   const { data, error } = await supabaseAdmin().from("devices").insert(row).select("*").single();
   if (error) throw error;

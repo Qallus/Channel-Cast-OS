@@ -124,7 +124,19 @@ export function itemIsLive(item: Pick<DisplayLoopItem, "starts_on" | "ends_on" |
 // A screen can play a hosted link instead of an upload. YouTube and Vimeo need
 // an iframe with autoplay parameters; a direct file plays in a <video> element.
 
-export type MediaProvider = "youtube" | "vimeo" | "direct";
+export type MediaProvider = "youtube" | "vimeo" | "drive" | "direct";
+
+/** Pull the file id out of any of Google Drive's share-link shapes. */
+export function driveFileId(input: string): string | null {
+  let parsed: URL;
+  try { parsed = new URL(input.trim()); } catch { return null; }
+  if (!/(^|\.)drive\.google\.com$/.test(parsed.hostname) && !/(^|\.)docs\.google\.com$/.test(parsed.hostname)) return null;
+
+  // /file/d/<id>/view  ·  /open?id=<id>  ·  /uc?id=<id>  ·  /d/<id>/
+  const path = parsed.pathname.match(/\/(?:file\/)?d\/([A-Za-z0-9_-]{10,})/);
+  const id = path?.[1] || parsed.searchParams.get("id");
+  return id && /^[A-Za-z0-9_-]{10,}$/.test(id) ? id : null;
+}
 
 export type ParsedVideoLink = { provider: MediaProvider; embedUrl: string; url: string } | null;
 
@@ -169,6 +181,20 @@ export function parseVideoLink(input: string): ParsedVideoLink {
     };
   }
 
+  // Google Drive. The /preview iframe is the only Drive surface that reliably
+  // renders, but it will not autoplay and it shows Drive's own chrome — so this
+  // is the fallback. The good path is importing the file into Channel Cast
+  // storage, which the link dialog offers first and which yields a real
+  // "direct" video the player can autoplay and loop.
+  const driveId = driveFileId(url);
+  if (driveId) {
+    return {
+      provider: "drive",
+      url,
+      embedUrl: `https://drive.google.com/file/d/${driveId}/preview`,
+    };
+  }
+
   // A direct file can be played natively, which is always preferable.
   if (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(parsed.pathname)) {
     return { provider: "direct", url, embedUrl: url };
@@ -177,8 +203,23 @@ export function parseVideoLink(input: string): ParsedVideoLink {
   return null;
 }
 
+/**
+ * Where to fetch a Drive file's bytes when importing it into our own storage.
+ * Two hosts, in order: the newer usercontent one serves bytes directly, while
+ * the legacy /uc endpoint answers large files with an HTML "can't scan this for
+ * viruses" interstitial instead.
+ */
+export function driveDownloadUrls(id: string): string[] {
+  const safe = encodeURIComponent(id);
+  return [
+    `https://drive.usercontent.google.com/download?id=${safe}&export=download&confirm=t`,
+    `https://drive.google.com/uc?export=download&id=${safe}&confirm=t`,
+  ];
+}
+
 export const PROVIDER_LABEL: Record<MediaProvider, string> = {
   youtube: "YouTube",
   vimeo: "Vimeo",
+  drive: "Google Drive",
   direct: "Direct video",
 };
