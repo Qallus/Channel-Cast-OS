@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BarChart3, CalendarClock, ListVideo, MonitorPlay, Radar, TerminalSquare, Webcam } from "lucide-react";
+import { ArrowLeft, BarChart3, CalendarClock, ListVideo, Monitor, MonitorPlay, Radar, TerminalSquare, Webcam } from "lucide-react";
 
 import { DeviceSetupFlow } from "@/components/devices/device-setup-wizard";
 import { Card, CardContent } from "@/components/ui/card";
 
 const STEPS = [
-  { title: "Create the device (right)", body: "Name it and choose Motion-activated (USB webcam) or Scheduled. That generates a claim code." },
-  { title: "Run one command on the device", body: "On the mini PC, open PowerShell as Administrator and paste the command the wizard gives you. It installs everything and registers the device." },
+  { title: "Create the device (right)", body: "Name it and choose what it is — a motion-activated or scheduled audio player, or a digital display. That generates a claim code." },
+  { title: "Install it on the device", body: "Download the installer the wizard gives you, double-click it on the device, and click Yes. It installs everything and registers the device." },
   { title: "Watch it connect", body: "The wizard confirms once the device checks in — usually within ~30 seconds." },
-  { title: "Add audio + test it", body: "Open the device to upload a spot and hit Test play, or walk in front of the webcam to trigger a motion play." },
+  { title: "Give it something to play", body: "For an audio player, upload a spot and hit Test play. For a screen, assign it a loop under Digital Displays → Screens." },
 ];
 
 const LINKS = [
   { href: "/app/admin/devices", label: "Device Fleet", desc: "See every device, status, and open its live view.", icon: MonitorPlay },
   { href: "/app/admin/deployment-channels", label: "Deployment & schedules", desc: "Build playlists and set play windows.", icon: CalendarClock },
+  { href: "/app/admin/displays", label: "Digital Displays", desc: "Creative, loops, and which screen plays what.", icon: Monitor },
   { href: "/app/admin/reports", label: "Reports & analytics", desc: "Playtime, motion vs scheduled, revenue.", icon: BarChart3 },
 ];
 
@@ -59,7 +60,8 @@ export function AddDeviceView() {
               <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <li className="flex gap-2"><Webcam className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> For motion mode, plug a <b className="font-medium text-foreground">USB webcam</b> into the device.</li>
                 <li className="flex gap-2"><TerminalSquare className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> You&apos;ll need <b className="font-medium text-foreground">Administrator</b> access on the device to run the install command.</li>
-                <li className="flex gap-2"><Radar className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> For an unattended player, enable <b className="font-medium text-foreground">Windows auto-login</b> so it starts on boot.</li>
+                <li className="flex gap-2"><Radar className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> For an unattended player or screen, enable <b className="font-medium text-foreground">Windows auto-login</b> so it starts on boot.</li>
+                <li className="flex gap-2"><Monitor className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong" /> A digital display needs <b className="font-medium text-foreground">Edge or Chrome</b> on the PC — or run the Raspberry&nbsp;Pi command the wizard offers.</li>
               </ul>
             </CardContent>
           </Card>

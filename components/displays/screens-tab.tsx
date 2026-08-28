@@ -7,6 +7,7 @@
 // loop and an evening loop without editing anything at changeover.
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Check, Copy, Loader2, Monitor, Plus, Trash2 } from "lucide-react";
 
 import { EmptyState, FormField } from "@/components/crm/crm-ui";
@@ -97,7 +98,7 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
   if (screens.length === 0) {
     return (
       <div className="space-y-4">
-        <EmptyState message="No screens registered yet. Provision one below, then assign it a loop." />
+        <EmptyState message="No screens registered yet. Add one below, then assign it a loop." />
         <SetupCard />
       </div>
     );
@@ -134,6 +135,11 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
               <Button size="sm" onClick={() => { setDraft(blank(screen.id)); setError(null); }}>
                 <Plus className="h-3.5 w-3.5" /> Schedule
               </Button>
+              {screen.deviceCode && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/app/admin/devices/${encodeURIComponent(screen.deviceCode)}`}>Open</Link>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -218,32 +224,26 @@ export function ScreensTab({ loops, flash }: { loops: DisplayLoop[]; flash: (m: 
 }
 
 
-/** How a Pi becomes a screen. Shown here because this is where you look. */
+/**
+ * How a PC or Pi becomes a screen. Sends you to the same Add Device wizard the
+ * audio players use — one flow for the whole fleet, rather than a second way of
+ * doing the same thing that only lives on this tab.
+ */
 function SetupCard() {
-  const [copied, setCopied] = useState(false);
-  const origin = typeof window === "undefined" ? "https://os.channelcast.io" : window.location.origin;
-  const command = `curl -fsSL ${origin}/install-display.sh | sudo bash -s -- --claim YOUR-CLAIM-CODE`;
-
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">Set up a new screen</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Register a Digital Display device to get a claim code, then run this on the Pi or mini-PC.
-            It installs Chromium in kiosk mode and starts on boot.
+            Add a device, choose <b className="font-medium text-foreground">Digital display</b>, then download the
+            installer and double-click it on the screen&apos;s PC. Raspberry Pi gets a one-line command instead.
           </p>
         </div>
-        <Button size="sm" variant="outline"
-          onClick={() => { navigator.clipboard?.writeText(command); setCopied(true); setTimeout(() => setCopied(false), 1600); }}>
-          {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy command</>}
+        <Button size="sm" asChild>
+          <Link href="/app/admin/devices/new"><Plus className="h-3.5 w-3.5" /> Add a screen</Link>
         </Button>
       </div>
-      <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">{command}</pre>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Add <code className="rounded bg-muted px-1">--rotate left</code> for a portrait screen, or
-        <code className="ml-1 rounded bg-muted px-1">--user pi</code> if the desktop user isn&apos;t detected.
-      </p>
     </div>
   );
 }

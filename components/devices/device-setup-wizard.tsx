@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Check, Copy, Download, Loader2, PartyPopper, Radar } from "lucide-react";
+import { CalendarClock, Check, Copy, Download, Loader2, Monitor, PartyPopper, Radar } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type Mode = "motion" | "schedule";
+type Mode = "motion" | "schedule" | "display";
 type Step = "details" | "install" | "waiting" | "done";
 type CreatedDevice = { id: string; name: string; deviceCode: string; claimCode: string | null };
 type FleetDevice = { id: string; hardwareId: string | null; status: string; deviceCode: string };
@@ -28,12 +28,23 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
   const [copied, setCopied] = useState(false);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "https://channelcast.io";
+  const isDisplay = mode === "display";
+
+  // A screen installs a kiosk browser, a player installs the audio agent —
+  // different scripts, identical "download and double-click" experience.
   const command =
     device &&
-    `$env:CC_SERVER="${origin}"; $env:CC_CLAIM="${device.claimCode}";${mode === "motion" ? ' $env:CC_MOTION="webcam";' : ""} irm $env:CC_SERVER/install.ps1 | iex`;
+    (isDisplay
+      ? `$env:CC_SERVER="${origin}"; $env:CC_CLAIM="${device.claimCode}"; irm $env:CC_SERVER/install-display.ps1 | iex`
+      : `$env:CC_SERVER="${origin}"; $env:CC_CLAIM="${device.claimCode}";${mode === "motion" ? ' $env:CC_MOTION="webcam";' : ""} irm $env:CC_SERVER/install.ps1 | iex`);
   const batUrl =
     device &&
-    `${origin}/install.bat?claim=${encodeURIComponent(device.claimCode || "")}&code=${encodeURIComponent(device.deviceCode)}${mode === "motion" ? "&motion=webcam" : ""}`;
+    (isDisplay
+      ? `${origin}/install-display.bat?claim=${encodeURIComponent(device.claimCode || "")}&code=${encodeURIComponent(device.deviceCode)}`
+      : `${origin}/install.bat?claim=${encodeURIComponent(device.claimCode || "")}&code=${encodeURIComponent(device.deviceCode)}${mode === "motion" ? "&motion=webcam" : ""}`);
+  // Pi / Debian screens: one line, no download.
+  const shCommand =
+    device && `curl -fsSL ${origin}/install-display.sh | sudo bash -s -- --claim ${device.claimCode}`;
 
   async function createDevice() {
     setBusy(true); setError(null);
@@ -41,7 +52,11 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
       const res = await fetch("/api/admin/devices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || "Mini PC", type: mode === "motion" ? "ai_vision" : "standard_audio", locationName: location.trim() || null }),
+        body: JSON.stringify({
+          name: name.trim() || (isDisplay ? "Screen" : "Mini PC"),
+          type: mode === "motion" ? "ai_vision" : mode === "display" ? "digital_display" : "standard_audio",
+          locationName: location.trim() || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not create the device.");
@@ -92,16 +107,17 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
 
       {step === "details" && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Name this player and pick how it plays. You&apos;ll run one command on the device next.</p>
+          <p className="text-sm text-muted-foreground">Name this device and pick what it is. You&apos;ll install it with one download next.</p>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Device name</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Mini PC — Front Entrance" />
           </div>
           <div className="space-y-1.5">
             <span className="text-sm font-medium text-foreground">Playback mode</span>
-            <div className="grid grid-cols-2 gap-2">
-              <ModeCard active={mode === "motion"} onClick={() => setMode("motion")} icon={Radar} title="Motion-activated" note="Plays when a USB webcam sees movement." />
-              <ModeCard active={mode === "schedule"} onClick={() => setMode("schedule")} icon={CalendarClock} title="Scheduled" note="Plays on a set schedule/loop." />
+            <div className="grid gap-2 sm:grid-cols-3">
+              <ModeCard active={mode === "motion"} onClick={() => setMode("motion")} icon={Radar} title="Motion-activated" note="Audio, when a USB webcam sees movement." />
+              <ModeCard active={mode === "schedule"} onClick={() => setMode("schedule")} icon={CalendarClock} title="Scheduled" note="Audio, on a set schedule/loop." />
+              <ModeCard active={mode === "display"} onClick={() => setMode("display")} icon={Monitor} title="Digital display" note="A screen running a scheduled loop." />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -131,8 +147,23 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
             <a href={batUrl || "#"} download>
               <Button className="mt-3 w-full"><Download className="h-4 w-4" /> Download Windows installer</Button>
             </a>
-            <p className="mt-2 text-[11px] text-muted-foreground">Installs Python, FFmpeg{mode === "motion" ? ", OpenCV" : ""}, connects this device, and auto-starts it at sign-in. First run can take a minute or two.</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {isDisplay
+                ? "Connects this screen, opens your player full-screen, stops the display sleeping, and reopens it at every sign-in."
+                : `Installs Python, FFmpeg${mode === "motion" ? ", OpenCV" : ""}, connects this device, and auto-starts it at sign-in. First run can take a minute or two.`}
+            </p>
           </div>
+
+          {/* Screens are just as often a Pi as a Windows box. */}
+          {isDisplay && (
+            <details className="rounded-lg border border-border">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">Raspberry Pi or Linux screen instead</summary>
+              <div className="space-y-2 border-t border-border p-3">
+                <p className="text-xs text-muted-foreground">Run this on the Pi. Add <code className="rounded bg-muted px-1">--rotate left</code> for a portrait screen.</p>
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-xs text-foreground">{shCommand}</pre>
+              </div>
+            </details>
+          )}
 
           {/* Advanced: PowerShell fallback */}
           <details className="rounded-lg border border-border">
@@ -158,7 +189,7 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Loader2 className="h-8 w-8 animate-spin text-brand-strong" />
           <p className="text-sm font-medium text-foreground">Waiting for {device.name} to check in…</p>
-          <p className="max-w-xs text-xs text-muted-foreground">Keep the installer window open on the mini PC. This can take a minute or two on first install while dependencies download.</p>
+          <p className="max-w-xs text-xs text-muted-foreground">{isDisplay ? "Keep the installer window open on the screen’s PC. It checks in as soon as the player opens." : "Keep the installer window open on the mini PC. This can take a minute or two on first install while dependencies download."}</p>
           <Button variant="ghost" size="sm" onClick={() => setStep("install")}>Back to the installer</Button>
         </div>
       )}
@@ -169,7 +200,7 @@ export function DeviceSetupFlow({ onDone }: { onDone?: () => void }) {
           <p className="text-base font-semibold text-foreground">{device.name} is connected!</p>
           <p className="max-w-xs text-sm text-muted-foreground">
             It&apos;s registered and reporting in{connected?.status === "online" ? " and online" : ""}.
-            {mode === "motion" ? " It will play when the webcam sees motion." : " It will play on its schedule."}
+            {mode === "motion" ? " It will play when the webcam sees motion." : mode === "display" ? " Give it a loop under Digital Displays → Screens and it starts playing." : " It will play on its schedule."}
           </p>
           <div className="mt-1 flex w-full gap-2">
             <Button variant="outline" className="flex-1" asChild>
