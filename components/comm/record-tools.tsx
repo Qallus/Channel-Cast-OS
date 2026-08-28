@@ -11,13 +11,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Call, Device as TwilioDevice } from "@twilio/voice-sdk";
 import { Bot, Loader2, Phone, PhoneOff, Send, Sparkles } from "lucide-react";
 
+
 import { FormField } from "@/components/crm/crm-ui";
 import { VoiceRecorder } from "@/components/recordings/voice-recorder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { EmailTemplate } from "@/components/comm/email-studio";
+import { type EmailTemplate, TemplatePicker } from "@/components/comm/email-studio";
 import { cn } from "@/lib/utils";
 
 export type RecordContext = {
@@ -178,6 +179,7 @@ export function SmsPanel({ to: seedTo, context, onSent }: { to?: string; context
 // ── Email ────────────────────────────────────────────────────────────────────
 export function EmailPanel({ to: seedTo, context, onSent }: { to?: string; context: RecordContext; onSent?: () => void }) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [to, setTo] = useState(seedTo ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -193,7 +195,8 @@ export function EmailPanel({ to: seedTo, context, onSent }: { to?: string; conte
     fetch("/api/email/templates?status=active")
       .then((r) => r.json())
       .then((d) => setTemplates(d.templates ?? []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingTemplates(false));
   }, []);
 
   const emailTemplates = templates;
@@ -225,24 +228,35 @@ export function EmailPanel({ to: seedTo, context, onSent }: { to?: string; conte
     } finally { setBusy(false); }
   }
 
+  const chosen = emailTemplates.find((t) => t.id === templateId) ?? null;
+
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
-        <FormField label="To"><Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@company.com" /></FormField>
-        <FormField label="Template">
-          <Select value={templateId} onValueChange={applyTemplate}>
-            <SelectTrigger><SelectValue placeholder="No template" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No template</SelectItem>
-              {emailTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </FormField>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[220px] flex-1">
+          <FormField label="To"><Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@company.com" /></FormField>
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Template</p>
+          {loadingTemplates
+            ? <span className="inline-flex h-9 items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</span>
+            : <TemplatePicker templates={emailTemplates} value={templateId === "none" ? "" : templateId} onPick={(t) => applyTemplate(t?.id ?? "none")} />}
+        </div>
       </div>
       <FormField label="Subject"><Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject line" /></FormField>
-      <FormField label="Message">
-        <Textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message…" className="min-h-[220px]" />
-      </FormField>
+      {chosen && html ? (
+        <div className="rounded-lg border border-border">
+          <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+            <p className="text-xs text-muted-foreground">Using <span className="font-medium text-foreground">{chosen.name}</span></p>
+            <button type="button" onClick={() => applyTemplate("none")} className="text-xs text-muted-foreground hover:text-foreground">Clear template</button>
+          </div>
+          <iframe title="Email preview" srcDoc={html} className="h-[280px] w-full rounded-b-lg bg-white" />
+        </div>
+      ) : (
+        <FormField label="Message">
+          <Textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message…" className="min-h-[220px]" />
+        </FormField>
+      )}
       <div className="flex items-center gap-2">
         <Button onClick={send} disabled={busy || !to.trim() || !subject.trim() || !body.trim()}>
           <Send className="h-4 w-4" /> {busy ? "Sending…" : "Send email"}

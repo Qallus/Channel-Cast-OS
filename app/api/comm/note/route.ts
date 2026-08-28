@@ -17,6 +17,7 @@ export async function POST(request: Request) {
 
   const res = await recordCommunication({
     kind: "note",
+    subject: payload.subject ? String(payload.subject) : null,
     body,
     association: "linked",
     opportunityId: payload.opportunityId ?? null,

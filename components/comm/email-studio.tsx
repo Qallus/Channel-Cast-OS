@@ -89,7 +89,7 @@ export function EmailStudio() {
 }
 
 // ── Template picker ──────────────────────────────────────────────────────────
-function TemplatePicker({ templates, value, onPick }: { templates: EmailTemplate[]; value: string; onPick: (t: EmailTemplate | null) => void }) {
+export function TemplatePicker({ templates, value, onPick }: { templates: EmailTemplate[]; value: string; onPick: (t: EmailTemplate | null) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");

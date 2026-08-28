@@ -728,6 +728,7 @@ function NotePanel({
   full: boolean;
   onSaved: () => void;
 }) {
+  const [title, setTitle] = useState("");
   const [value, setValue] = useState<unknown[]>(EMPTY_DOC);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -740,7 +741,7 @@ function NotePanel({
         method: "POST", headers: { "Content-Type": "application/json" },
         // The flattened text drives the timeline; the Plate document is kept
         // alongside it so formatting survives a round trip.
-        body: JSON.stringify({ body: text, doc: value, ...context, actor: context.owner }),
+        body: JSON.stringify({ subject: title.trim() || null, body: text, doc: value, ...context, actor: context.owner }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -748,13 +749,30 @@ function NotePanel({
         return;
       }
       setValue(EMPTY_DOC);
+      setTitle("");
       onSaved();
     } finally { setBusy(false); }
   }
 
   return (
     <div className={cn("flex flex-col gap-3", full && "min-h-0 flex-1")}>
-      <div className={cn("overflow-hidden rounded-lg border border-border", full ? "min-h-0 flex-1" : "h-[320px]")}>
+      <FormField label="Note title">
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Discovery call recap" />
+      </FormField>
+      {/*
+        The Workspace editor sets min-h-[62vh] for its own full-page layout. In a
+        modal that pushes the writing area below the fold, so it reads as having
+        nowhere to type. Override the editable's min-height here and let the
+        container scroll instead of clipping.
+      */}
+      <div
+        className={cn(
+          "overflow-y-auto rounded-lg border border-border",
+          full
+            ? "min-h-0 flex-1 [&_[data-slate-editor]]:!min-h-[60vh]"
+            : "h-[340px] [&_[data-slate-editor]]:!min-h-[220px]",
+        )}
+      >
         <WorkspaceEditorSurface initialValue={EMPTY_DOC} onChange={(v) => setValue(v as unknown[])} />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
