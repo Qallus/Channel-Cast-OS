@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
+import { WorkspaceEditorSurface } from "@/components/workspace/plate-editor";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
 import {
@@ -229,17 +230,17 @@ const TOOL_META: Record<ToolId, { label: string; title: string; icon: typeof Pho
  * record without a manual log step.
  */
 function ToolModal({
-  tool, onClose, children,
-}: { tool: ToolId | null; onClose: () => void; children: React.ReactNode }) {
-  const [full, setFull] = useState(false);
-  useEffect(() => { if (!tool) setFull(false); }, [tool]);
+  tool, onClose, full, setFull, children,
+}: { tool: ToolId | null; onClose: () => void; full: boolean; setFull: (v: boolean) => void; children: React.ReactNode }) {
+  useEffect(() => { if (!tool) setFull(false); }, [tool, setFull]);
   const meta = tool ? TOOL_META[tool] : null;
   return (
     <Dialog open={Boolean(tool)} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className={cn(
-          "overflow-y-auto",
-          full ? "h-[96vh] w-[96vw] max-w-none" : meta?.wide ? "max-h-[90vh] max-w-2xl" : "max-h-[90vh] max-w-md",
+          full
+            ? "flex h-[96vh] w-[96vw] max-w-none flex-col gap-3 overflow-hidden"
+            : cn("max-h-[90vh] overflow-y-auto", meta?.wide ? "max-w-3xl" : "max-w-md"),
         )}
       >
         <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0">
@@ -248,13 +249,13 @@ function ToolModal({
             {meta?.title}
           </DialogTitle>
           {/* Sits clear of DialogContent's own close button. */}
-          <button type="button" onClick={() => setFull((v) => !v)}
+          <button type="button" onClick={() => setFull(!full)}
             aria-label={full ? "Exit full screen" : "Expand to full screen"}
             className="mr-7 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             {full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
         </DialogHeader>
-        <div className={cn(full && "flex-1")}>{children}</div>
+        <div className={cn(full ? "flex min-h-0 flex-1 flex-col overflow-hidden" : undefined)}>{children}</div>
       </DialogContent>
     </Dialog>
   );
@@ -280,6 +281,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [filter, setFilter] = useState("all");
   const [openActivity, setOpenActivity] = useState<Activity | null>(null);
   const [tool, setTool] = useState<ToolId | null>(null);
+  const [toolFull, setToolFull] = useState(false);
   const [closing, setClosing] = useState<"won" | "lost" | null>(null);
   const [lostReason, setLostReason] = useState(LOST_REASONS[0]);
   const [outcomeNotes, setOutcomeNotes] = useState("");
@@ -636,13 +638,13 @@ export function OpportunityDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <ToolModal tool={tool} onClose={() => setTool(null)}>
+      <ToolModal tool={tool} onClose={() => setTool(null)} full={toolFull} setFull={setToolFull}>
         {tool === "call" && <DialpadPanel seed={tel} context={ctx} onPlaced={() => { flash("Call logged."); void loadTimeline(); }} />}
         {tool === "sms" && <SmsPanel to={contact?.phone ?? ""} context={ctx} onSent={() => { flash("Text sent."); void loadTimeline(); }} />}
         {tool === "email" && <EmailPanel to={contact?.email ?? ""} context={ctx} onSent={() => { flash("Email sent."); void loadTimeline(); }} />}
         {tool === "agent" && <AgentPanel context={ctx} phone={contact?.phone ?? ""} onDialed={() => { flash("Nicole is dialling."); void loadTimeline(); }} />}
         {tool === "voice" && <VoiceNotePanel context={ctx} onSaved={() => { setTool(null); flash("Voice note saved."); void loadTimeline(); }} />}
-        {tool === "note" && <NotePanel context={ctx} onSaved={() => { setTool(null); flash("Note added."); void loadTimeline(); }} />}
+        {tool === "note" && <NotePanel context={ctx} full={toolFull} onSaved={() => { setTool(null); flash("Note added."); void loadTimeline(); }} />}
       </ToolModal>
 
       <ActivityDetail a={openActivity} onClose={() => setOpenActivity(null)} />
@@ -689,35 +691,67 @@ export function OpportunityDetail({ id }: { id: string }) {
 }
 
 // ── Note ─────────────────────────────────────────────────────────────────────
-function NotePanel({ context, onSaved }: { context: { opportunityId: string; contactId: string | null; leadId: string | null; owner: string }; onSaved: () => void }) {
-  const [body, setBody] = useState("");
+
+/** Flatten a Plate document to text for the timeline preview and search. */
+function plateToText(nodes: unknown): string {
+  if (!Array.isArray(nodes)) return "";
+  return nodes
+    .map((node) => {
+      const n = node as { text?: string; children?: unknown };
+      if (typeof n.text === "string") return n.text;
+      return plateToText(n.children);
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+const EMPTY_DOC = [{ type: "p", children: [{ text: "" }] }];
+
+function NotePanel({
+  context, full, onSaved,
+}: {
+  context: { opportunityId: string; contactId: string | null; leadId: string | null; owner: string };
+  full: boolean;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState<unknown[]>(EMPTY_DOC);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const text = plateToText(value);
 
   async function save() {
     setBusy(true); setError(null);
     try {
       const res = await fetch("/api/comm/note", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body, ...context, actor: context.owner }),
+        // The flattened text drives the timeline; the Plate document is kept
+        // alongside it so formatting survives a round trip.
+        body: JSON.stringify({ body: text, doc: value, ...context, actor: context.owner }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d?.error || "The note didn't save."); return; }
-      setBody(""); onSaved();
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d?.error || "The note didn't save.");
+        return;
+      }
+      setValue(EMPTY_DOC);
+      onSaved();
     } finally { setBusy(false); }
   }
 
   return (
-    <div className="space-y-3">
-      <Textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)}
-        placeholder="What happened? This lands on the opportunity timeline." className="min-h-[200px]" />
+    <div className={cn("flex flex-col gap-3", full && "min-h-0 flex-1")}>
+      <div className={cn("overflow-hidden rounded-lg border border-border", full ? "min-h-0 flex-1" : "h-[320px]")}>
+        <WorkspaceEditorSurface initialValue={EMPTY_DOC} onChange={(v) => setValue(v as unknown[])} />
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <a href="/app/admin/workspace" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-brand-strong hover:underline">
-          Open Workspace for a long-form doc <ChevronRight className="h-3 w-3" />
+          Open Workspace for a full document <ChevronRight className="h-3 w-3" />
         </a>
         <div className="flex items-center gap-2">
           {error && <span className="text-sm text-destructive">{error}</span>}
-          <Button onClick={save} disabled={busy || !body.trim()}>{busy ? "Saving…" : "Save note"}</Button>
+          <Button onClick={save} disabled={busy || !text}>{busy ? "Saving…" : "Save note"}</Button>
         </div>
       </div>
     </div>
