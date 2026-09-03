@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Check, CreditCard, ExternalLink, GripVertical, LayoutGrid, Link as LinkIcon, List, Mail, MessageSquare, Pencil, Plus, Printer, Send, SquareKanban, Table as TableIcon, Trash2, TriangleAlert, Upload } from "lucide-react";
+import { CalendarDays, Calculator, Check, CreditCard, ExternalLink, GripVertical, LayoutGrid, Link as LinkIcon, List, Mail, MessageSquare, Pencil, Plus, Printer, Receipt, Send, SquareKanban, Table as TableIcon, Trash2, TriangleAlert, Upload } from "lucide-react";
 
 import {
   DetailField, EmptyState, FormField, PageHeader, RecordCalendar, RowActions, SearchBox, StatRow, StatTile, ViewSwitcher,
 } from "@/components/crm/crm-ui";
+import { HelocCalculator } from "@/components/heloc-calculator/HelocCalculator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CHANNEL_CAST_FROM, DEFAULT_LOGO, INVOICE_STATUS, INVOICE_STATUS_ORDER, Invoice, InvoiceStatus, LineItem,
@@ -25,6 +27,7 @@ import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
 type View = "list" | "table" | "card" | "kanban" | "calendar";
+type BillingTab = "invoices" | "calculators";
 const VIEWS = [
   { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
@@ -252,6 +255,7 @@ function blank(): Invoice {
 
 export function BillingPage() {
   const { items, create, update, remove } = useCollection<Invoice>("invoices", seedInvoices);
+  const [tab, setTab] = useState<BillingTab>("invoices");
   const [view, setView] = useState<View>("table");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "all">("all");
@@ -313,43 +317,60 @@ export function BillingPage() {
   return (
     <div className="space-y-6">
       <PageHeader icon={CreditCard} title="Billing" description="Invoices, subscriptions, and payments."
-        action={<Button onClick={openNew} className="shrink-0"><Plus className="h-4 w-4" /> New invoice</Button>} />
+        action={tab === "invoices" ? <Button onClick={openNew} className="shrink-0"><Plus className="h-4 w-4" /> New invoice</Button> : undefined} />
 
-      <StatRow>
-        <StatTile label="Outstanding" value={usd.format(stats.outstanding)} accent hint="Sent + overdue" />
-        <StatTile label="Overdue" value={usd.format(stats.overdue)} hint="Needs follow-up" />
-        <StatTile label="Paid" value={usd.format(stats.paid)} />
-        <StatTile label="Invoices" value={stats.count} />
-      </StatRow>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as BillingTab)}>
+        <TabsList>
+          <TabsTrigger value="invoices"><Receipt className="mr-1.5 h-4 w-4" /> Invoices</TabsTrigger>
+          <TabsTrigger value="calculators"><Calculator className="mr-1.5 h-4 w-4" /> Finance Calculators</TabsTrigger>
+        </TabsList>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchBox value={search} onChange={setSearch} placeholder="Search invoices…" />
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
-            <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {INVOICE_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{INVOICE_STATUS[s].label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
-        </div>
-        <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
-      </div>
+        <TabsContent value="invoices" className="mt-6 space-y-6">
+          <StatRow>
+            <StatTile label="Outstanding" value={usd.format(stats.outstanding)} accent hint="Sent + overdue" />
+            <StatTile label="Overdue" value={usd.format(stats.overdue)} hint="Needs follow-up" />
+            <StatTile label="Paid" value={usd.format(stats.paid)} />
+            <StatTile label="Invoices" value={stats.count} />
+          </StatRow>
 
-      {filtered.length === 0 ? (
-        <EmptyState message={items.length === 0 ? "No invoices yet. Create your first invoice." : "No invoices match your filters."} />
-      ) : view === "list" ? (
-        <ListView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
-      ) : view === "table" ? (
-        <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
-      ) : view === "card" ? (
-        <CardsView rows={filtered} onOpen={setDrawerId} onPreview={setPreviewId} onSend={setSendId} />
-      ) : view === "kanban" ? (
-        <KanbanView rows={filtered} onOpen={setDrawerId} onMove={move} />
-      ) : (
-        <RecordCalendar items={filtered} getId={(i) => i.id} getDate={(i) => i.dueDate} getTitle={(i) => `${i.number} · ${usd.format(invoiceTotal(i))}`} onOpen={setDrawerId} footer="Placed by due date. Click one to open." />
-      )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <SearchBox value={search} onChange={setSearch} placeholder="Search invoices…" />
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
+                <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {INVOICE_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{INVOICE_STATUS[s].label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+            </div>
+            <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState message={items.length === 0 ? "No invoices yet. Create your first invoice." : "No invoices match your filters."} />
+          ) : view === "list" ? (
+            <ListView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+          ) : view === "table" ? (
+            <TableView rows={filtered} onOpen={setDrawerId} rowActions={rowActions} />
+          ) : view === "card" ? (
+            <CardsView rows={filtered} onOpen={setDrawerId} onPreview={setPreviewId} onSend={setSendId} />
+          ) : view === "kanban" ? (
+            <KanbanView rows={filtered} onOpen={setDrawerId} onMove={move} />
+          ) : (
+            <RecordCalendar items={filtered} getId={(i) => i.id} getDate={(i) => i.dueDate} getTitle={(i) => `${i.number} · ${usd.format(invoiceTotal(i))}`} onOpen={setDrawerId} footer="Placed by due date. Click one to open." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="calculators" className="mt-6 space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Mortgage vs. First-Position HELOC</h2>
+            <p className="text-sm text-muted-foreground">Side-by-side payoff comparison to run with a homeowner.</p>
+          </div>
+          <HelocCalculator />
+        </TabsContent>
+      </Tabs>
 
       {/* Drawer */}
       <Sheet open={Boolean(drawer)} onOpenChange={(o) => !o && setDrawerId(null)}>
