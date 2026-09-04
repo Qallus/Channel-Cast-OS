@@ -21,6 +21,20 @@ async function api(path: string, init?: RequestInit) {
   });
 }
 
+/**
+ * Did the write reach the server? Callers that show the user a confirmation
+ * need to know, rather than reporting success for a request that 500'd. The
+ * optimistic local update stands either way — a failed write is surfaced, not
+ * silently rolled back out from under someone who is still typing.
+ */
+async function wrote(req: Promise<Response>): Promise<boolean> {
+  try {
+    return (await req).ok;
+  } catch {
+    return false;
+  }
+}
+
 export function useCollection<T extends WithId>(collection: string, seed: T[]) {
   const [items, setItems] = useState<T[]>(seed);
   const [loaded, setLoaded] = useState(false);
@@ -56,7 +70,7 @@ export function useCollection<T extends WithId>(collection: string, seed: T[]) {
   const create = useCallback(
     (record: T) => {
       setItems((prev) => [record, ...prev]);
-      api(collection, { method: "POST", body: JSON.stringify(record) }).catch(() => {});
+      return wrote(api(collection, { method: "POST", body: JSON.stringify(record) }));
     },
     [collection],
   );
@@ -66,7 +80,8 @@ export function useCollection<T extends WithId>(collection: string, seed: T[]) {
       const next = itemsRef.current.map((it) => (it.id === id ? { ...it, ...patch } : it));
       setItems(next);
       const rec = next.find((it) => it.id === id);
-      if (rec) api(`${collection}/${id}`, { method: "PATCH", body: JSON.stringify(rec) }).catch(() => {});
+      if (!rec) return Promise.resolve(false);
+      return wrote(api(`${collection}/${id}`, { method: "PATCH", body: JSON.stringify(rec) }));
     },
     [collection],
   );
@@ -74,7 +89,7 @@ export function useCollection<T extends WithId>(collection: string, seed: T[]) {
   const remove = useCallback(
     (id: string) => {
       setItems((prev) => prev.filter((it) => it.id !== id));
-      api(`${collection}/${id}`, { method: "DELETE" }).catch(() => {});
+      return wrote(api(`${collection}/${id}`, { method: "DELETE" }));
     },
     [collection],
   );

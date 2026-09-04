@@ -27,6 +27,7 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   RefreshCw,
+  Loader2,
   Search,
   Send,
   Share2,
@@ -34,6 +35,7 @@ import {
   SquareKanban,
   Table as TableIcon,
   Trash2,
+  TrendingUp,
   UserPlus,
   Voicemail,
   X,
@@ -48,8 +50,10 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { RecordCalendar } from "@/components/crm/crm-ui";
-import { Contact, ContactType, contactName, seedContacts } from "@/lib/crm/contacts";
+import { CONTACT_TYPE, CONTACT_TYPE_ORDER, Contact, ContactType, contactName, seedContacts } from "@/lib/crm/contacts";
+import { Deal, seedDeals } from "@/lib/crm/deals";
 import { genId, useCollection } from "@/lib/crm/store";
+import { buildOpportunity, openOpportunityFor, roleForPipeline } from "@/lib/crm/to-pipeline";
 import { EmailStudio } from "@/components/comm/email-studio";
 import { cn } from "@/lib/utils";
 
@@ -935,6 +939,14 @@ type Submission = {
 };
 
 type SubView = "list" | "table" | "cards" | "kanban" | "calendar" | "map";
+/** Where a submission can be filed from the detail modal and the row menu. */
+type SaveTarget = ContactType | "pipeline";
+const SAVE_TARGETS: { id: SaveTarget; label: string; icon: typeof UserPlus }[] = [
+  { id: "contact", label: "Contact", icon: UserPlus },
+  { id: "lead", label: "Lead", icon: UserPlus },
+  { id: "prospect", label: "Prospect", icon: UserPlus },
+  { id: "pipeline", label: "Add to Pipeline", icon: TrendingUp },
+];
 const SUB_VIEWS: { id: SubView; label: string; icon: typeof List }[] = [
   { id: "list", label: "List", icon: List },
   { id: "table", label: "Table", icon: TableIcon },
@@ -946,14 +958,85 @@ const SUB_VIEWS: { id: SubView; label: string; icon: typeof List }[] = [
 const SUB_STATUS = (s: Submission) => (s.status === "archived" ? "archived" : s.status === "read" ? "read" : "new");
 const subDate = (s: Submission) => (s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "");
 
+/**
+ * The submission written out as notes. What the person actually typed is kept
+ * verbatim under its own "Customer request" heading — it's the part a rep reads
+ * first — with the form metadata above it rather than mashed onto one line.
+ */
+function submissionNotes(s: Submission): string {
+  const meta = [
+    s.subject && `Subject: ${s.subject}`,
+    s.interest && `Interested in: ${s.interest}`,
+    s.createdAt && `Received: ${new Date(s.createdAt).toLocaleString()}`,
+  ].filter(Boolean).join("\n");
+  const request = s.message?.trim() ? `Customer request\n${s.message.trim()}` : "";
+  return [meta, request].filter(Boolean).join("\n\n");
+}
+
+/** Everything the form captured, kept as fields so nothing is lost to prose. */
+function submissionDetails(s: Submission): Record<string, string> {
+  const d: Record<string, string> = {};
+  if (s.kind) d["Form"] = s.kind;
+  if (s.subject) d["Subject"] = s.subject;
+  if (s.interest) d["Interested in"] = s.interest;
+  if (s.website) d["Website"] = s.website;
+  if (s.createdAt) d["Received"] = new Date(s.createdAt).toLocaleString();
+  d["Submission ID"] = s.id;
+  return d;
+}
+
+/**
+ * A dollar amount the submission quoted, for the opportunity's value. Booking
+ * forms spell out a total; anything else falls back to the first figure in the
+ * subject line. Zero when there's no number to find — never a guess.
+ */
+function submissionValue(s: Submission): number {
+  const text = `${s.message || ""}\n${s.subject || ""}`;
+  const total = text.match(/total[^$\d]*\$\s*([\d,]+(?:\.\d{2})?)/i);
+  const any = (s.subject || "").match(/\$\s*([\d,]+(?:\.\d{2})?)/);
+  const raw = total?.[1] ?? any?.[1];
+  return raw ? Number(raw.replace(/,/g, "")) || 0 : 0;
+}
+
 function submissionToContact(s: Submission, type: ContactType): Contact {
   const parts = (s.name || "").trim().split(/\s+/);
   return {
     id: genId("ct"), name: s.name || s.email || "New lead", firstName: parts[0] || "", lastName: parts.slice(1).join(" "),
     title: "", company: s.company || "", type, status: "active", email: s.email || "", phone: s.phone || "",
     website: s.website || "", city: "", state: "", source: "Website form", owner: "Jeremy Waters", tags: [],
-    notes: [s.subject, s.interest, s.message].filter(Boolean).join(" — "),
-    lastContact: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), details: {},
+    notes: submissionNotes(s),
+    lastContact: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(),
+    details: submissionDetails(s),
+  };
+}
+
+/** The same person, already on file. Email is the identity; phone is the fallback. */
+function matchExisting(s: Submission, contacts: Contact[]): Contact | null {
+  const email = s.email?.trim().toLowerCase();
+  const phone = s.phone?.replace(/\D/g, "");
+  return (
+    contacts.find((c) => email && c.email?.trim().toLowerCase() === email) ??
+    (phone && phone.length >= 10 ? contacts.find((c) => c.phone?.replace(/\D/g, "") === phone) ?? null : null)
+  );
+}
+
+/**
+ * Merge a new submission into the record already on file. A role only ever moves
+ * forward — saving a booking as a Lead must not demote someone who is already a
+ * Client — and the request is appended rather than overwriting earlier history.
+ */
+function mergeSubmission(existing: Contact, s: Submission, type: ContactType): Partial<Contact> {
+  const rank = (t: ContactType) => CONTACT_TYPE_ORDER.indexOf(t);
+  const notes = submissionNotes(s);
+  return {
+    type: rank(type) > rank(existing.type) ? type : existing.type,
+    company: existing.company || s.company || "",
+    email: existing.email || s.email || "",
+    phone: existing.phone || s.phone || "",
+    website: existing.website || s.website || "",
+    notes: existing.notes?.includes(notes) ? existing.notes : [existing.notes, notes].filter(Boolean).join("\n\n———\n\n"),
+    details: { ...(existing.details || {}), ...submissionDetails(s) },
+    lastContact: new Date().toISOString().slice(0, 10),
   };
 }
 
@@ -963,10 +1046,15 @@ function FormSubmissionsTab() {
   const [filter, setFilter] = useState<"new" | "all" | "archived">("new");
   const [view, setView] = useState<SubView>("list");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  const [busy, setBusy] = useState<SaveTarget | null>(null);
   const contactsCol = useCollection<Contact>("contacts", seedContacts);
+  const dealsCol = useCollection<Deal>("deals", seedDeals);
 
-  function flash(m: string) { setMsg(m); setTimeout(() => setMsg(null), 2500); }
+  function flash(text: string, tone: "ok" | "error" = "ok") {
+    setToast({ text, tone });
+    setTimeout(() => setToast(null), tone === "error" ? 6000 : 3500);
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -988,11 +1076,72 @@ function FormSubmissionsTab() {
     await fetch(`/api/comm/form-submissions?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
     flash("Deleted.");
   }
-  function saveTo(s: Submission, type: ContactType) {
-    contactsCol.create(submissionToContact(s, type));
-    if (SUB_STATUS(s) === "new") setStatus(s.id, "read");
-    flash(`Saved to ${type === "contact" ? "Contacts" : type === "lead" ? "Leads" : "Prospects"}.`);
+  /**
+   * File a submission as a Contact / Lead / Prospect.
+   *
+   * Saving the same person twice used to mint a second record every click, which
+   * is exactly what happens when the button gives no feedback and you press it
+   * again. A match on email (or phone) is merged instead, and the role only ever
+   * moves forward.
+   */
+  async function saveContact(s: Submission, type: ContactType): Promise<Contact | null> {
+    const existing = matchExisting(s, contactsCol.items);
+    if (existing) {
+      const patch = mergeSubmission(existing, s, type);
+      const ok = await contactsCol.update(existing.id, patch);
+      if (!ok) return null;
+      return { ...existing, ...patch } as Contact;
+    }
+    const contact = submissionToContact(s, type);
+    return (await contactsCol.create(contact)) ? contact : null;
   }
+
+  /** Run one save, keeping the button busy until the server has actually taken it. */
+  async function runSave(s: Submission, target: SaveTarget) {
+    if (busy) return;
+    setBusy(target);
+    try {
+      if (target === "pipeline") {
+        // The person record comes first: an opportunity links to a contact
+        // rather than copying one, and someone being worked is a prospect.
+        const existing = matchExisting(s, contactsCol.items);
+        const contact = await saveContact(s, existing ? roleForPipeline(existing) as ContactType : "prospect");
+        if (!contact) { flash("Couldn't save — the record wasn't stored. Try again.", "error"); return; }
+
+        // A contact already being worked doesn't sprout a second opportunity.
+        const already = openOpportunityFor(contact.id, dealsCol.items);
+        if (already) {
+          setOpenId(null);
+          flash(`${contactName(contact)} is already in the pipeline.`);
+          return;
+        }
+
+        const deal = {
+          ...buildOpportunity(contact, { id: genId("dl"), owner: contact.owner || "Jeremy Waters" }),
+          // buildOpportunity has no lead to read a figure or origin from, so the
+          // submission supplies both. Its notes already carry the request.
+          value: submissionValue(s),
+          source: "Website form",
+        };
+        if (!(await dealsCol.create(deal))) { flash("Couldn't add to the pipeline. Try again.", "error"); return; }
+
+        if (SUB_STATUS(s) === "new") setStatus(s.id, "read");
+        setOpenId(null);
+        flash(`${contactName(contact)} added to the pipeline.`);
+        return;
+      }
+
+      const before = matchExisting(s, contactsCol.items);
+      const contact = await saveContact(s, target);
+      if (!contact) { flash("Couldn't save — the record wasn't stored. Try again.", "error"); return; }
+      if (SUB_STATUS(s) === "new") setStatus(s.id, "read");
+      setOpenId(null);
+      flash(`${before ? "Updated" : "Saved"} ${contactName(contact)} in ${CONTACT_TYPE[contact.type].plural}.`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function share(s: Submission) {
     const text = `${s.name || "Submission"} · ${s.email || ""}${s.phone ? ` · ${s.phone}` : ""}${s.company ? ` · ${s.company}` : ""}${s.message ? `\n${s.message}` : ""}`;
     try { if (navigator.share) await navigator.share({ title: "Form submission", text }); else { await navigator.clipboard.writeText(text); flash("Copied to clipboard."); } }
@@ -1003,7 +1152,7 @@ function FormSubmissionsTab() {
   const newCount = items.filter((s) => SUB_STATUS(s) === "new").length;
   const open = items.find((s) => s.id === openId) || null;
 
-  const actions = (s: Submission) => ({ onOpen: () => setOpenId(s.id), onArchive: () => setStatus(s.id, SUB_STATUS(s) === "archived" ? "read" : "archived"), onDelete: () => remove(s.id), onShare: () => share(s), onSave: (t: ContactType) => saveTo(s, t), archived: SUB_STATUS(s) === "archived" });
+  const actions = (s: Submission) => ({ onOpen: () => setOpenId(s.id), onArchive: () => setStatus(s.id, SUB_STATUS(s) === "archived" ? "read" : "archived"), onDelete: () => remove(s.id), onShare: () => share(s), onSave: (t: SaveTarget) => { void runSave(s, t); }, archived: SUB_STATUS(s) === "archived" });
 
   return (
     <div className="space-y-4">
@@ -1014,7 +1163,6 @@ function FormSubmissionsTab() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          {msg && <span className="text-sm text-brand-strong">{msg}</span>}
           <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">
             {SUB_VIEWS.map((v) => (
               <button key={v.id} onClick={() => setView(v.id)} title={v.label} className={cn("flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors", view === v.id ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground")}>
@@ -1045,14 +1193,14 @@ function FormSubmissionsTab() {
       )}
 
       {/* Detail modal */}
-      <Dialog open={Boolean(open)} onOpenChange={(o) => !o && setOpenId(null)}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={Boolean(open)} onOpenChange={(o) => !o && !busy && setOpenId(null)}>
+        <DialogContent className="max-h-[88vh] gap-5 overflow-y-auto sm:max-w-[40rem]">
           {open && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">{open.name || "Submission"}<Badge variant="outline" className="capitalize">{open.kind || "contact"}</Badge></DialogTitle>
+                <DialogTitle className="flex items-center gap-2 text-xl">{open.name || "Submission"}<Badge variant="outline" className="capitalize">{open.kind || "contact"}</Badge></DialogTitle>
               </DialogHeader>
-              <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+              <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
                 <SubField label="Email" value={open.email} />
                 <SubField label="Phone" value={open.phone} />
                 <SubField label="Business" value={open.company} />
@@ -1063,15 +1211,20 @@ function FormSubmissionsTab() {
               </div>
               {open.message && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Message</p>
-                  <p className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-sm text-foreground">{open.message}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Customer request</p>
+                  <p className="mt-1.5 min-h-[7rem] whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm leading-relaxed text-foreground">{open.message}</p>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
-                <span className="mr-1 self-center text-xs text-muted-foreground">Save to</span>
-                <Button size="sm" variant="outline" onClick={() => saveTo(open, "contact")}><UserPlus className="h-3.5 w-3.5" /> Contact</Button>
-                <Button size="sm" variant="outline" onClick={() => saveTo(open, "lead")}><UserPlus className="h-3.5 w-3.5" /> Lead</Button>
-                <Button size="sm" variant="outline" onClick={() => saveTo(open, "prospect")}><UserPlus className="h-3.5 w-3.5" /> Prospect</Button>
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Save to</p>
+                <div className="flex flex-wrap gap-2">
+                  {SAVE_TARGETS.map(({ id, label, icon: Icon }) => (
+                    <Button key={id} size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => runSave(open, id)}>
+                      {busy === id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+                      {busy === id ? "Saving…" : label}
+                    </Button>
+                  ))}
+                </div>
               </div>
               <DialogFooter className="flex-wrap gap-2 sm:justify-start">
                 {open.email && <Button asChild size="sm"><a href={`mailto:${open.email}`}><Mail className="h-4 w-4" /> Reply</a></Button>}
@@ -1083,21 +1236,34 @@ function FormSubmissionsTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation lives above the dialog layer, so it is still readable if
+          the modal is open and unmissable once it closes. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-lg",
+            toast.tone === "error" ? "border-destructive/40 bg-destructive text-destructive-foreground" : "border-border bg-card text-foreground",
+          )}
+        >
+          {toast.text}
+        </div>
+      )}
     </div>
   );
 }
 
-type SubAct = { onOpen: () => void; onArchive: () => void; onDelete: () => void; onShare: () => void; onSave: (t: ContactType) => void; archived: boolean };
+type SubAct = { onOpen: () => void; onArchive: () => void; onDelete: () => void; onShare: () => void; onSave: (t: SaveTarget) => void; archived: boolean };
 type SubViewProps = { subs: Submission[]; act: (s: Submission) => SubAct };
 
-function SaveMenu({ onSave }: { onSave: (t: ContactType) => void }) {
+function SaveMenu({ onSave }: { onSave: (t: SaveTarget) => void }) {
   return (
-    <Select value="" onValueChange={(v) => onSave(v as ContactType)}>
+    <Select value="" onValueChange={(v) => onSave(v as SaveTarget)}>
       <SelectTrigger className="h-8 w-[110px] text-xs"><span className="flex items-center gap-1"><UserPlus className="h-3.5 w-3.5" /> Save to</span></SelectTrigger>
       <SelectContent>
-        <SelectItem value="contact">Contact</SelectItem>
-        <SelectItem value="lead">Lead</SelectItem>
-        <SelectItem value="prospect">Prospect</SelectItem>
+        {SAVE_TARGETS.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
       </SelectContent>
     </Select>
   );
