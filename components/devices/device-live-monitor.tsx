@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Toast, useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 type Device = {
@@ -59,7 +60,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   const [state, setState] = useState<"loading" | "real" | "mock">("loading");
   const [now, setNow] = useState(() => Date.now());
   const [uploading, setUploading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, flash } = useToast();
   const [volume, setVolume] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [library, setLibrary] = useState<Track[] | null>(null);
@@ -92,9 +93,8 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
     if (!dev) return;
     const next = !visionOn;
     setVisionOn(next);
-    setToast(null);
     await fetch(`/api/admin/devices/${dev.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visionEnabled: next }) }).catch(() => {});
-    setToast(next ? "Vision on — motion plays now match an audience." : "Vision off.");
+    flash(next ? "Vision on — motion plays now match an audience." : "Vision off.");
   }
   async function addAudience() {
     const dev = data?.device;
@@ -129,12 +129,11 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   async function playSpot(t: Track) {
     const dev = data?.device;
     if (!dev) return;
-    setToast(null);
     try {
       const res = await cmd(dev.id, "test_play", { url: `${window.location.origin}/api/audio/${t.id}/file`, name: t.name, audioId: t.id });
-      setToast(res.ok ? `Queued "${t.name}" — plays on the device within ~15s.` : "Couldn't send the play command.");
+      flash(res.ok ? `Queued "${t.name}" — plays on the device within ~15s.` : "Couldn't send the play command.");
     } catch {
-      setToast("Couldn't send the play command.");
+      flash("Couldn't send the play command.");
     }
   }
 
@@ -161,7 +160,6 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
   async function assignExisting(t: Track) {
     const dev = data?.device;
     if (!dev) return;
-    setToast(null);
     try {
       const res = await fetch(`/api/admin/devices/${dev.id}/audio`, {
         method: "POST",
@@ -169,17 +167,16 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
         body: JSON.stringify({ audioId: t.id }),
       });
       const j = await res.json();
-      setToast(res.ok ? `Added "${t.name}" — ${j.trackCount} spot(s) on this player.` : j.error || "Couldn't add it.");
+      flash(res.ok ? `Added "${t.name}" — ${j.trackCount} spot(s) on this player.` : j.error || "Couldn't add it.");
       setPickerOpen(false);
     } catch {
-      setToast("Couldn't add it.");
+      flash("Couldn't add it.");
     }
   }
 
   async function removeSpot(t: Track) {
     const dev = data?.device;
     if (!dev) return;
-    setToast(null);
     try {
       const res = await fetch(`/api/admin/devices/${dev.id}/audio`, {
         method: "DELETE",
@@ -187,24 +184,22 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
         body: JSON.stringify({ audioId: t.id }),
       });
       const j = await res.json();
-      setToast(res.ok ? `Removed "${t.name}".` : j.error || "Couldn't remove it.");
+      flash(res.ok ? `Removed "${t.name}".` : j.error || "Couldn't remove it.");
     } catch {
-      setToast("Couldn't remove it.");
+      flash("Couldn't remove it.");
     }
   }
 
   async function sendStop() {
     const dev = data?.device;
     if (!dev) return;
-    setToast(null);
-    await cmd(dev.id, "stop", {}).then(() => setToast("Stop sent.")).catch(() => setToast("Couldn't send stop."));
+    await cmd(dev.id, "stop", {}).then(() => flash("Stop sent.")).catch(() => flash("Couldn't send stop."));
   }
 
   async function sendNext() {
     const dev = data?.device;
     if (!dev) return;
-    setToast(null);
-    await cmd(dev.id, "next", {}).then(() => setToast("Skipping to the next spot.")).catch(() => setToast("Couldn't send next."));
+    await cmd(dev.id, "next", {}).then(() => flash("Skipping to the next spot.")).catch(() => flash("Couldn't send next."));
   }
 
   async function toggleSensor() {
@@ -212,8 +207,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
     if (!dev) return;
     const next = !sensorOn;
     setSensorOn(next);
-    setToast(null);
-    await cmd(dev.id, "set_motion", { enabled: next }).then(() => setToast(next ? "Camera/sensor on." : "Camera/sensor off.")).catch(() => setToast("Couldn't toggle the sensor."));
+    await cmd(dev.id, "set_motion", { enabled: next }).then(() => flash(next ? "Camera/sensor on." : "Camera/sensor off.")).catch(() => flash("Couldn't toggle the sensor."));
   }
 
   async function togglePower() {
@@ -221,8 +215,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
     if (!dev) return;
     const next = !powered;
     setPowered(next);
-    setToast(null);
-    await cmd(dev.id, "set_power", { enabled: next }).then(() => setToast(next ? "Device on." : "Device off — playback paused.")).catch(() => setToast("Couldn't toggle power."));
+    await cmd(dev.id, "set_power", { enabled: next }).then(() => flash(next ? "Device on." : "Device off — playback paused.")).catch(() => flash("Couldn't toggle power."));
   }
 
   async function toggleMute() {
@@ -230,32 +223,31 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
     if (!dev) return;
     const next = !muted;
     setMuted(next);
-    setToast(null);
     if (next) {
       prevVol.current = volume ?? dev.volume;
       setVolume(0);
       await cmd(dev.id, "set_volume", { volume: 0 }).catch(() => {});
-      setToast("Muted (applies from the next play).");
+      flash("Muted (applies from the next play).");
     } else {
       const v = prevVol.current || 60;
       setVolume(v);
       await cmd(dev.id, "set_volume", { volume: v }).catch(() => {});
-      setToast("Unmuted.");
+      flash("Unmuted.");
     }
   }
 
   async function addSpot(file: File) {
     const dev = data?.device;
     if (!dev) return;
-    setToast(null); setUploading(true);
+    setUploading(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch(`/api/admin/devices/${dev.id}/audio`, { method: "POST", body: fd });
       const j = await res.json();
-      setToast(res.ok ? `Added "${j.audio?.name}" — ${j.trackCount} spot(s) on this player.` : j.error || "Upload failed.");
+      flash(res.ok ? `Added "${j.audio?.name}" — ${j.trackCount} spot(s) on this player.` : j.error || "Upload failed.");
     } catch {
-      setToast("Upload failed.");
+      flash("Upload failed.");
     } finally {
       setUploading(false);
     }
@@ -488,7 +480,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
             </div>
           </div>
 
-          {toast && <p className="text-sm text-brand-strong">{toast}</p>}
+          <Toast toast={toast} />
         </CardContent>
       </Card>
 
@@ -498,7 +490,7 @@ export function DeviceLiveMonitor({ deviceCode }: { deviceCode: string }) {
         locationName={d.locationName}
         latitude={d.latitude}
         longitude={d.longitude}
-        onSaved={setToast}
+        onSaved={flash}
       />
 
       {/* AI Vision & audiences */}

@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import {
   ADVERTISER_INDUSTRIES,
   ADVERTISER_STATUS,
@@ -88,12 +89,7 @@ export function AdvertisersPage() {
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ draft: Advertiser; isNew: boolean } | null>(null);
   const [deleteItem, setDeleteItem] = useState<Advertiser | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const flash = (m: string) => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2500);
-  };
+  const { toast, flash } = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -170,7 +166,7 @@ export function AdvertisersPage() {
               {ADVERTISER_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{ADVERTISER_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

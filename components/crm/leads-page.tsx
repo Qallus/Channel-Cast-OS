@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import { LEAD_SOURCES, LEAD_STATUS, LEAD_STATUS_ORDER, Lead, LeadStatus, LeadView, phoneKey, seedLeads, toLeadView } from "@/lib/crm/leads";
 import { Contact, seedContacts } from "@/lib/crm/contacts";
 import { genId, useCollection } from "@/lib/crm/store";
@@ -72,12 +73,7 @@ export function LeadsPage() {
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ draft: LeadView; isNew: boolean } | null>(null);
   const [deleteItem, setDeleteItem] = useState<LeadView | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  }
+  const { toast, flash } = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -208,7 +204,7 @@ export function LeadsPage() {
               {LEAD_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

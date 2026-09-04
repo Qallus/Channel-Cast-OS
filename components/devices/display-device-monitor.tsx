@@ -15,6 +15,7 @@ import { DeviceLocationCard } from "@/components/devices/device-location-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Toast, useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 type Device = {
@@ -59,7 +60,7 @@ function relTime(ts: string, now: number): string {
 export function DisplayDeviceMonitor({ device, now }: { device: Device; now: number }) {
   const [data, setData] = useState<DisplayData | null>(null);
   const [copied, setCopied] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, flash } = useToast();
 
   const code = device.deviceCode;
   const load = useCallback(async () => {
@@ -204,7 +205,7 @@ export function DisplayDeviceMonitor({ device, now }: { device: Device; now: num
             )}
           </div>
 
-          {toast && <p className="text-sm text-brand-strong">{toast}</p>}
+          <Toast toast={toast} />
         </CardContent>
       </Card>
 
@@ -213,7 +214,7 @@ export function DisplayDeviceMonitor({ device, now }: { device: Device; now: num
         locationName={device.locationName}
         latitude={device.latitude}
         longitude={device.longitude}
-        onSaved={setToast}
+        onSaved={flash}
       />
 
       {/* Live activity feed */}

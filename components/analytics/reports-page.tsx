@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Toast, useToast } from "@/components/ui/toast";
 import { CATEGORY_TONE, REPORT_CATEGORIES, Report, ReportCategory, seedReports } from "@/lib/analytics/reports";
 import { cn } from "@/lib/utils";
 
@@ -47,12 +48,7 @@ export function ReportsPage() {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<ReportCategory | "all">("all");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const flash = (m: string) => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2500);
-  };
+  const { toast, flash } = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,7 +95,7 @@ export function ReportsPage() {
               {REPORT_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

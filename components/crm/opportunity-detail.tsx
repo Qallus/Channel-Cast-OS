@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
 import { LinkedRecords, OpportunityRecords, RECORD_ACTIONS, type RecordAction } from "@/components/crm/opportunity-records";
 import { AppointmentsCard, ScheduleDialog } from "@/components/crm/opportunity-schedule";
@@ -440,8 +441,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [recordAction, setRecordAction] = useState<RecordAction | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const sidebarCollapsed = useSidebarCollapsed();
-  const [toast, setToast] = useState<string | null>(null);
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600); };
+  const { toast, flash } = useToast();
 
   const dealId = deal?.id;
   const dealContactId = deal?.contactId;
@@ -648,7 +648,7 @@ export function OpportunityDetail({ id }: { id: string }) {
               <Check className="h-3.5 w-3.5" /> Mark stage complete
             </Button>
           )}
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
       </div>
 

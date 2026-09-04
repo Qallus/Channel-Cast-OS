@@ -39,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import {
   DEFAULT_META,
   SpotMeta,
@@ -146,7 +147,7 @@ function LibraryTab() {
   const [editItem, setEditItem] = useState<LibAudio | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [deleteItem, setDeleteItem] = useState<LibAudio | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, flash } = useToast();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sendItems, setSendItems] = useState<LibAudio[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -163,11 +164,6 @@ function LibraryTab() {
   useEffect(() => {
     load();
   }, [load]);
-
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  }
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
@@ -324,7 +320,7 @@ function LibraryTab() {
               Show archived ({archivedCount})
             </label>
           )}
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         {items.length > 0 && (
           <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">

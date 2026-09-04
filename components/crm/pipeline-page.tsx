@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import { DEAL_STAGE, DEAL_STAGE_ORDER, Deal, DealStage, OPEN_STAGES, seedDeals } from "@/lib/crm/deals";
 import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { genId, useCollection } from "@/lib/crm/store";
@@ -80,12 +81,7 @@ export function PipelinePage() {
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ draft: Deal; isNew: boolean } | null>(null);
   const [deleteItem, setDeleteItem] = useState<Deal | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  }
+  const { toast, flash } = useToast();
 
   const owners = useMemo(() => Array.from(new Set(items.map((d) => d.owner))), [items]);
 
@@ -197,7 +193,7 @@ export function PipelinePage() {
               {owners.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

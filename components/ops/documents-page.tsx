@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import { DOC_STATUS, DOC_STATUS_ORDER, DOC_TYPES, DocStatus, DocType, Document, seedDocuments } from "@/lib/ops/documents";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
@@ -56,12 +57,7 @@ export function DocumentsPage() {
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ draft: Document; isNew: boolean } | null>(null);
   const [deleteItem, setDeleteItem] = useState<Document | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const flash = (m: string) => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2500);
-  };
+  const { toast, flash } = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -133,7 +129,7 @@ export function DocumentsPage() {
               {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

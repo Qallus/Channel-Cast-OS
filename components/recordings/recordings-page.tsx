@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Toast, useToast } from "@/components/ui/toast";
 import { openRecorder } from "@/components/recordings/quick-recorder";
 import { useCollection } from "@/lib/crm/store";
 import { RECORDING_STATUS, Recording, RecordingStatus, fmtDuration, seedRecordings } from "@/lib/recordings/types";
@@ -23,8 +24,7 @@ export function RecordingsPage() {
   const [view, setView] = useState<View>("list");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Recording | null>(null);
-  const [toast, setToast] = useState("");
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1800); };
+  const { toast, flash } = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -69,7 +69,7 @@ export function RecordingsPage() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          {toast && <span className="text-xs text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search recordings…" className="h-9 w-56" />
         </div>
       </div>

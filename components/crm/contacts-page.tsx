@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import {
   CONTACT_STATUS, CONTACT_STATUS_ORDER, CONTACT_TAGS, CONTACT_TYPE, CONTACT_TYPE_NEXT, CONTACT_TYPE_ORDER,
   Contact, ContactStatus, ContactType, DETAIL_CATEGORIES, categorizeDetail, contactName, seedContacts,
@@ -99,9 +100,7 @@ export function ContactsPage() {
   const [editing, setEditing] = useState<{ draft: Contact; isNew: boolean } | null>(null);
   const [deleteItem, setDeleteItem] = useState<Contact | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+  const { toast, flash } = useToast();
 
   // Normalize legacy records (older shape used `role`/other statuses) so they still render.
   const contacts = useMemo<Contact[]>(() => items.map((c) => ({
@@ -272,7 +271,7 @@ export function ContactsPage() {
               {CONTACT_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{CONTACT_STATUS[s].label}</SelectItem>)}
             </SelectContent>
           </Select>
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
         </div>
         <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
       </div>

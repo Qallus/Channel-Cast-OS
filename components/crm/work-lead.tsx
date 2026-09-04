@@ -15,6 +15,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import {
   CONTACT_STATUS, CONTACT_STATUS_ORDER, CONTACT_TAGS, CONTACT_TYPE, CONTACT_TYPE_ORDER,
   Contact, ContactStatus, ContactType, DETAIL_CATEGORIES, categorizeDetail, contactName, seedContacts,
@@ -37,8 +38,7 @@ export function WorkLead({ contactId }: { contactId: string }) {
   const dealsCol = useCollection<Deal>("deals", seedDeals);
   const followupsCol = useCollection<FollowUp>("followups", []);
   const [tab, setTab] = useState<Tab>("workflow");
-  const [toast, setToast] = useState<string | null>(null);
-  function flash(m: string) { setToast(m); setTimeout(() => setToast(null), 2500); }
+  const { toast, flash } = useToast();
 
   const contact = items.find((c) => c.id === contactId) || null;
   const activities = useMemo(() => activitiesCol.items.filter((a) => a.contactId === contactId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [activitiesCol.items, contactId]);
@@ -105,7 +105,7 @@ export function WorkLead({ contactId }: { contactId: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {toast && <span className="text-sm text-brand-strong">{toast}</span>}
+          <Toast toast={toast} />
           {contact.phone && <Button asChild variant="outline" size="sm"><a href={`tel:${contact.phone}`} onClick={() => logActivity("call", `Call to ${contact.phone}`)}><Phone className="h-3.5 w-3.5" /> Call</a></Button>}
           {contact.email && <Button asChild variant="outline" size="sm"><a href={`mailto:${contact.email}`} onClick={() => logActivity("email", `Email to ${contact.email}`)}><Mail className="h-3.5 w-3.5" /> Email</a></Button>}
         </div>

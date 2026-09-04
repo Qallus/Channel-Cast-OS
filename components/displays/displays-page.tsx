@@ -16,6 +16,7 @@ import {
   DEFAULT_IMAGE_SECONDS, PROVIDER_LABEL, formatSeconds, loopSeconds, parseVideoLink,
 } from "@/lib/displays/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Toast, useToast } from "@/components/ui/toast";
 import { ScreensTab } from "@/components/displays/screens-tab";
 import { RemoteTab } from "@/components/displays/remote-tab";
 import { DisplaySetupWizard } from "@/components/displays/display-setup-wizard";
@@ -39,8 +40,7 @@ export function DisplaysPage() {
   const [media, setMedia] = useState<DisplayMedia[]>([]);
   const [loops, setLoops] = useState<DisplayLoop[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<string | null>(null);
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600); };
+  const { toast, flash } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,7 +68,7 @@ export function DisplaysPage() {
             {label}
           </button>
         ))}
-        {toast && <span className="ml-2 text-sm text-brand-strong">{toast}</span>}
+        <Toast toast={toast} />
       </div>
 
       {loading ? (

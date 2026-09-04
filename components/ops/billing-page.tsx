@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import {
   CHANNEL_CAST_FROM, DEFAULT_LOGO, INVOICE_STATUS, INVOICE_STATUS_ORDER, Invoice, InvoiceStatus, LineItem,
   invoiceSubtotal, invoiceTotal, lineAmount, seedInvoices,
@@ -264,8 +265,7 @@ export function BillingPage() {
   const [deleteItem, setDeleteItem] = useState<Invoice | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [sendId, setSendId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
+  const { toast, flash } = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -343,7 +343,6 @@ export function BillingPage() {
                   {INVOICE_STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{INVOICE_STATUS[s].label}</SelectItem>)}
                 </SelectContent>
               </Select>
-              {toast && <span className="text-sm text-brand-strong">{toast}</span>}
             </div>
             <ViewSwitcher views={VIEWS} value={view} onChange={setView} />
           </div>
@@ -458,6 +457,8 @@ export function BillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Toast toast={toast} />
     </div>
   );
 }

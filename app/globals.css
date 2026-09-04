@@ -186,6 +186,23 @@
   animation: cc-eq 1.1s ease-in-out infinite;
 }
 
+/* Toast entrance. Animates the full transform so the -50% that centres the
+   toast survives — a plain translateY keyframe would drop it and the toast
+   would slide sideways as it appeared. */
+@keyframes cc-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.cc-toast-in {
+  animation: cc-toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cc-ring,
   .cc-pulse,
@@ -193,6 +210,11 @@
   .cc-float,
   .cc-eq-bar {
     animation: none !important;
+  }
+  /* The toast still needs its transform, so hold the end state rather than
+     dropping the animation entirely. */
+  .cc-toast-in {
+    animation-duration: 0.01ms;
   }
 }
 

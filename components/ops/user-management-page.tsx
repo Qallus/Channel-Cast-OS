@@ -7,6 +7,7 @@ import { CheckCircle2, Clock, Link2, Mail, ShieldCheck, Trash2, UserPlus } from 
 import { PageHeader, StatRow, StatTile } from "@/components/crm/crm-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Toast, useToast } from "@/components/ui/toast";
 import { useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +23,7 @@ export function UserManagementPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 2200); };
+  const { toast, flash } = useToast();
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("admin");
@@ -97,7 +97,7 @@ export function UserManagementPage() {
           <Button onClick={invite} disabled={inviting || !email.trim()}><Mail className="h-4 w-4" /> {inviting ? "Sending…" : "Send invite"}</Button>
         </div>
         {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-        {toast && <p className="mt-2 text-sm text-brand-strong">{toast}</p>}
+        <Toast toast={toast} />
       </div>
 
       {/* Users */}

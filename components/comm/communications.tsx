@@ -49,6 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Toast, useToast } from "@/components/ui/toast";
 import { RecordCalendar } from "@/components/crm/crm-ui";
 import { CONTACT_TYPE, CONTACT_TYPE_ORDER, Contact, ContactType, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Deal, seedDeals } from "@/lib/crm/deals";
@@ -1046,15 +1047,11 @@ function FormSubmissionsTab() {
   const [filter, setFilter] = useState<"new" | "all" | "archived">("new");
   const [view, setView] = useState<SubView>("list");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  const { toast, flash } = useToast();
   const [busy, setBusy] = useState<SaveTarget | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const contactsCol = useCollection<Contact>("contacts", seedContacts);
   const dealsCol = useCollection<Deal>("deals", seedDeals);
-
-  function flash(text: string, tone: "ok" | "error" = "ok") {
-    setToast({ text, tone });
-    setTimeout(() => setToast(null), tone === "error" ? 6000 : 3500);
-  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1100,6 +1097,7 @@ function FormSubmissionsTab() {
   async function runSave(s: Submission, target: SaveTarget) {
     if (busy) return;
     setBusy(target);
+    setBusyId(s.id);
     try {
       if (target === "pipeline") {
         // The person record comes first: an opportunity links to a contact
@@ -1139,6 +1137,7 @@ function FormSubmissionsTab() {
       flash(`${before ? "Updated" : "Saved"} ${contactName(contact)} in ${CONTACT_TYPE[contact.type].plural}.`);
     } finally {
       setBusy(null);
+      setBusyId(null);
     }
   }
 
@@ -1152,7 +1151,7 @@ function FormSubmissionsTab() {
   const newCount = items.filter((s) => SUB_STATUS(s) === "new").length;
   const open = items.find((s) => s.id === openId) || null;
 
-  const actions = (s: Submission) => ({ onOpen: () => setOpenId(s.id), onArchive: () => setStatus(s.id, SUB_STATUS(s) === "archived" ? "read" : "archived"), onDelete: () => remove(s.id), onShare: () => share(s), onSave: (t: SaveTarget) => { void runSave(s, t); }, archived: SUB_STATUS(s) === "archived" });
+  const actions = (s: Submission) => ({ onOpen: () => setOpenId(s.id), onArchive: () => setStatus(s.id, SUB_STATUS(s) === "archived" ? "read" : "archived"), onDelete: () => remove(s.id), onShare: () => share(s), onSave: (t: SaveTarget) => { void runSave(s, t); }, saving: busy && busyId === s.id ? busy : null, archived: SUB_STATUS(s) === "archived" });
 
   return (
     <div className="space-y-4">
@@ -1237,31 +1236,24 @@ function FormSubmissionsTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation lives above the dialog layer, so it is still readable if
-          the modal is open and unmissable once it closes. */}
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={cn(
-            "fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-lg",
-            toast.tone === "error" ? "border-destructive/40 bg-destructive text-destructive-foreground" : "border-border bg-card text-foreground",
-          )}
-        >
-          {toast.text}
-        </div>
-      )}
+      <Toast toast={toast} />
     </div>
   );
 }
 
-type SubAct = { onOpen: () => void; onArchive: () => void; onDelete: () => void; onShare: () => void; onSave: (t: SaveTarget) => void; archived: boolean };
+type SubAct = { onOpen: () => void; onArchive: () => void; onDelete: () => void; onShare: () => void; onSave: (t: SaveTarget) => void; saving: SaveTarget | null; archived: boolean };
 type SubViewProps = { subs: Submission[]; act: (s: Submission) => SubAct };
 
-function SaveMenu({ onSave }: { onSave: (t: SaveTarget) => void }) {
+function SaveMenu({ onSave, saving }: { onSave: (t: SaveTarget) => void; saving: SaveTarget | null }) {
+  const busy = SAVE_TARGETS.find((t) => t.id === saving);
   return (
-    <Select value="" onValueChange={(v) => onSave(v as SaveTarget)}>
-      <SelectTrigger className="h-8 w-[110px] text-xs"><span className="flex items-center gap-1"><UserPlus className="h-3.5 w-3.5" /> Save to</span></SelectTrigger>
+    <Select value="" onValueChange={(v) => onSave(v as SaveTarget)} disabled={Boolean(saving)}>
+      <SelectTrigger className="h-8 w-[110px] text-xs">
+        <span className="flex items-center gap-1">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+          {busy ? "Saving…" : "Save to"}
+        </span>
+      </SelectTrigger>
       <SelectContent>
         {SAVE_TARGETS.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
       </SelectContent>
@@ -1271,7 +1263,7 @@ function SaveMenu({ onSave }: { onSave: (t: SaveTarget) => void }) {
 function RowBtns({ a }: { a: SubAct }) {
   return (
     <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-      <SaveMenu onSave={a.onSave} />
+      <SaveMenu onSave={a.onSave} saving={a.saving} />
       <button onClick={a.onShare} title="Share" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Share2 className="h-4 w-4" /></button>
       <button onClick={a.onArchive} title={a.archived ? "Restore" : "Archive"} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><Archive className="h-4 w-4" /></button>
       <button onClick={a.onDelete} title="Delete" className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
