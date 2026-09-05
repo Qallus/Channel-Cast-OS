@@ -26,6 +26,17 @@ export type NextStep = {
 
 export type Stalled = { reason: string; since: string; notes?: string; followUpDate?: string };
 
+/**
+ * A field the team added to Key fields themselves. Every business runs its
+ * pipeline on a handful of things no generic CRM ships with — a PO number, a
+ * flight window, a station — so the panel is extensible rather than fixed.
+ */
+export type CustomFieldType = "text" | "number" | "date";
+export type CustomField = { id: string; label: string; type: CustomFieldType; value: string };
+
+/** A Next Step added to this opportunity alone, on top of the stage template. */
+export type ExtraStepItem = { id: string; label: string; stage: DealStage; required?: boolean };
+
 export type Deal = {
   id: string;
   name: string;
@@ -54,6 +65,10 @@ export type Deal = {
   checklist?: Record<string, boolean>;
   nextStep?: NextStep | null;
   stalled?: Stalled | null;
+  /** Team-defined fields shown alongside the built-in Key fields. */
+  customFields?: CustomField[];
+  /** Next Steps added to this deal on top of its stage template. */
+  extraItems?: ExtraStepItem[];
 
   // Outcome
   closedAt?: string | null;

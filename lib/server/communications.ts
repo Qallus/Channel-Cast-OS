@@ -10,7 +10,12 @@
 import { listRecords } from "@/lib/server/crm-db";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
-export type CommKind = "call" | "sms" | "email" | "ai_voice" | "voicemail" | "meeting" | "note" | "task";
+// `kind` is a plain text column with no constraint, so the set can grow. "voice"
+// is a recorded voice note; the last three are deal milestones that belong in
+// the same ordered stream as the messages, not in a timeline of their own.
+export type CommKind =
+  | "call" | "sms" | "email" | "ai_voice" | "voicemail" | "meeting" | "note" | "task"
+  | "voice" | "invoice" | "payment" | "contract";
 export type Association = "linked" | "matched" | "ambiguous" | "unmatched";
 
 export type CommRecord = {

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Ban, Bot, Briefcase, Building2, CalendarClock, Check, ChevronRight, CircleAlert,
-  Mail, MessageSquare, Maximize2, Mic, Minimize2, Phone, Sparkles, StickyNote, Trophy, Voicemail,
+  FileSignature, Mail, MessageSquare, Maximize2, Mic, Minimize2, Phone, Plus, Receipt, Settings2,
+  Sparkles, StickyNote, Trash2, Trophy, Voicemail, Wallet,
 } from "lucide-react";
 
 import { Avatar, DetailField, EmptyState, FormField } from "@/components/crm/crm-ui";
@@ -16,17 +17,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Toast, useToast } from "@/components/ui/toast";
 import { AgentPanel, DialpadPanel, EmailPanel, SmsPanel, VoiceNotePanel } from "@/components/comm/record-tools";
+import { AddFieldDialog } from "@/components/crm/add-field-dialog";
+import { LOG_KINDS, LogActivityDialog, type LogKind, type LogPayload } from "@/components/crm/log-activity-dialog";
 import { LinkedRecords, OpportunityRecords, RECORD_ACTIONS, type RecordAction } from "@/components/crm/opportunity-records";
+import { StageConfigDialog } from "@/components/crm/stage-config-dialog";
 import { AppointmentsCard, ScheduleDialog } from "@/components/crm/opportunity-schedule";
 import { useSidebarCollapsed } from "@/components/layout/sidebar-state";
 import { WorkspaceEditorSurface } from "@/components/workspace/plate-editor";
-import { Contact, contactName, seedContacts } from "@/lib/crm/contacts";
+import { CONTACT_TYPE, CONTACT_TYPE_ORDER, Contact, contactName, seedContacts } from "@/lib/crm/contacts";
 import { Lead, LEAD_STATUS, seedLeads } from "@/lib/crm/leads";
 import {
-  DEAL_STAGE, DEAL_STAGE_ORDER, Deal, DealStage, LOST_REASONS, NEXT_STEP_TYPES, type NextStep, type NextStepType, OPPORTUNITY_TYPES, PIPELINE_PATH,
+  DEAL_STAGE, DEAL_STAGE_ORDER, type CustomField, type CustomFieldType, Deal, DealStage, LOST_REASONS, NEXT_STEP_TYPES, type NextStep, type NextStepType, OPPORTUNITY_TYPES, PIPELINE_PATH,
   daysInStage, daysOpen, isClosed, needsNextStep, seedDeals, weightedValue,
 } from "@/lib/crm/deals";
-import { STAGE_GUIDE, blockingItems, checklistFor } from "@/lib/crm/pipeline-guidance";
+import {
+  STAGE_CONFIG_ID, blockingSteps, newItemId, resolveStage, stepsFor,
+  type StageConfigRecord, type StoredStage,
+} from "@/lib/crm/stage-config";
 import { useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +53,7 @@ type Activity = {
   subject?: string; body?: string; status?: string; disposition?: string;
   durationSeconds?: number; recordingUrl?: string; hasTranscript?: boolean; transcript?: string;
   aiSummary?: string; occurredAt: string; actor?: string; association?: string;
+  aiMeta?: { amount?: number } | null;
 };
 
 const CHANNEL: Record<string, { label: string; icon: typeof Phone; tone: string }> = {
@@ -55,23 +63,33 @@ const CHANNEL: Record<string, { label: string; icon: typeof Phone; tone: string 
   ai_voice: { label: "AI Voice", icon: Sparkles, tone: "bg-brand/15 text-brand-strong" },
   voicemail: { label: "Voicemail", icon: Voicemail, tone: "bg-muted text-muted-foreground" },
   meeting: { label: "Meeting", icon: CalendarClock, tone: "bg-secondary text-secondary-foreground" },
+  voice: { label: "Voice note", icon: Mic, tone: "bg-muted text-muted-foreground" },
   note: { label: "Note", icon: StickyNote, tone: "bg-muted text-muted-foreground" },
   task: { label: "Task", icon: Check, tone: "bg-secondary text-secondary-foreground" },
+  // Deal milestones. They read as money and paperwork rather than messages, but
+  // they belong in the same ordered stream: "what happened on this deal" is one
+  // question, not four.
+  invoice: { label: "Invoice", icon: Receipt, tone: "bg-accent text-accent-foreground" },
+  payment: { label: "Payment", icon: Wallet, tone: "bg-success/15 text-success" },
+  contract: { label: "Contract", icon: FileSignature, tone: "bg-secondary text-secondary-foreground" },
 };
 
 /**
  * Timeline tabs. `kinds` is null for All; every other tab owns the channel kinds
  * it displays, so a voicemail files under Voice notes rather than its own tab.
  */
-const TIMELINE_TABS: { key: string; label: string; kinds: string[] | null }[] = [
-  { key: "all", label: "All", kinds: null },
-  { key: "call", label: "Call", kinds: ["call"] },
-  { key: "email", label: "Email", kinds: ["email"] },
-  { key: "sms", label: "Text", kinds: ["sms"] },
-  { key: "note", label: "Notes", kinds: ["note"] },
-  { key: "voice", label: "Voice notes", kinds: ["voice", "voicemail"] },
-  { key: "ai_voice", label: "AI Agent", kinds: ["ai_voice"] },
-  { key: "meeting", label: "Appointments", kinds: ["meeting"] },
+const TIMELINE_TABS: { key: string; label: string; kinds: string[] | null; log: LogKind | null }[] = [
+  { key: "all", label: "All", kinds: null, log: null },
+  { key: "call", label: "Call", kinds: ["call"], log: "call" },
+  { key: "email", label: "Email", kinds: ["email"], log: "email" },
+  { key: "sms", label: "Text", kinds: ["sms"], log: "sms" },
+  { key: "note", label: "Notes", kinds: ["note"], log: "note" },
+  { key: "voice", label: "Voice notes", kinds: ["voice", "voicemail"], log: "voice" },
+  { key: "ai_voice", label: "AI Agent", kinds: ["ai_voice"], log: "ai_voice" },
+  { key: "meeting", label: "Appointments", kinds: ["meeting"], log: "meeting" },
+  { key: "invoice", label: "Invoices", kinds: ["invoice"], log: "invoice" },
+  { key: "payment", label: "Payments", kinds: ["payment"], log: "payment" },
+  { key: "contract", label: "Contracts", kinds: ["contract"], log: "contract" },
 ];
 
 const SEEN_KEY = (opportunityId: string) => `cc:timeline-seen:${opportunityId}`;
@@ -229,6 +247,11 @@ function ActivityRow({ a, onOpen }: { a: Activity; onOpen: () => void }) {
   const ch = CHANNEL[a.kind] ?? CHANNEL.note;
   const Icon = ch.icon;
   const preview = a.subject || (a.body || "").replace(/<[^>]+>/g, " ").trim().slice(0, 90);
+  // "Outbound call" reads well; an invoice has no direction, so it is just
+  // "Invoice" rather than a sentence with a hole where the direction went.
+  const dir = a.direction === "inbound" ? "Inbound" : a.direction === "outbound" ? "Outbound" : null;
+  const heading = dir ? `${dir} ${ch.label.toLowerCase()}` : ch.label;
+  const amount = typeof a.aiMeta?.amount === "number" ? a.aiMeta.amount : null;
   return (
     <button type="button" onClick={onOpen} className="flex w-full items-start gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-brand/40">
       <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full", ch.tone)}>
@@ -236,9 +259,8 @@ function ActivityRow({ a, onOpen }: { a: Activity; onOpen: () => void }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-sm font-medium text-foreground">
-            {a.direction === "inbound" ? "Inbound" : a.direction === "outbound" ? "Outbound" : ""} {ch.label.toLowerCase()}
-          </span>
+          <span className="text-sm font-medium text-foreground">{heading}</span>
+          {amount !== null && <span className="text-sm font-semibold tabular-nums text-foreground">{usd.format(amount)}</span>}
           <span className="text-xs text-muted-foreground">{fmtWhen(a.occurredAt)}</span>
           {duration(a.durationSeconds) && <span className="text-xs text-muted-foreground">· {duration(a.durationSeconds)}</span>}
           {a.disposition && <span className="text-xs text-muted-foreground">· {a.disposition}</span>}
@@ -413,6 +435,9 @@ export function OpportunityDetail({ id }: { id: string }) {
   const { items, update } = useCollection<Deal>("deals", seedDeals);
   const contactsCol = useCollection<Contact>("contacts", seedContacts);
   const leadsCol = useCollection<Lead>("leads", seedLeads);
+  // Stage guidance and Next Steps are configuration, shared by every deal.
+  const settingsCol = useCollection<StageConfigRecord>("settings", []);
+  const stageConfig = settingsCol.items.find((r) => r.id === STAGE_CONFIG_ID) ?? null;
 
   const deal = items.find((d) => d.id === id) ?? null;
   const contact = deal?.contactId ? contactsCol.items.find((c) => c.id === deal.contactId) ?? null : null;
@@ -438,6 +463,13 @@ export function OpportunityDetail({ id }: { id: string }) {
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [blocked, setBlocked] = useState<string[] | null>(null);
   const [nextStepOpen, setNextStepOpen] = useState(false);
+  const [addFieldOpen, setAddFieldOpen] = useState(false);
+  const [stageConfigOpen, setStageConfigOpen] = useState(false);
+  const [savingStages, setSavingStages] = useState(false);
+  const [addStepLabel, setAddStepLabel] = useState("");
+  const [logKind, setLogKind] = useState<LogKind | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
+  const [logging, setLogging] = useState(false);
   const [recordAction, setRecordAction] = useState<RecordAction | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const sidebarCollapsed = useSidebarCollapsed();
@@ -460,7 +492,8 @@ export function OpportunityDetail({ id }: { id: string }) {
   }, [dealId, dealContactId, dealLeadId]);
   useEffect(() => { void loadTimeline(); }, [loadTimeline]);
 
-  const tabKinds = TIMELINE_TABS.find((t) => t.key === filter)?.kinds ?? null;
+  const activeTab = TIMELINE_TABS.find((t) => t.key === filter) ?? null;
+  const tabKinds = activeTab?.kinds ?? null;
   const shown = useMemo(
     () => (tabKinds ? activities.filter((a) => tabKinds.includes(a.kind)) : activities),
     [activities, tabKinds],
@@ -503,8 +536,8 @@ export function OpportunityDetail({ id }: { id: string }) {
 
   const stageIdx = PIPELINE_PATH.indexOf(deal.stage);
   const closed = isClosed(deal.stage);
-  const guide = STAGE_GUIDE[deal.stage];
-  const checklist = checklistFor(deal);
+  const guide = resolveStage(deal.stage, stageConfig, deal);
+  const checklist = stepsFor(deal, stageConfig);
   const nextStage = stageIdx >= 0 && stageIdx < PIPELINE_PATH.length - 1 ? PIPELINE_PATH[stageIdx + 1] : null;
   const lastActivity = activities[0]?.occurredAt ?? null;
 
@@ -526,7 +559,7 @@ export function OpportunityDetail({ id }: { id: string }) {
   function setStage(next: DealStage) {
     const forward = PIPELINE_PATH.indexOf(next) > stageIdx;
     if (forward && !isClosed(next)) {
-      const missing = blockingItems(deal!, deal!.stage);
+      const missing = blockingSteps(deal!, stageConfig, deal!.stage);
       if (missing.length) { setBlocked(missing.map((m) => m.label)); return; }
     }
     const now = new Date().toISOString();
@@ -556,6 +589,94 @@ export function OpportunityDetail({ id }: { id: string }) {
   function toggleCheck(itemId: string) {
     const key = `${deal!.stage}:${itemId}`;
     update(deal!.id, { checklist: { ...(deal!.checklist ?? {}), [key]: !deal!.checklist?.[key] } });
+  }
+
+  /* ── Lead / contact details ─────────────────────────────────────────── */
+
+  /** Edit the person, not the deal — the contact record is the source of truth. */
+  function saveContact(patch: Partial<Contact>) {
+    if (!contact) return;
+    contactsCol.update(contact.id, patch);
+  }
+
+  /* ── Key fields ─────────────────────────────────────────────────────── */
+
+  function addCustomField(field: { label: string; type: CustomFieldType }) {
+    const next: CustomField = { id: newItemId("fld"), label: field.label, type: field.type, value: "" };
+    save({ customFields: [...(deal!.customFields ?? []), next] });
+    setAddFieldOpen(false);
+    flash(`Added “${field.label}”.`);
+  }
+
+  function setCustomField(id: string, value: string) {
+    save({ customFields: (deal!.customFields ?? []).map((f) => (f.id === id ? { ...f, value } : f)) });
+  }
+
+  function removeCustomField(id: string) {
+    const gone = (deal!.customFields ?? []).find((f) => f.id === id);
+    save({ customFields: (deal!.customFields ?? []).filter((f) => f.id !== id) });
+    if (gone) flash(`Removed “${gone.label}”.`);
+  }
+
+  /* ── Next Steps ─────────────────────────────────────────────────────── */
+
+  /** An item for this deal alone. The stage template is edited separately. */
+  function addStep() {
+    const label = addStepLabel.trim();
+    if (!label) return;
+    save({ extraItems: [...(deal!.extraItems ?? []), { id: newItemId("step"), label, stage: deal!.stage }] });
+    setAddStepLabel("");
+  }
+
+  function removeStep(itemId: string) {
+    const key = `${deal!.stage}:${itemId}`;
+    const checklistRest = { ...(deal!.checklist ?? {}) };
+    delete checklistRest[key];
+    save({ extraItems: (deal!.extraItems ?? []).filter((e) => e.id !== itemId), checklist: checklistRest });
+  }
+
+  async function saveStages(stages: Record<DealStage, StoredStage>) {
+    setSavingStages(true);
+    const record: StageConfigRecord = { id: STAGE_CONFIG_ID, stages };
+    // The settings collection holds one document per concern; create doubles as
+    // an upsert server-side, so a first run and an edit take the same path.
+    const ok = stageConfig
+      ? await settingsCol.update(STAGE_CONFIG_ID, record)
+      : await settingsCol.create(record);
+    setSavingStages(false);
+    if (!ok) { flash("Couldn't save the stage setup. Try again.", "error"); return; }
+    setStageConfigOpen(false);
+    flash("Pipeline stages updated.");
+  }
+
+  /* ── Timeline ───────────────────────────────────────────────────────── */
+
+  /** Log something that happened outside Channel Cast. */
+  async function logActivity(payload: LogPayload) {
+    setLogging(true);
+    try {
+      const res = await fetch("/api/comm/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          opportunityId: deal!.id,
+          contactId: deal!.contactId ?? null,
+          leadId: lead?.id ?? null,
+          owner: deal!.owner || null,
+          actor: deal!.owner || "You",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { flash(data?.error || "Couldn't save that entry.", "error"); return; }
+      setLogOpen(false);
+      await loadTimeline();
+      flash(`${LOG_KINDS[payload.kind].label} logged.`);
+    } catch {
+      flash("Couldn't reach the server. Try again.", "error");
+    } finally {
+      setLogging(false);
+    }
   }
 
   function confirmClose() {
@@ -673,25 +794,75 @@ export function OpportunityDetail({ id }: { id: string }) {
                   </div>
                 </div>
                 <div>
-                  <DetailField label="Account">{contact.company || deal.client || "—"}</DetailField>
+                  <DetailField label="Name">
+                    <Editable value={contact.name} placeholder="Add a name" onSave={(v) => saveContact({ name: v })} />
+                  </DetailField>
+                  <DetailField label="Title">
+                    <Editable value={contact.title} placeholder="Add a title" onSave={(v) => saveContact({ title: v })} />
+                  </DetailField>
+                  <DetailField label="Account">
+                    <Editable value={contact.company} placeholder={deal.client || "Add an account"} onSave={(v) => saveContact({ company: v })} />
+                  </DetailField>
+                  {/* Editing and acting are different intents, so the channel
+                      button sits beside the value rather than on top of it. */}
                   <DetailField label="Email">
-                    {contact.email
-                      ? <button type="button" onClick={() => setTool("email")} className="text-left text-brand-strong hover:underline">{contact.email}</button>
-                      : "—"}
+                    <span className="flex items-center justify-end gap-1">
+                      <Editable value={contact.email} placeholder="Add an email" onSave={(v) => saveContact({ email: v })} />
+                      {contact.email && (
+                        <button type="button" onClick={() => setTool("email")} title="Send an email"
+                          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-brand-strong">
+                          <Mail className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </span>
                   </DetailField>
                   <DetailField label="Phone">
-                    {contact.phone
-                      ? <button type="button" onClick={() => setTool("call")} className="text-left text-brand-strong hover:underline">{contact.phone}</button>
-                      : "—"}
+                    <span className="flex items-center justify-end gap-1">
+                      <Editable value={contact.phone} placeholder="Add a phone" onSave={(v) => saveContact({ phone: v })} />
+                      {contact.phone && (
+                        <button type="button" onClick={() => setTool("call")} title="Call"
+                          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-brand-strong">
+                          <Phone className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </span>
+                  </DetailField>
+                  <DetailField label="Website">
+                    <Editable value={contact.website} placeholder="Add a website" onSave={(v) => saveContact({ website: v })} />
+                  </DetailField>
+                  <DetailField label="City">
+                    <Editable value={contact.city} placeholder="Add a city" onSave={(v) => saveContact({ city: v })} />
+                  </DetailField>
+                  <DetailField label="State">
+                    <Editable value={contact.state} placeholder="Add a state" onSave={(v) => saveContact({ state: v })} />
                   </DetailField>
                   <DetailField label="Role">
-                    <Badge className="border-transparent bg-secondary text-secondary-foreground">{contact.type}</Badge>
+                    <Editable
+                      value={contact.type}
+                      type="select"
+                      options={CONTACT_TYPE_ORDER.map((t) => ({ value: t, label: CONTACT_TYPE[t].label }))}
+                      onSave={(v) => saveContact({ type: v as Contact["type"] })}
+                      format={(v) => (
+                        <Badge className="border-transparent bg-secondary text-secondary-foreground">
+                          {CONTACT_TYPE[v as Contact["type"]]?.label ?? String(v)}
+                        </Badge>
+                      )}
+                    />
                   </DetailField>
-                  {contact.tags?.length ? (
-                    <DetailField label="Tags">
-                      <span className="flex flex-wrap gap-1">{contact.tags.map((t) => <Badge key={t} className="border-transparent bg-muted text-[10px] text-muted-foreground">{t}</Badge>)}</span>
-                    </DetailField>
-                  ) : null}
+                  <DetailField label="Tags">
+                    <Editable
+                      value={contact.tags?.join(", ")}
+                      placeholder="Add tags"
+                      onSave={(v) => saveContact({ tags: v.split(",").map((t) => t.trim()).filter(Boolean) })}
+                      format={(v) => (
+                        <span className="flex flex-wrap justify-end gap-1">
+                          {String(v).split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
+                            <Badge key={t} className="border-transparent bg-muted text-[10px] text-muted-foreground">{t}</Badge>
+                          ))}
+                        </span>
+                      )}
+                    />
+                  </DetailField>
                 </div>
                 <Link href="/app/admin/contacts" className="inline-flex items-center gap-1 text-xs text-brand-strong hover:underline">
                   Open contact <ChevronRight className="h-3 w-3" />
@@ -755,7 +926,14 @@ export function OpportunityDetail({ id }: { id: string }) {
         {/* Centre — key fields, guidance, activity */}
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Panel title="Key fields">
+            <Panel
+              title="Key fields"
+              action={
+                <Button size="sm" variant="ghost" onClick={() => setAddFieldOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Add field
+                </Button>
+              }
+            >
               <div>
                 <DetailField label="Opportunity owner">
                   <Editable value={deal.owner} placeholder="Unassigned" onSave={(v) => changeOwner(v)} />
@@ -778,6 +956,27 @@ export function OpportunityDetail({ id }: { id: string }) {
                   <Editable value={deal.products?.join(", ")} placeholder="Add products"
                     onSave={(v) => save({ products: v.split(",").map((p) => p.trim()).filter(Boolean) })} />
                 </DetailField>
+                {(deal.customFields ?? []).map((f) => (
+                  <DetailField key={f.id} label={f.label}>
+                    <span className="group flex items-center justify-end gap-1">
+                      <Editable
+                        value={f.value}
+                        type={f.type}
+                        placeholder={`Add ${f.label.toLowerCase()}`}
+                        onSave={(v) => setCustomField(f.id, v)}
+                        format={f.type === "date" ? (v) => fmtDate(String(v)) : undefined}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCustomField(f.id)}
+                        title={`Remove ${f.label}`}
+                        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  </DetailField>
+                ))}
               </div>
             </Panel>
 
@@ -798,33 +997,74 @@ export function OpportunityDetail({ id }: { id: string }) {
           </div>
 
           <Panel
-            title={`Completion items · ${checklist.filter((c) => c.done).length}/${checklist.length}`}
-            action={!closed && nextStage ? <Button size="sm" variant="outline" onClick={() => setStage(nextStage)}><Check className="h-3.5 w-3.5" /> Mark complete</Button> : undefined}
+            title={`Next Steps · ${checklist.filter((c) => c.done).length}/${checklist.length}`}
+            action={
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => setStageConfigOpen(true)} title="Set up the steps for every stage">
+                  <Settings2 className="h-3.5 w-3.5" /> Configure stages
+                </Button>
+                {!closed && nextStage && (
+                  <Button size="sm" variant="outline" onClick={() => setStage(nextStage)}><Check className="h-3.5 w-3.5" /> Mark complete</Button>
+                )}
+              </div>
+            }
           >
             <div className="space-y-1.5">
-              {checklist.map(({ item, done, automatic }) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => !automatic && toggleCheck(item.id)}
-                  disabled={automatic}
-                  title={automatic ? "Satisfied automatically from the record" : undefined}
-                  className={cn("flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm transition-colors", automatic ? "cursor-default" : "hover:bg-muted/50")}
-                >
-                  <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border", done ? "border-brand-strong bg-brand/15 text-brand-strong" : "border-border")}>
-                    {done && <Check className="h-3 w-3" />}
-                  </span>
-                  <span className={done ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
-                  {item.required && !done && <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-warning">Required</span>}
-                </button>
+              {checklist.length === 0 && (
+                <p className="text-sm text-muted-foreground">No steps for this stage yet. Add one below, or set up the stage.</p>
+              )}
+              {checklist.map(({ item, done, automatic, custom }) => (
+                <div key={item.id} className="group flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => !automatic && toggleCheck(item.id)}
+                    disabled={automatic}
+                    title={automatic ? "Satisfied automatically from the record" : undefined}
+                    className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm transition-colors", automatic ? "cursor-default" : "hover:bg-muted/50")}
+                  >
+                    <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border", done ? "border-brand-strong bg-brand/15 text-brand-strong" : "border-border")}>
+                      {done && <Check className="h-3 w-3" />}
+                    </span>
+                    <span className={cn("min-w-0", done ? "text-foreground" : "text-muted-foreground")}>{item.label}</span>
+                    {item.required && !done && <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide text-warning">Required</span>}
+                  </button>
+                  {/* Only this deal's own additions are removable here; template
+                      steps belong to the stage and are edited in Configure stages. */}
+                  {custom && (
+                    <button
+                      type="button"
+                      onClick={() => removeStep(item.id)}
+                      title="Remove this step"
+                      className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               ))}
+
+              <div className="flex items-center gap-1.5 pt-1.5">
+                <Input
+                  value={addStepLabel}
+                  onChange={(e) => setAddStepLabel(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStep(); } }}
+                  placeholder={`Add a step for ${DEAL_STAGE[deal.stage].label}…`}
+                  className="h-8 text-sm"
+                />
+                <Button size="sm" variant="outline" onClick={addStep} disabled={!addStepLabel.trim()}>
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </Button>
+              </div>
             </div>
           </Panel>
 
           <Panel
             title="Activity timeline"
             action={
-              <div className="-mb-px flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Activity channels">
+              <div className="flex min-w-0 items-center gap-2">
+              {/* min-w-0 so the strip scrolls within what is left rather than
+                  running under the Add button. */}
+              <div className="-mb-px flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Activity channels">
                 {TIMELINE_TABS.map((t) => {
                   const c = tabCounts[t.key] ?? { total: 0, unseen: 0 };
                   const active = filter === t.key;
@@ -856,10 +1096,16 @@ export function OpportunityDetail({ id }: { id: string }) {
                   );
                 })}
               </div>
+              {/* Adds an entry of whatever channel is in view; All lets you pick. */}
+              <Button size="sm" variant="outline" className="shrink-0"
+                onClick={() => { setLogKind(activeTab?.log ?? null); setLogOpen(true); }}>
+                <Plus className="h-3.5 w-3.5" /> Add
+              </Button>
+              </div>
             }
           >
             {shown.length === 0 ? (
-              <EmptyState message={filter === "all" ? "No activity yet. Calls, texts and emails attach here automatically." : `Nothing under ${TIMELINE_TABS.find((t) => t.key === filter)?.label ?? "this channel"} yet.`} />
+              <EmptyState message={filter === "all" ? "No activity yet. Calls, texts and emails attach here automatically — anything else, add it." : `Nothing under ${activeTab?.label ?? "this channel"} yet. Add the first entry.`} />
             ) : (
               <div className="space-y-2">{shown.map((a) => <ActivityRow key={a.id} a={a} onOpen={() => setOpenActivity(a)} />)}</div>
             )}
@@ -934,6 +1180,33 @@ export function OpportunityDetail({ id }: { id: string }) {
         open={scheduleOpen}
         onClose={() => setScheduleOpen(false)}
         onBooked={(m) => { flash(m); void loadTimeline(); }}
+      />
+
+      <AddFieldDialog
+        open={addFieldOpen}
+        existingLabels={[
+          "Opportunity owner", "Amount", "Expected close", "Next step", "Last activity", "Products",
+          ...(deal.customFields ?? []).map((f) => f.label),
+        ]}
+        onClose={() => setAddFieldOpen(false)}
+        onAdd={addCustomField}
+      />
+
+      <StageConfigDialog
+        open={stageConfigOpen}
+        initial={stageConfig?.stages ?? null}
+        startStage={deal.stage}
+        saving={savingStages}
+        onClose={() => setStageConfigOpen(false)}
+        onSave={(stages) => { void saveStages(stages); }}
+      />
+
+      <LogActivityDialog
+        open={logOpen}
+        kind={logKind}
+        saving={logging}
+        onClose={() => setLogOpen(false)}
+        onSave={(payload) => { void logActivity(payload); }}
       />
 
       <NextStepDialog
