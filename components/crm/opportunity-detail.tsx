@@ -945,11 +945,30 @@ export function OpportunityDetail({ id }: { id: string }) {
                   <Editable value={deal.closeDate} type="date" onSave={(v) => save({ closeDate: v })} format={(v) => fmtDate(String(v))} />
                 </DetailField>
                 <DetailField label="Next step">
-                  <button type="button" onClick={() => setNextStepOpen(true)}
-                    className={cn("w-full rounded px-1 py-0.5 text-right text-sm transition-colors hover:bg-muted/60",
-                      deal.nextStep?.action ? "text-foreground" : "text-warning")}>
-                    {deal.nextStep?.action ? `${deal.nextStep.action} · ${fmtDate(deal.nextStep.dueDate)}` : "Set a next step"}
-                  </button>
+                  {deal.nextStep?.action ? (
+                    // Set: read it like the values around it, with the date held
+                    // back so a long action still fits on one line.
+                    <button
+                      type="button"
+                      onClick={() => setNextStepOpen(true)}
+                      title="Edit the next step"
+                      className="inline-flex max-w-full items-baseline gap-2 rounded px-1 py-0.5 transition-colors hover:bg-muted/60"
+                    >
+                      <span className="min-w-0 truncate text-sm text-foreground">{deal.nextStep.action}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{fmtDate(deal.nextStep.dueDate)}</span>
+                    </button>
+                  ) : (
+                    // Unset: this is the one row that is a job to do rather than
+                    // a value to read, so it reads as a button, not amber text.
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setNextStepOpen(true)}
+                      className="h-7 gap-1.5 border-warning/40 px-2 text-xs font-medium text-warning hover:bg-warning/10 hover:text-warning"
+                    >
+                      <CalendarClock className="h-3.5 w-3.5" /> Set a next step
+                    </Button>
+                  )}
                 </DetailField>
                 <DetailField label="Last activity">{lastActivity ? fmtWhen(lastActivity) : "None yet"}</DetailField>
                 <DetailField label="Products">
