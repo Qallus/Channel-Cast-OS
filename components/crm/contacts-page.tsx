@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, Briefcase, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List, ListChecks, Mail, Maximize2, MessageSquare, Minimize2, Pencil, Phone, Plus, Send, Shuffle, SquareKanban, StickyNote, Table as TableIcon, Trash2, Upload, X } from "lucide-react";
+import { Archive, Briefcase, CalendarClock, CalendarDays, Contact as ContactIcon, Download, ExternalLink, LayoutGrid, List, ListChecks, Mail, Maximize2, MessageSquare, Minimize2, Pencil, Phone, Plus, Send, Shuffle, Smartphone, SquareKanban, StickyNote, Table as TableIcon, Trash2, Upload, X } from "lucide-react";
 
 import {
   EmptyState, FormField, PageHeader, RecordCalendar, RowActions, SearchBox, StatRow, StatTile, ViewSwitcher, initialsOf,
@@ -27,6 +27,8 @@ import {
 } from "@/lib/crm/contacts";
 import { ACTIVITY_KIND, Activity, ActivityKind, seedActivities } from "@/lib/crm/activities";
 import { DEAL_STAGE, Deal, seedDeals } from "@/lib/crm/deals";
+import { PhoneImportModal } from "@/components/crm/phone-import-modal";
+import { ContactDraft } from "@/lib/crm/phone-import";
 import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +86,7 @@ function blankContact(type: ContactType = "contact"): Contact {
 
 export function ContactsPage() {
   const router = useRouter();
-  const { items, create, update, remove } = useCollection<Contact>("contacts", seedContacts);
+  const { items, create, saveMany, update, remove } = useCollection<Contact>("contacts", seedContacts);
   const activitiesCol = useCollection<Activity>("activities", seedActivities);
   const dealsCol = useCollection<Deal>("deals", seedDeals);
   const leadsCol = useCollection<Lead>("leads", seedLeads);
@@ -101,6 +103,19 @@ export function ContactsPage() {
   const [deleteItem, setDeleteItem] = useState<Contact | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const { toast, flash } = useToast();
+
+  // Arriving from the QR handoff (`?import=phone`) opens the phone importer
+  // straight away, so scanning the code lands you on the contact picker rather
+  // than on a page you then have to navigate. Read after mount rather than via
+  // useSearchParams, which would drag the whole page out of static rendering.
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const [fromQr, setFromQr] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("import") === "phone") {
+      setFromQr(true);
+      setPhoneOpen(true);
+    }
+  }, []);
 
   // Normalize legacy records (older shape used `role`/other statuses) so they still render.
   const contacts = useMemo<Contact[]>(() => items.map((c) => ({
@@ -153,6 +168,30 @@ export function ContactsPage() {
     setDeleteItem(null);
     flash("Contact deleted.");
   }
+  /**
+   * Commit a phone import: new people become records, recognised ones get their
+   * blanks filled in. The importer decided which is which — it only ever hands
+   * back merges the user explicitly ticked. One batched write, because a phone
+   * book can be hundreds of people.
+   */
+  async function importFromPhone(add: ContactDraft[], merge: { contact: Contact; patch: Partial<Contact> }[]) {
+    setPhoneOpen(false);
+    const records: Contact[] = [
+      ...add.map((draft) => ({ ...draft, id: genId("ct"), owner: draft.owner || "Jeremy Waters" })),
+      ...merge.map(({ contact, patch }) => ({ ...contact, ...patch })),
+    ];
+    if (!records.length) { flash("Nothing to import — those contacts are already up to date."); return; }
+
+    const saved = await saveMany(records);
+    const parts = [
+      add.length ? `Added ${add.length} contact${add.length === 1 ? "" : "s"}` : "",
+      merge.length ? `updated ${merge.length}` : "",
+    ].filter(Boolean);
+    flash(saved
+      ? `${parts.join(", ")} from your phone.`
+      : `${parts.join(", ")} on this screen, but the save didn't reach the server. Reload before relying on it.`);
+  }
+
   function setType(c: Contact, type: ContactType) { update(c.id, { ...c, type }); flash(`Moved to ${CONTACT_TYPE[type].label}.`); }
   function setStatus(c: Contact, status: ContactStatus) { update(c.id, { ...c, status }); }
 
@@ -229,6 +268,7 @@ export function ContactsPage() {
         description="Leads, prospects, clients, and contacts — one place to manage and convert them."
         action={
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => setPhoneOpen(true)}><Smartphone className="h-4 w-4" /> From phone</Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> Import</Button>
             <Button variant="outline" onClick={() => exportCsv(filtered)}><Download className="h-4 w-4" /> Export</Button>
             <Button onClick={openNew}><Plus className="h-4 w-4" /> Add contact</Button>
@@ -349,6 +389,16 @@ export function ContactsPage() {
       </Dialog>
 
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImport={(rows) => { rows.forEach((r) => create(r)); setImportOpen(false); flash(`Imported ${rows.length} contact${rows.length === 1 ? "" : "s"}.`); }} />}
+
+      {/* Import straight off a phone — OS contact picker, .vcf, or QR to the phone. */}
+      {phoneOpen && (
+        <PhoneImportModal
+          existing={contacts}
+          autoPick={fromQr}
+          onClose={() => setPhoneOpen(false)}
+          onImport={importFromPhone}
+        />
+      )}
     </div>
   );
 }

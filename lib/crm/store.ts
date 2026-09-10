@@ -75,6 +75,26 @@ export function useCollection<T extends WithId>(collection: string, seed: T[]) {
     [collection],
   );
 
+  /**
+   * Upsert a whole batch in one request: records with a known id replace what's
+   * there, the rest are prepended. Importers turn up with hundreds of records at
+   * once — firing that many individual POSTs would be slow and would hammer the
+   * API, and the collection endpoint already takes an array.
+   */
+  const saveMany = useCallback(
+    (records: T[]) => {
+      if (!records.length) return Promise.resolve(true);
+      setItems((prev) => {
+        const incoming = new Map(records.map((r) => [r.id, r]));
+        const known = new Set(prev.map((it) => it.id));
+        const merged = prev.map((it) => incoming.get(it.id) ?? it);
+        return [...records.filter((r) => !known.has(r.id)), ...merged];
+      });
+      return wrote(api(collection, { method: "POST", body: JSON.stringify({ records }) }));
+    },
+    [collection],
+  );
+
   const update = useCallback(
     (id: string, patch: Partial<T>) => {
       const next = itemsRef.current.map((it) => (it.id === id ? { ...it, ...patch } : it));
@@ -94,5 +114,5 @@ export function useCollection<T extends WithId>(collection: string, seed: T[]) {
     [collection],
   );
 
-  return { items, loaded, create, update, remove };
+  return { items, loaded, create, saveMany, update, remove };
 }
