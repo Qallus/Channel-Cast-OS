@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site/site-footer";
 import { SupportFab } from "@/components/site/support-fab";
 import { AiVisionDemo } from "@/components/site/ai-vision-demo";
 import { DeviceCaption } from "@/components/site/device-anim";
+import { Device3D } from "@/components/site/device-3d";
 import { LISTINGS, type Listing } from "@/lib/marketing/marketplace";
 import { Button } from "@/components/ui/button";
 
@@ -52,38 +53,43 @@ export default function HomePage() {
             <p className="cc-fade-up mt-4 text-xs text-muted-foreground" style={{ animationDelay: "0.32s" }}>No credit card to explore the marketplace · Works on any Windows mini-PC + USB webcam</p>
           </div>
 
-          {/* Stylized device preview */}
+          {/* Stylized device preview, over the real product in 3D */}
           <div className="cc-fade-up flex items-center justify-center" style={{ animationDelay: "0.2s" }}>
-            <div className="cc-float w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-2xl">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className="h-2 w-2 animate-pulse rounded-full bg-success" /> Mini PC — Front Entrance</span>
-                <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-medium text-brand-strong">Motion</span>
-              </div>
-              <div className="mt-4 rounded-xl border border-border bg-background p-4">
-                <div className="flex items-center gap-3">
-                  <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-brand/15 text-brand-strong">
-                    <Radar className="h-5 w-5" />
-                    <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75" /><span className="relative inline-flex h-3 w-3 rounded-full bg-brand" /></span>
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Motion detected</p>
-                    <p className="text-xs text-muted-foreground">Playing “Summer Sale — 15s” · just now</p>
+            <div className="cc-float flex w-full max-w-sm flex-col gap-4">
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className="h-2 w-2 animate-pulse rounded-full bg-success" /> Mini PC — Front Entrance</span>
+                  <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-medium text-brand-strong">Motion</span>
+                </div>
+                <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-brand/15 text-brand-strong">
+                      <Radar className="h-5 w-5" />
+                      <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75" /><span className="relative inline-flex h-3 w-3 rounded-full bg-brand" /></span>
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Motion detected</p>
+                      <p className="text-xs text-muted-foreground">Playing “Summer Sale — 15s” · just now</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex h-8 items-end gap-0.5">
+                    {[6, 12, 20, 28, 18, 32, 24, 14, 26, 20, 10, 22, 30, 16, 8].map((h, i) => (
+                      <span key={i} className="cc-eq-bar w-1.5 rounded-full bg-brand-strong/70" style={{ height: `${h}px`, animationDelay: `${(i % 5) * 0.12}s` }} />
+                    ))}
                   </div>
                 </div>
-                <div className="mt-3 flex h-8 items-end gap-0.5">
-                  {[6, 12, 20, 28, 18, 32, 24, 14, 26, 20, 10, 22, 30, 16, 8].map((h, i) => (
-                    <span key={i} className="cc-eq-bar w-1.5 rounded-full bg-brand-strong/70" style={{ height: `${h}px`, animationDelay: `${(i % 5) * 0.12}s` }} />
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  {[["Plays today", "128"], ["Motion", "96"], ["Scheduled", "32"]].map(([l, v]) => (
+                    <div key={l} className="rounded-lg border border-border bg-background p-2">
+                      <p className="text-lg font-semibold text-foreground">{v}</p>
+                      <p className="text-[11px] text-muted-foreground">{l}</p>
+                    </div>
                   ))}
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                {[["Plays today", "128"], ["Motion", "96"], ["Scheduled", "32"]].map(([l, v]) => (
-                  <div key={l} className="rounded-lg border border-border bg-background p-2">
-                    <p className="text-lg font-semibold text-foreground">{v}</p>
-                    <p className="text-[11px] text-muted-foreground">{l}</p>
-                  </div>
-                ))}
-              </div>
+
+              {/* The actual product, rendered live */}
+              <Device3D />
             </div>
           </div>
         </div>
