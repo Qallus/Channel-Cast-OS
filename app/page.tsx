@@ -7,6 +7,7 @@ import { SupportFab } from "@/components/site/support-fab";
 import { AiVisionDemo } from "@/components/site/ai-vision-demo";
 import { DeviceCaption } from "@/components/site/device-anim";
 import { Device3D } from "@/components/site/device-3d";
+import { StatRail } from "@/components/site/stat-rail";
 import { LISTINGS, type Listing } from "@/lib/marketing/marketplace";
 import { Button } from "@/components/ui/button";
 
@@ -34,34 +35,35 @@ export default function HomePage() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,hsl(var(--brand)/0.10),transparent)]" />
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:py-32">
           <div className="flex flex-col justify-center">
             <span className="cc-fade-up inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-brand-strong" /> Motion-based audio advertising
+              <Sparkles className="h-3.5 w-3.5 text-brand-strong" /> AI Vision Audio Player
             </span>
             <h1 className="cc-fade-up mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" style={{ animationDelay: "0.08s" }}>
-              How do you get consumers to notice your ads? <span className="text-brand-strong">You don&apos;t. You get them to hear them.</span>
+              Ads are hard to see, but <span className="text-brand-strong">impossible to not hear.</span>
             </h1>
             <p className="cc-fade-up mt-4 max-w-xl text-lg text-muted-foreground" style={{ animationDelay: "0.16s" }}>
-              Consumers are practically glued to their phones. Channel Cast&apos;s AI Vision Audio Advertisement Playback Device plays targeted content the moment someone walks by — getting their attention back. Discover ad space, book campaigns, create audio, and run the whole network from one dashboard.
+              People are glued to their phones. Channel Cast&apos;s new “AI Vision Audio Player” can target each person or group walking by with crystal clear audio geared towards them.
             </p>
             <div className="cc-fade-up mt-7 flex flex-wrap gap-3" style={{ animationDelay: "0.24s" }}>
               <Button asChild><Link href="/marketplace">View ad space <ArrowRight className="h-4 w-4" /></Link></Button>
-              <Button asChild variant="outline"><Link href="/register">Advertise with us</Link></Button>
-              <Button asChild variant="ghost"><Link href="/businesses">Become a location partner</Link></Button>
+              <Button asChild variant="outline"><Link href="/businesses">Become a Location Partner</Link></Button>
             </div>
             <p className="cc-fade-up mt-4 text-xs text-muted-foreground" style={{ animationDelay: "0.32s" }}>No credit card to explore the marketplace · Works on any Windows mini-PC + USB webcam</p>
           </div>
 
-          {/* Stylized device preview, over the real product in 3D */}
-          <div className="cc-fade-up flex items-center justify-center" style={{ animationDelay: "0.2s" }}>
-            <div className="cc-float flex w-full max-w-sm flex-col gap-4">
-              <div className="rounded-2xl border border-border bg-card p-4 shadow-2xl">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className="h-2 w-2 animate-pulse rounded-full bg-success" /> Mini PC — Front Entrance</span>
-                  <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-medium text-brand-strong">Motion</span>
-                </div>
-                <div className="mt-4 rounded-xl border border-border bg-background p-4">
+          {/* The real product in 3D, with the live-playback readout layered over it */}
+          <div className="cc-fade-up flex items-start justify-center" style={{ animationDelay: "0.2s" }}>
+            {/* Explicit height: the 3D layer is absolutely positioned (so its
+                canvas can spill wider than this column) and carries no size. */}
+            <div className="relative h-[30rem] w-full max-w-md sm:h-[34rem]">
+              <Device3D className="cc-float" />
+
+              {/* Overlay: what the device is doing right now, then the network totals.
+                  pointer-events-none throughout so dragging the model still works. */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-10 space-y-2.5">
+                <div className="rounded-2xl border border-border bg-card/90 p-4 shadow-2xl backdrop-blur">
                   <div className="flex items-center gap-3">
                     <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-brand/15 text-brand-strong">
                       <Radar className="h-5 w-5" />
@@ -78,18 +80,17 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                  {[["Plays today", "128"], ["Motion", "96"], ["Scheduled", "32"]].map(([l, v]) => (
-                    <div key={l} className="rounded-lg border border-border bg-background p-2">
-                      <p className="text-lg font-semibold text-foreground">{v}</p>
-                      <p className="text-[11px] text-muted-foreground">{l}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* The actual product, rendered live */}
-              <Device3D />
+                <StatRail
+                  stats={[
+                    { label: "Plays today", value: "128" },
+                    { label: "Triggered Ads", value: "96" },
+                    { label: "Scheduled Spots", value: "84" },
+                    { label: "Listeners", value: "5,846" },
+                    { label: "Locations", value: "1,225" },
+                  ]}
+                />
+              </div>
             </div>
           </div>
         </div>
