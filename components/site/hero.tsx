@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BarChart3, Building2, Check, Eye, Handshake, MapPin, Megaphone, MessageSquare, Play, Radar, TrendingUp, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Device3D } from "@/components/site/device-3d";
 
 type Cta = { label: string; href: string };
 type Variant = "how" | "advertisers" | "businesses" | "partners" | "contact";
@@ -16,6 +17,7 @@ export function HeroAnimated({
   primary,
   secondary,
   badge,
+  device,
 }: {
   variant: Variant;
   eyebrow: string;
@@ -24,6 +26,8 @@ export function HeroAnimated({
   primary?: Cta;
   secondary?: Cta;
   badge?: string;
+  /** Show the real product in 3D instead of the page's illustrated card. */
+  device?: boolean;
 }) {
   return (
     <section className="relative overflow-hidden border-b border-border">
@@ -49,11 +53,21 @@ export function HeroAnimated({
         </div>
 
         <div className="cc-fade-up flex items-center justify-center" style={{ animationDelay: "0.2s" }}>
-          {variant === "how" && <HowVisual />}
-          {variant === "advertisers" && <AdvertisersVisual />}
-          {variant === "businesses" && <BusinessesVisual />}
-          {variant === "partners" && <PartnersVisual />}
-          {variant === "contact" && <ContactVisual />}
+          {device ? (
+            // Height lives here: the 3D layer is absolutely positioned so its
+            // canvas can spill wider than this column.
+            <div className="relative h-[24rem] w-full max-w-md sm:h-[28rem]">
+              <Device3D className="cc-float" />
+            </div>
+          ) : (
+            <>
+              {variant === "how" && <HowVisual />}
+              {variant === "advertisers" && <AdvertisersVisual />}
+              {variant === "businesses" && <BusinessesVisual />}
+              {variant === "partners" && <PartnersVisual />}
+              {variant === "contact" && <ContactVisual />}
+            </>
+          )}
         </div>
       </div>
     </section>

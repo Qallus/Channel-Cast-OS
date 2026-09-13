@@ -1,6 +1,7 @@
 import { Band, CTABand, FAQList } from "@/components/site/marketing";
 import { HeroAnimated } from "@/components/site/hero";
 import { PlacementScene, PlacementCompare } from "@/components/site/device-anim";
+import { Device3D } from "@/components/site/device-3d";
 import { getPlacementConfig } from "@/lib/server/placement-config";
 import { getMediaConfig } from "@/lib/server/media-config";
 import { siteSlotDefault } from "@/lib/stock-images";
@@ -40,9 +41,8 @@ export default async function PlacementPage() {
       <Band eyebrow="The hardware" title="A weatherproof device your customers barely notice">
         <div className="grid items-center gap-8 lg:grid-cols-2">
           <div>
-            <div className="flex items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-accent/40 to-card p-8">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/device-render.svg" alt="Channel Cast device" className="w-full max-w-xs" />
+            <div className="relative h-[22rem] overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-accent/40 to-card sm:h-[26rem]">
+              <Device3D />
             </div>
             <p className="mt-4 text-sm text-muted-foreground">Solar-assisted, weatherproof, and quiet — with an on-device AI sensor and speaker. It sits on a counter or mounts out of the way, and plays only when someone&apos;s actually there.</p>
           </div>

@@ -2,6 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+
+import { buildDevice } from "@/components/site/device-model";
+
+// The device model is authored in metres; this lifts it into scene units.
+// Chosen so the puck stands about as tall as the box stand-in it replaced —
+// the audio camera keyframes were framed around that silhouette.
+const DEVICE_SCALE = 9;
 
 export type SceneVariant = "audio" | "displays" | "wall" | "street";
 type Mode = "dark" | "light";
@@ -33,7 +41,9 @@ const THEMES: Record<Mode, Theme> = {
 };
 
 const KEYFRAMES: Record<SceneVariant, { fog: number; kf: { p: [number, number, number]; t: [number, number, number] }[] }> = {
-  audio: { fog: 0.05, kf: [{ p: [0.4, 1.4, 6.6], t: [0, 0.35, 0] }, { p: [1.5, 0.95, 2.6], t: [0, 0.45, 0.5] }, { p: [-2.8, 1.2, 4.8], t: [0, 0.2, 0] }, { p: [0, 13.5, 15.5], t: [0, -0.4, 0] }, { p: [0, 1.8, 6.4], t: [0, 0.3, 0] }] },
+  // Targets sit higher than the other scenes: the audio variant shows the real
+  // puck, which is far taller than the box stand-in these were first framed for.
+  audio: { fog: 0.05, kf: [{ p: [0.4, 1.9, 6.8], t: [0, 0.75, 0] }, { p: [1.7, 1.3, 3.0], t: [0, 0.8, 0.5] }, { p: [-3.0, 1.6, 5.0], t: [0, 0.65, 0] }, { p: [0, 13.5, 15.5], t: [0, -0.4, 0] }, { p: [0, 2.2, 6.6], t: [0, 0.7, 0] }] },
   displays: { fog: 0.05, kf: [{ p: [0, 0.7, 6.6], t: [0, 0.75, 0] }, { p: [0, 0.7, 2.4], t: [0, 0.75, 0] }, { p: [-6.8, 1.7, 7.6], t: [0, 0.75, 0] }, { p: [0, 10, 13.5], t: [0, 0.4, 0] }, { p: [0, 0.9, 7.2], t: [0, 0.75, 0] }] },
   wall: { fog: 0.016, kf: [{ p: [13, 4.5, 17], t: [0, 5, -1] }, { p: [5.2, 4.6, 7.6], t: [0.5, 5.2, -2] }, { p: [-13, 2.6, 13], t: [-16, 2.2, -2] }, { p: [0, 30, 34], t: [-4, 0, -10] }, { p: [12, 5.5, 18], t: [0, 4.6, -1] }] },
   street: { fog: 0.03, kf: [{ p: [3.4, 1.6, 7.4], t: [0, 1.3, 0] }, { p: [1.0, 1.5, 3.0], t: [-0.4, 1.4, 0] }, { p: [-4.6, 2.2, 6.0], t: [0, 1.2, 0] }, { p: [0, 17, 20], t: [0, 0, -2] }, { p: [2.6, 1.8, 8.0], t: [0, 1.3, 0] }] },
@@ -91,28 +101,28 @@ function buildScene(variant: SceneVariant, mode: Mode, reduce: boolean): { scene
 
   function buildAudio(s: THREE.Scene): Updater {
     const dev = new THREE.Group(); s.add(dev);
-    const shell = structMat();
-    const body = new THREE.Mesh(boxG, shell); body.scale.set(2.2, 0.6, 2.2); body.position.y = 0.3; dev.add(body);
-    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.21, 0.61, 2.21)), new THREE.LineBasicMaterial({ color: TH.face, transparent: true, opacity: TH.faceEdge * 0.8 }));
-    edge.position.y = 0.3; dev.add(edge);
-    const slotG = new THREE.BoxGeometry(1.3, 0.02, 0.04), slotM = new THREE.MeshBasicMaterial({ color: mode === "light" ? 0x9aa78c : 0x0a0d08 });
-    for (let i = -3; i <= 3; i++) { const m = new THREE.Mesh(slotG, slotM); m.position.set(0.2, 0.605, i * 0.16); dev.add(m); }
-    const led = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 14), new THREE.MeshBasicMaterial({ color: TH.face })); led.position.set(-0.82, 0.16, 1.11); dev.add(led);
+    // The real product model rather than a stand-in box. It is built in metres,
+    // so scale it up into this scene's units (the puck ends ~1.9 across).
+    const puck = buildDevice(THREE, TH.face);
+    puck.scale.setScalar(DEVICE_SCALE);
+    dev.add(puck);
+    const faceY = (puck.userData.faceY as number) * DEVICE_SCALE;
 
-    const cam = new THREE.Group(); cam.position.set(-0.05, 0.72, 0.62); dev.add(cam);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.34, 28), shell); barrel.rotation.x = Math.PI / 2; cam.add(barrel);
-    const foot = new THREE.Mesh(boxG, shell); foot.scale.set(0.34, 0.14, 0.5); foot.position.set(0, -0.19, -0.1); cam.add(foot);
-    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.115, 0.09, 28), new THREE.MeshStandardMaterial({ color: mode === "light" ? 0x2a3226 : 0x040603, roughness: 0.12, metalness: 0.95 }));
-    lens.rotation.x = Math.PI / 2; lens.position.z = 0.2; cam.add(lens);
-    const iris = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.014, 10, 36), new THREE.MeshBasicMaterial({ color: TH.face })); iris.position.z = 0.2; cam.add(iris);
+    // Themed iris ring hugging the camera pod — the scan tell the updater pulses.
+    // Rings the pod's base rather than capping it — the camera dome is the
+    // AI-vision tell and shouldn't be hidden under a lime disc.
+    const iris = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.016, 10, 44), new THREE.MeshBasicMaterial({ color: TH.face }));
+    iris.rotation.x = -Math.PI / 2; iris.position.y = faceY + 0.08; dev.add(iris);
 
+    // Vision cone opening upward out of the lens (apex down, sat at the pod).
+    const cam = new THREE.Group(); cam.position.y = faceY + 0.2; dev.add(cam);
     const coneM = new THREE.MeshBasicMaterial({ color: TH.face, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: mode === "light" ? THREE.NormalBlending : THREE.AdditiveBlending });
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.3, 3.2, 32, 1, true), coneM); cone.rotation.x = -Math.PI / 2; cone.position.set(0, 0, 1.8); cam.add(cone);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.3, 3.2, 32, 1, true), coneM); cone.rotation.x = Math.PI; cone.position.y = 1.6; cam.add(cone);
 
     const ringG = new THREE.TorusGeometry(1, 0.013, 10, 90), rings: THREE.Mesh[] = [];
     for (let i = 0; i < 5; i++) {
       const m = new THREE.MeshBasicMaterial({ color: TH.face, transparent: true, opacity: 0 });
-      const r = new THREE.Mesh(ringG, m); r.rotation.x = -Math.PI / 2; r.position.y = 0.08; r.userData = { off: i / 5, mat: m };
+      const r = new THREE.Mesh(ringG, m); r.rotation.x = -Math.PI / 2; r.position.y = faceY + 0.06; r.userData = { off: i / 5, mat: m };
       dev.add(r); rings.push(r);
     }
     const wave = new THREE.Group(); wave.position.y = 0.08; dev.add(wave);
@@ -329,8 +339,20 @@ export function ScrollScene({ variant }: { variant: SceneVariant }) {
     const clock = new THREE.Clock();
     const kf = KEYFRAMES[variant].kf;
 
+    // Only the audio scene carries the PBR product model, and its metals render
+    // near-black with nothing to reflect. The other variants are flat-shaded by
+    // design, so they are deliberately left without an environment.
+    const pmrem = variant === "audio" ? new THREE.PMREMGenerator(renderer) : null;
+    const envTex = pmrem ? pmrem.fromScene(new RoomEnvironment(), 0.04).texture : null;
+    const dressScene = (s: THREE.Scene) => {
+      if (!envTex) return;
+      s.environment = envTex;
+      s.environmentIntensity = 0.5;
+    };
+
     let mode: Mode = document.documentElement.classList.contains("dark") ? "dark" : "light";
     let built = buildScene(variant, mode, reduce);
+    dressScene(built.scene);
     renderer.setClearColor(THEMES[mode].bg, 0);
 
     let raw = 0, eased = 0;
@@ -368,6 +390,7 @@ export function ScrollScene({ variant }: { variant: SceneVariant }) {
       const y = window.scrollY;
       built.dispose();
       built = buildScene(variant, mode, reduce);
+      dressScene(built.scene);
       renderer.setClearColor(THEMES[mode].bg, 0);
       window.scrollTo(0, y);
     });
@@ -379,6 +402,8 @@ export function ScrollScene({ variant }: { variant: SceneVariant }) {
       window.removeEventListener("resize", onResize);
       obs.disconnect();
       built.dispose();
+      envTex?.dispose();
+      pmrem?.dispose();
       renderer.dispose();
     };
   }, [variant]);

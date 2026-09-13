@@ -12,10 +12,11 @@ export default function HowItWorksPage() {
       <HeroAnimated
         variant="how"
         eyebrow="How it works"
-        title={<>Presence in, the <span className="text-brand-strong">right message</span> out.</>}
-        subtitle="A Channel Cast device senses when someone is nearby and plays the most relevant audio spot — then reports every play in real time."
+        title={<>The private, yet ever so public <span className="text-brand-strong">Radio Station</span></>}
+        subtitle="The only radio station no one can change the channel on. Channel Cast AI Vision plays demographic based content to the people it sees in realtime."
         primary={{ label: "Set up a device", href: "/register" }}
         secondary={{ label: "View ad space", href: "/marketplace" }}
+        device
       />
 
       {/* Interactive walkthrough — hardware + software, together */}
