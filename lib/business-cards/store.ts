@@ -161,6 +161,15 @@ export async function setCardStatus(id: string, status: BusinessCard["status"]):
   return card;
 }
 
+export async function setCardNfcStatus(id: string, nfcStatus: string): Promise<BusinessCard | null> {
+  const card = await loadCardById(id);
+  if (!card) return null;
+  card.nfc_status = nfcStatus;
+  card.updated_at = new Date().toISOString();
+  await upsertRecords("business_cards", [card as unknown as { id: string } & Record<string, unknown>]);
+  return card;
+}
+
 export async function reassignCard(id: string, owner: OwnerOption | null): Promise<BusinessCard | null> {
   const card = await loadCardById(id);
   if (!card) return null;

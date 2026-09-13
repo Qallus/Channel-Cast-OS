@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CardPreview } from "@/components/business-cards/card-preview";
+import { NfcWriter, useWebNfc } from "@/components/business-cards/nfc-writer";
 import { COLOR_PRESETS, makeDefaultSections, makeNewCard, uid } from "@/lib/business-cards/defaults";
 import type {
   Automation, AutomationAction, BusinessCard, BusinessCardLink, BusinessCardSection,
@@ -475,29 +476,8 @@ function NfcPanel({
   setSections: React.Dispatch<React.SetStateAction<BusinessCardSection[]>>;
   nfcUrl: string;
 }) {
-  const [writeState, setWriteState] = React.useState<"idle" | "writing" | "done" | "error" | "unsupported">("idle");
-  const [writeMsg, setWriteMsg] = React.useState("");
   const nfcSection = sections.find((s) => s.section_type === "nfc");
-
-  async function writeTag() {
-    if (typeof window === "undefined" || !("NDEFReader" in window)) {
-      setWriteState("unsupported");
-      setWriteMsg("Web NFC works on Chrome for Android. Open this builder on an Android phone to write tags from the browser.");
-      return;
-    }
-    try {
-      setWriteState("writing");
-      setWriteMsg("Hold an NFC tag to the back of your phone…");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ndef = new (window as any).NDEFReader();
-      await ndef.write({ records: [{ recordType: "url", data: nfcUrl }] });
-      setWriteState("done");
-      setWriteMsg("Tag written! Tapping it now opens this card.");
-    } catch (err) {
-      setWriteState("error");
-      setWriteMsg(err instanceof Error ? err.message : "Could not write the tag.");
-    }
-  }
+  const supported = useWebNfc();
 
   return (
     <Section title="NFC tap-to-share">
@@ -515,10 +495,15 @@ function NfcPanel({
           <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(nfcUrl)}><Copy className="h-3.5 w-3.5" /></Button>
         </div>
       </F>
-      <Button size="sm" className="w-full" onClick={writeTag} disabled={writeState === "writing"}>
-        <Smartphone className="h-3.5 w-3.5" /> {writeState === "writing" ? "Waiting for tag…" : "Write to NFC tag"}
-      </Button>
-      {writeMsg && <p className={cn("mt-2 text-xs", writeState === "error" ? "text-destructive" : writeState === "done" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>{writeMsg}</p>}
+      {/* No cardId: the draft may be unsaved, so the status change rides along
+          with the next Save instead of being patched on its own. */}
+      {supported === null ? null : supported ? (
+        <NfcWriter url={nfcUrl} onWritten={() => set("nfc_status", "active")} />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Web NFC works in Chrome on Android. From the card list, <span className="font-medium text-foreground">Write NFC</span> shows a QR code that opens a write page on your phone.
+        </p>
+      )}
       <div className="mt-4">
         <button onClick={() => setSections(sections.map((s) => s.section_type === "nfc" ? { ...s, is_visible: !s.is_visible } : s))} className={cn("flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm", nfcSection?.is_visible ? "text-brand-strong" : "text-muted-foreground")}>
           {nfcSection?.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}

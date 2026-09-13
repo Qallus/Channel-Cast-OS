@@ -1,8 +1,11 @@
 import { requireUser, AuthError } from "@/lib/server/require-user";
-import { deleteCard, loadCardById, loadOwnerOptions, reassignCard, setCardStatus } from "@/lib/business-cards/store";
+import { deleteCard, loadCardById, loadOwnerOptions, reassignCard, setCardNfcStatus, setCardStatus } from "@/lib/business-cards/store";
 import type { CardStatus } from "@/lib/business-cards/types";
 
 export const runtime = "nodejs";
+
+// Mirrors the options in the builder's NFC panel.
+const NFC_STATUSES = ["not_ordered", "ordered", "assigned", "active"];
 
 async function guard(request: Request, id: string) {
   const user = await requireUser();
@@ -18,9 +21,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try { ({ user } = await guard(request, id)); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
 
-  const body = (await request.json().catch(() => ({}))) as { status?: CardStatus; ownerId?: string | null };
+  const body = (await request.json().catch(() => ({}))) as { status?: CardStatus; ownerId?: string | null; nfcStatus?: string };
 
   try {
+    // Set after a tag is written from the card list or the phone write page.
+    if (body.nfcStatus !== undefined) {
+      if (!NFC_STATUSES.includes(body.nfcStatus)) return Response.json({ error: "Unknown NFC status." }, { status: 400 });
+      const card = await setCardNfcStatus(id, body.nfcStatus);
+      return Response.json({ card });
+    }
     if (body.status) {
       const card = await setCardStatus(id, body.status);
       return Response.json({ card });

@@ -3,7 +3,7 @@
 import * as React from "react";
 import {
   Archive, BarChart3, Copy, ExternalLink, Eye, IdCard, Mail, Pencil, Plus, QrCode,
-  RefreshCw, Trash2, Users,
+  RefreshCw, Smartphone, Trash2, Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/crm/crm-ui";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import type { BusinessCard, CardStats, OwnerOption } from "@/lib/business-cards/
 import { CardBuilder } from "./card-builder";
 import { LeadsInbox } from "./leads-inbox";
 import { CardAnalyticsView } from "./card-analytics";
+import { NfcWriteDialog } from "./nfc-writer";
 
 type ApiResponse = {
   cards: BusinessCard[];
@@ -47,6 +48,9 @@ export function BusinessCardsPage() {
   const [editing, setEditing] = React.useState<BusinessCard | "new" | null>(null);
   const [analyticsCard, setAnalyticsCard] = React.useState<BusinessCard | null>(null);
   const [copied, setCopied] = React.useState<string | null>(null);
+  const [nfcCard, setNfcCard] = React.useState<BusinessCard | null>(null);
+  // Set when an item is written, so closing the dialog refreshes the NFC ready tile.
+  const [nfcWritten, setNfcWritten] = React.useState(false);
 
   const load = React.useCallback(async (which: "mine" | "all") => {
     setLoading(true);
@@ -179,21 +183,32 @@ export function BusinessCardsPage() {
               {filtered.map((card) => (
                 <CardRow key={card.id} card={card} showOwner={scope === "all"} copied={copied === card.id}
                   onEdit={() => setEditing(card)} onAnalytics={() => setAnalyticsCard(card)} onCopy={() => copyLink(card)} onDelete={() => remove(card)}
+                  onNfc={() => setNfcCard(card)}
                   onPublishToggle={() => setStatus(card, card.status === "published" ? "unpublished" : "published")} onArchive={() => setStatus(card, "archived")} />
               ))}
             </div>
           )}
         </div>
       )}
+
+      <NfcWriteDialog
+        card={nfcCard}
+        onWritten={() => setNfcWritten(true)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setNfcCard(null);
+          if (nfcWritten) { setNfcWritten(false); load(scope); }
+        }}
+      />
     </div>
   );
 }
 
 function CardRow({
-  card, showOwner, copied, onEdit, onAnalytics, onCopy, onDelete, onPublishToggle, onArchive,
+  card, showOwner, copied, onEdit, onAnalytics, onCopy, onDelete, onNfc, onPublishToggle, onArchive,
 }: {
   card: BusinessCard; showOwner: boolean; copied: boolean;
-  onEdit: () => void; onAnalytics: () => void; onCopy: () => void; onDelete: () => void; onPublishToggle: () => void; onArchive: () => void;
+  onEdit: () => void; onAnalytics: () => void; onCopy: () => void; onDelete: () => void; onNfc: () => void; onPublishToggle: () => void; onArchive: () => void;
 }) {
   const url = `${PUBLIC_BASE}/card/${card.slug}`;
   const name = card.display_name || [card.first_name, card.last_name].filter(Boolean).join(" ") || card.card_name;
@@ -227,6 +242,7 @@ function CardRow({
         <Button size="sm" variant="outline" onClick={onCopy}><Copy className="h-3.5 w-3.5" /> {copied ? "Copied!" : "Copy link"}</Button>
         {published && <a href={url} target="_blank" rel="noreferrer"><Button size="sm" variant="outline"><Eye className="h-3.5 w-3.5" /> Public page</Button></a>}
         <a href={`/api/cards/qr?url=${encodeURIComponent(url)}&size=1024`} download={`${card.slug}-qr.png`}><Button size="sm" variant="outline"><QrCode className="h-3.5 w-3.5" /> QR PNG</Button></a>
+        <Button size="sm" variant="outline" onClick={onNfc}><Smartphone className="h-3.5 w-3.5" /> Write NFC</Button>
         <Button size="sm" variant="outline" onClick={onPublishToggle}>{published ? "Unpublish" : "Publish"}</Button>
         <Button size="sm" variant="outline" onClick={onArchive}><Archive className="h-3.5 w-3.5" /> Archive</Button>
         <Button size="sm" variant="outline" onClick={onDelete} className="text-destructive"><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
