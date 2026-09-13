@@ -3,6 +3,7 @@ import { ArrowRight, BarChart3, Building2, Check, Eye, Handshake, MapPin, Megaph
 
 import { Button } from "@/components/ui/button";
 import { Device3D } from "@/components/site/device-3d";
+import { LoopOverlay } from "@/components/site/loop-overlay";
 
 type Cta = { label: string; href: string };
 type Variant = "how" | "advertisers" | "businesses" | "partners" | "contact";
@@ -55,9 +56,13 @@ export function HeroAnimated({
         <div className="cc-fade-up flex items-center justify-center" style={{ animationDelay: "0.2s" }}>
           {device ? (
             // Height lives here: the 3D layer is absolutely positioned so its
-            // canvas can spill wider than this column.
-            <div className="relative h-[24rem] w-full max-w-md sm:h-[28rem]">
-              <Device3D className="cc-float" />
+            // canvas can spill wider than this column. The model is an
+            // illustration here, so it turns on its own but can't be grabbed.
+            <div className="relative h-[26rem] w-full max-w-md sm:h-[30rem]">
+              <Device3D className="cc-float" interactive={false} lift={0.5} />
+              <div className="absolute inset-x-0 top-0 z-10">
+                <LoopOverlay />
+              </div>
             </div>
           ) : (
             <>

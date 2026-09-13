@@ -12,8 +12,8 @@ export default function HowItWorksPage() {
       <HeroAnimated
         variant="how"
         eyebrow="How it works"
-        title={<>The private, yet ever so public <span className="text-brand-strong">Radio Station</span></>}
-        subtitle="The only radio station no one can change the channel on. Channel Cast AI Vision plays demographic based content to the people it sees in realtime."
+        title={<>Deploy content to the right audience <span className="text-brand-strong">in real time.</span></>}
+        subtitle="Control what plays, where it plays, and when it plays—all from one dashboard. Channel Cast's smart devices detect nearby activity and deliver relevant audio automatically, with live reporting on plays and audience activity across your locations."
         primary={{ label: "Set up a device", href: "/register" }}
         secondary={{ label: "View ad space", href: "/marketplace" }}
         device
@@ -49,7 +49,7 @@ export default function HowItWorksPage() {
 
       <Band eyebrow="Devices" title="Choose the sensing that fits">
         <div className="grid gap-4 md:grid-cols-2">
-          <FeatureCard icon={Eye} title="AI vision (USB webcam)" body="On-device computer vision counts who's present and enables audience-aware campaigns. Privacy-first — no images are stored or uploaded." />
+          <FeatureCard icon={Eye} title="AI Vision (Hi Resolution Computer Vision Camera)" body="On-device computer vision counts who's present and enables audience-aware campaigns. Privacy-first — no images are stored or uploaded." />
           <FeatureCard icon={Radar} title="PIR motion sensor" body="A low-cost sensor triggers playback on any movement. Simple and inexpensive to deploy widely." />
         </div>
       </Band>

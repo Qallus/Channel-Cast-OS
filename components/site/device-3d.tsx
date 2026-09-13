@@ -12,6 +12,8 @@ type SceneOpts = {
   framing: number;
   /** Fraction of the bounding radius to pan the view up by, dropping the device in frame. */
   lift: number;
+  /** When false the model still turns on its own, but the pointer can't grab it. */
+  interactive?: boolean;
 };
 
 /* Builds the whole scene into `host` and returns a disposer. Shared by the
@@ -103,6 +105,9 @@ async function mountDevice(host: HTMLElement, opts: SceneOpts): Promise<(() => v
   controls.maxPolarAngle = Math.PI / 2 - 0.06;
   controls.autoRotate = !reduce;
   controls.autoRotateSpeed = 1.1;
+  // Ambient turntable only — no dragging, for the places that embed the model
+  // as an illustration rather than something to handle.
+  controls.enableRotate = opts.interactive !== false;
 
   // Pause the turntable while someone is dragging, then pick it back up a
   // moment after they let go — it should never stay stopped for good.
@@ -220,19 +225,36 @@ function useDeviceScene(
   }, [active]);
 }
 
-export function Device3D({ className }: { className?: string }) {
+export function Device3D({
+  className,
+  framing = 1.15,
+  lift = 0.3,
+  interactive = true,
+  wide = true,
+}: {
+  className?: string;
+  /** Multiplier on the fitted camera distance — smaller frames the device larger. */
+  framing?: number;
+  /** Fraction of the bounding radius to drop the device by, clearing an overlay. */
+  lift?: number;
+  /** Off = ambient turntable only: no drag, no zoom, no chips. */
+  interactive?: boolean;
+  /** Let the canvas spill past its column on large screens, for the sound rings. */
+  wide?: boolean;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const [zoomed, setZoomed] = useState(false);
 
-  useDeviceScene(hostRef, { framing: 1.15, lift: 0.3 }, true, () => setFailed(true));
+  useDeviceScene(hostRef, { framing, lift, interactive }, true, () => setFailed(true));
   // Centred and framed tighter — the lightbox has the whole viewport to work with.
   useDeviceScene(zoomRef, { framing: 1.05, lift: 0 }, zoomed, () => setFailed(true));
 
   // Click opens the lightbox, drag rotates: tell them apart by how far the
   // pointer travelled, so a rotate never ends in an unwanted zoom.
   useEffect(() => {
+    if (!interactive) return;
     const host = hostRef.current;
     if (!host) return;
     let x = 0;
@@ -248,7 +270,7 @@ export function Device3D({ className }: { className?: string }) {
       host.removeEventListener("pointerdown", down);
       host.removeEventListener("pointerup", up);
     };
-  }, []);
+  }, [interactive]);
 
   // Close on Escape, and hold the page still while the lightbox is open.
   useEffect(() => {
@@ -273,7 +295,9 @@ export function Device3D({ className }: { className?: string }) {
             to travel — the column alone crops them. */}
         <div
           ref={hostRef}
-          className="pointer-events-auto absolute inset-y-0 left-1/2 w-full -translate-x-1/2 cursor-grab touch-pan-y active:cursor-grabbing lg:w-[130%]"
+          className={`absolute inset-y-0 left-1/2 w-full -translate-x-1/2 ${wide ? "lg:w-[130%]" : ""} ${
+            interactive ? "pointer-events-auto cursor-grab touch-pan-y active:cursor-grabbing" : ""
+          }`}
           role="img"
           aria-label="A 3D model of the Channel Cast playback device: a weatherproof puck speaker with a centered AI vision camera, on a ceiling mount."
         />
@@ -285,18 +309,20 @@ export function Device3D({ className }: { className?: string }) {
         {/* inset-x-0 rather than left-1/2: anchoring at the midpoint leaves the
             row only half the width to sit in, which wraps both labels on phones.
             Matched fixed widths keep the two pills the same size. */}
-        <div className="absolute inset-x-0 bottom-3 flex items-center justify-center gap-2 px-4">
-          <span className="w-[8.5rem] whitespace-nowrap rounded-full bg-brand/15 px-2.5 py-1 text-center text-[11px] font-medium text-brand-strong">
-            Drag to rotate
-          </span>
-          <button
-            type="button"
-            onClick={() => setZoomed(true)}
-            className="pointer-events-auto w-[8.5rem] whitespace-nowrap rounded-full bg-brand/15 px-2.5 py-1 text-center text-[11px] font-medium text-brand-strong transition hover:bg-brand/25"
-          >
-            Click to zoom
-          </button>
-        </div>
+        {interactive && (
+          <div className="absolute inset-x-0 bottom-3 flex items-center justify-center gap-2 px-4">
+            <span className="w-[8.5rem] whitespace-nowrap rounded-full bg-brand/15 px-2.5 py-1 text-center text-[11px] font-medium text-brand-strong">
+              Drag to rotate
+            </span>
+            <button
+              type="button"
+              onClick={() => setZoomed(true)}
+              className="pointer-events-auto w-[8.5rem] whitespace-nowrap rounded-full bg-brand/15 px-2.5 py-1 text-center text-[11px] font-medium text-brand-strong transition hover:bg-brand/25"
+            >
+              Click to zoom
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Portalled to <body>: the hero's cc-float transform would otherwise

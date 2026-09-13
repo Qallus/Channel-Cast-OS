@@ -8,8 +8,18 @@ import s from "./device-anim.module.css";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { QualificationForm } from "@/components/site/qualification-form";
+import { Device3D } from "@/components/site/device-3d";
 
-const SC = 66 / 72; // device "width 66" scale, matches the reference proportions
+const SC = 66 / 72;
+
+// Where the shared 3D device sits for each walkthrough step, as a box over the
+// stage. Step 2 is the dashboard mock and shows no device.
+const DEVICE_AT: (CSSProperties | null)[] = [
+  { left: "30%", top: "26%", width: "40%", height: "50%" },
+  null,
+  { left: "30%", top: "38%", width: "40%", height: "50%" },
+  { left: "44%", top: "34%", width: "40%", height: "50%" },
+]; // device "width 66" scale, matches the reference proportions
 
 const d = (secs: number): CSSProperties => ({ ["--d" as string]: `${secs}s` } as CSSProperties);
 
@@ -51,9 +61,30 @@ function Cloud({ x = 0, y = 0 }: { x?: number; y?: number }) {
   );
 }
 
+/* A desk machine — where a spot is created and managed before it ships. */
+function Computer({ x = 0, y = 0 }: { x?: number; y?: number }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <rect className={s.dBody} x="0" y="0" width="62" height="40" rx="5" />
+      <rect className={s.dLens} x="5" y="5" width="52" height="28" rx="2" />
+      <rect className={s.chipBar} x="13" y="22" width="4" height="7" rx="1" />
+      <rect className={s.chipBar} x="20" y="16" width="4" height="13" rx="1" />
+      <rect className={s.chipBar} x="27" y="19" width="4" height="10" rx="1" />
+      <rect className={s.chipBar} x="34" y="13" width="4" height="16" rx="1" />
+      <rect className={s.chipBar} x="41" y="21" width="4" height="8" rx="1" />
+      <rect className={s.dTop} x="24" y="40" width="14" height="7" rx="2" />
+      <rect className={s.dBody} x="12" y="47" width="38" height="4" rx="2" />
+      <ellipse className={s.dShadow} cx="31" cy="55" rx="26" ry="3" />
+    </g>
+  );
+}
+
 /* ── canonical process steps ─────────────────────────────────────────────── */
 
 export type Step = { n: number; title: string; short: string; detail: string; tag: string };
+
+/** The data-flow rail under the Data flow stage. */
+export const FLOW_CHIPS = ["Create", "Manage", "Deploy", "Cloud", "Device", "Sense", "Play"];
 
 export const HOW_STEPS: Step[] = [
   { n: 1, title: "Vision-activated audio device", short: "Sense", tag: "Hardware", detail: "A weatherproof device with an AI sensor watches for presence on-site. When someone's nearby it's ready to play — processed on the device, privacy-first, no images stored." },
@@ -137,13 +168,21 @@ export function DeviceWalkthrough({ steps = HOW_STEPS }: { steps?: Step[] }) {
             <span style={{ left: "90%", top: "58%", width: 4, height: 4, animationDuration: "8s", animationDelay: ".9s" }} />
           </div>
 
+          {/* One shared 3D device for the whole stage, moved per step. Mounting
+              a canvas inside each scene would run three WebGL contexts for the
+              same model, since hidden scenes still count as on-screen. */}
+          {DEVICE_AT[active] && (
+            <div className="pointer-events-none absolute z-[1]" style={DEVICE_AT[active]}>
+              <Device3D interactive={false} wide={false} framing={1.05} lift={0} />
+            </div>
+          )}
+
           <div className={cn(s.scene, active === 0 && s.sceneOn)}>
             <svg viewBox="0 0 260 200" className="h-auto w-full max-h-[264px]" role="img" aria-label="Device senses presence">
-              <circle className={s.ring} cx="130" cy="96" r="5" />
-              <circle className={cn(s.ring, s.ring2)} cx="130" cy="96" r="5" />
-              <circle className={cn(s.ring, s.ring3)} cx="130" cy="96" r="5" />
-              <DeviceGroup x={97} y={96} scale={SC} />
-              <text className={s.label} x="130" y="168">Sensing presence on-site</text>
+              <circle className={s.ring} cx="130" cy="104" r="5" />
+              <circle className={cn(s.ring, s.ring2)} cx="130" cy="104" r="5" />
+              <circle className={cn(s.ring, s.ring3)} cx="130" cy="104" r="5" />
+              <text className={s.label} x="130" y="180">Sensing presence on-site</text>
             </svg>
           </div>
 
@@ -175,9 +214,8 @@ export function DeviceWalkthrough({ steps = HOW_STEPS }: { steps?: Step[] }) {
 
           <div className={cn(s.scene, active === 2 && s.sceneOn)}>
             <svg viewBox="0 0 260 200" className="h-auto w-full max-h-[264px]" role="img" aria-label="File deploys to the cloud">
-              <path id="cc-up" className={s.track} d="M130 128 L130 66" />
+              <path id="cc-up" className={s.track} d="M130 132 L130 66" />
               <Cloud x={-100} y={-6} />
-              <DeviceGroup x={97} y={118} scale={SC} />
               <g>
                 <rect className={s.chipBox} x="-15" y="-9" width="30" height="18" rx="4" />
                 <rect className={s.chipBar} x="-9" y="-2" width="2.6" height="4" rx="1" />
@@ -199,8 +237,7 @@ export function DeviceWalkthrough({ steps = HOW_STEPS }: { steps?: Step[] }) {
                   <rect key={bi} className={s.bar} x={150 + bi * 9} y={y} width="5" height="18" rx="1.5" style={{ animationDelay: `${[0, 0.16, 0.32, 0.1, 0.26][bi]}s` }} />
                 ))}
               </g>
-              <DeviceGroup x={140} y={112} scale={SC} />
-              <circle className={s.ringImpact} cx="171" cy="120" r="5">
+              <circle className={s.ringImpact} cx="171" cy="126" r="5">
                 <animate attributeName="r" dur="1.8s" repeatCount="indefinite" keyTimes="0;0.2;1" values="5;26;26" />
                 <animate attributeName="opacity" dur="1.8s" repeatCount="indefinite" keyTimes="0;0.2;1" values="0.9;0;0" />
               </circle>
@@ -248,12 +285,21 @@ export function ChipVertical({ steps = HOW_STEPS }: { steps?: Step[] }) {
   );
 }
 
+/* One row, never wrapped: it fits outright on desktop and becomes a snap
+   scroller below that, showing roughly one-and-a-half chips at a time.
+   Note the pairs can't use `display: contents` any more — a contents box takes
+   no scroll-snap or shrink of its own. */
 export function ChipInline({ steps = HOW_STEPS }: { steps?: Step[] }) {
   return (
-    <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-[radial-gradient(80%_90%_at_50%_6%,hsl(var(--brand)/0.07),transparent_70%)] px-6 py-7">
+    <div className="flex snap-x snap-mandatory items-center gap-2 overflow-x-auto rounded-2xl border border-border bg-[radial-gradient(80%_90%_at_50%_6%,hsl(var(--brand)/0.07),transparent_70%)] px-5 py-7 [-ms-overflow-style:none] [scrollbar-width:none] lg:gap-2.5 lg:overflow-visible lg:px-6 [&::-webkit-scrollbar]:hidden">
       {steps.map((st, i) => (
-        <span key={st.n} className="contents">
-          <span className={cn(s.stepGlow, "rounded-full border border-border bg-brand/5 px-3.5 py-2 text-sm font-semibold text-foreground")} style={d(i * 1.5)}>{st.title}</span>
+        <span key={st.n} className="flex shrink-0 snap-start items-center gap-2 lg:gap-2.5">
+          <span
+            className={cn(s.stepGlow, "whitespace-nowrap rounded-full border border-border bg-brand/5 px-3 py-2 text-sm font-semibold text-foreground lg:px-3.5 lg:text-xs xl:text-sm")}
+            style={d(i * 1.5)}
+          >
+            {st.title}
+          </span>
           {i < steps.length - 1 && <span className={cn(s.arrow, "font-bold text-muted-foreground")} style={d(i * 1.5 + 0.6)}>→</span>}
         </span>
       ))}
@@ -261,27 +307,34 @@ export function ChipInline({ steps = HOW_STEPS }: { steps?: Step[] }) {
   );
 }
 
-export function DeviceCaption({ steps = HOW_STEPS }: { steps?: Step[] }) {
+export function DeviceCaption({ chips = FLOW_CHIPS }: { chips?: string[] }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className={cn(s.stage, "bg-[radial-gradient(80%_90%_at_50%_6%,hsl(var(--brand)/0.08),transparent_70%)]")}>
-        <svg viewBox="0 0 440 150" className="block h-auto w-full" role="img" aria-label="Data travels between two devices">
-          <path id="cc-mini" className={s.track} d="M96 78 Q220 20 344 78" />
-          <circle className={s.ring} cx="96" cy="80" r="5" />
-          <DeviceGroup x={63} y={66} scale={SC} />
-          <DeviceGroup x={311} y={66} scale={SC} />
-          <circle className={s.ringImpact} cx="344" cy="80" r="5">
-            <animate attributeName="r" dur="2.4s" repeatCount="indefinite" keyTimes="0;0.18;1" values="5;30;30" />
-            <animate attributeName="opacity" dur="2.4s" repeatCount="indefinite" keyTimes="0;0.18;1" values="0.9;0;0" />
+        <svg viewBox="0 0 440 170" className="block h-auto w-full" role="img" aria-label="A spot travels from the dashboard, through the cloud, to the device">
+          {/* Computer → cloud → device, as two hops rather than one. */}
+          <path id="cc-up2" className={s.track} d="M92 84 Q160 26 210 30" />
+          <path id="cc-dn2" className={s.track} d="M250 30 Q310 30 344 88" />
+          <Computer x={52} y={62} />
+          <Cloud x={90} y={-46} />
+          <circle className={s.ringImpact} cx="344" cy="92" r="5">
+            <animate attributeName="r" dur="2.6s" repeatCount="indefinite" keyTimes="0;0.18;1" values="5;30;30" />
+            <animate attributeName="opacity" dur="2.6s" repeatCount="indefinite" keyTimes="0;0.18;1" values="0.9;0;0" />
           </circle>
-          <circle className={s.packet} r="4.5"><animateMotion dur="2.4s" repeatCount="indefinite"><mpath href="#cc-mini" /></animateMotion></circle>
+          <circle className={s.packet} r="4.5"><animateMotion dur="2.6s" repeatCount="indefinite"><mpath href="#cc-up2" /></animateMotion></circle>
+          <circle className={s.packet} r="4.5"><animateMotion dur="2.6s" begin="1.3s" repeatCount="indefinite"><mpath href="#cc-dn2" /></animateMotion></circle>
         </svg>
+        {/* The receiving end is the real product, sat where the glyph used to be. */}
+        <div className="pointer-events-none absolute" style={{ left: "62%", top: "18%", width: "34%", height: "76%" }}>
+          <Device3D interactive={false} wide={false} framing={1.05} lift={0} />
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2.5 border-t border-border px-5 py-4">
-        {steps.map((st, i) => (
-          <span key={st.n} className="contents">
-            <span className={cn(s.stepGlow, "rounded-full border border-border bg-brand/5 px-3.5 py-1.5 text-sm font-semibold text-foreground")} style={d(i * 1.5)}>{st.short}</span>
-            {i < steps.length - 1 && <span className={cn(s.arrow, "font-bold text-muted-foreground")} style={d(i * 1.5 + 0.6)}>→</span>}
+      <div className="flex items-center gap-2.5 overflow-x-auto border-t border-border px-5 py-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {chips.map((label, i) => (
+          <span key={label} className="flex shrink-0 items-center gap-2.5">
+            {/* Stagger spreads across the 6s glow cycle, whatever the count. */}
+            <span className={cn(s.stepGlow, "whitespace-nowrap rounded-full border border-border bg-brand/5 px-3.5 py-1.5 text-sm font-semibold text-foreground")} style={d((i * 6) / chips.length)}>{label}</span>
+            {i < chips.length - 1 && <span className={cn(s.arrow, "font-bold text-muted-foreground")} style={d((i * 6) / chips.length + 0.4)}>→</span>}
           </span>
         ))}
       </div>

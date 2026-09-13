@@ -9,7 +9,7 @@ import { buildDevice } from "@/components/site/device-model";
 // The device model is authored in metres; this lifts it into scene units.
 // Chosen so the puck stands about as tall as the box stand-in it replaced —
 // the audio camera keyframes were framed around that silhouette.
-const DEVICE_SCALE = 9;
+const DEVICE_SCALE = 13;
 
 export type SceneVariant = "audio" | "displays" | "wall" | "street";
 type Mode = "dark" | "light";
@@ -125,13 +125,28 @@ function buildScene(variant: SceneVariant, mode: Mode, reduce: boolean): { scene
       const r = new THREE.Mesh(ringG, m); r.rotation.x = -Math.PI / 2; r.position.y = faceY + 0.06; r.userData = { off: i / 5, mat: m };
       dev.add(r); rings.push(r);
     }
+    // Ring of bars around the device. Sat well clear of the puck's 1.2-unit
+    // radius, or they read as sticks growing out of the housing.
     const wave = new THREE.Group(); wave.position.y = 0.08; dev.add(wave);
-    const barG = new THREE.BoxGeometry(0.045, 1, 0.045), bars: THREE.Mesh[] = [];
+    const barG = new THREE.BoxGeometry(0.1, 1, 0.1), bars: THREE.Mesh[] = [];
     for (let i = 0; i < 44; i++) {
       const m = new THREE.MeshBasicMaterial({ color: TH.face, transparent: true, opacity: 0 });
       const b = new THREE.Mesh(barG, m), a = (i / 44) * 6.283;
-      b.position.set(Math.cos(a) * 2.6, 0, Math.sin(a) * 2.6); b.userData = { mat: m }; wave.add(b); bars.push(b);
+      b.position.set(Math.cos(a) * 4.8, 0, Math.sin(a) * 4.8); b.userData = { mat: m }; wave.add(b); bars.push(b);
     }
+    // Backdrop equalizer: a wide wall of bars standing behind the device.
+    // Starts invisible and small, then brightens and grows as the page scrolls.
+    const back = new THREE.Group(); back.position.set(0, 0, -16); s.add(back);
+    const backMat = new THREE.MeshBasicMaterial({ color: TH.face, transparent: true, opacity: 0, depthWrite: false });
+    const backG = new THREE.BoxGeometry(0.5, 1, 0.5), backBars: THREE.Mesh[] = [];
+    const BACK_N = 56;
+    for (let i = 0; i < BACK_N; i++) {
+      const b = new THREE.Mesh(backG, backMat);
+      b.position.x = (i - (BACK_N - 1) / 2) * 0.95;
+      b.userData = { ph: i * 0.5 + Math.random() * 0.4 };
+      back.add(b); backBars.push(b);
+    }
+
     const net = new THREE.Group(); s.add(net);
     const nM = new THREE.MeshStandardMaterial({ color: TH.struct, roughness: 0.6, metalness: 0.4, transparent: true, opacity: 0 });
     const dM = new THREE.MeshBasicMaterial({ color: TH.face, transparent: true, opacity: 0 });
@@ -154,6 +169,16 @@ function buildScene(variant: SceneVariant, mode: Mode, reduce: boolean): { scene
       rings.forEach((r) => { const ph = (t * 0.42 + r.userData.off) % 1, sc = 0.6 + ph * 5.4; r.scale.set(sc, sc, 1); r.userData.mat.opacity = aud * (1 - ph) * 0.7; });
       wave.rotation.y = -t * 0.26;
       bars.forEach((b, i) => { const h = 0.18 + Math.abs(Math.sin(t * 2.6 + i * 0.42)) * 0.95; b.scale.y = h; b.position.y = h / 2; b.userData.mat.opacity = aud * 0.8; });
+      // Ramps the whole way down the page: barely there at the top, full height
+      // and brightness by the end.
+      const grow = seg(p, 0.02, 0.85);
+      backMat.opacity = grow * (mode === "light" ? 0.16 : 0.3);
+      backBars.forEach((b) => {
+        const h = (0.6 + Math.abs(Math.sin(t * 2.2 + b.userData.ph)) * 3.4) * (0.25 + grow * 1.5);
+        const w = 0.6 + grow * 0.8;
+        b.scale.set(w, h, w);
+        b.position.y = h / 2;
+      });
       const nw = seg(p, 0.6, 0.78) * (1 - seg(p, 0.88, 1));
       nM.opacity = nw * 0.95; dM.opacity = nw;
       nodes.forEach((g) => g.children[1].scale.setScalar(1 + Math.sin(t * 3 + g.userData.ph) * 0.5 * nw));
