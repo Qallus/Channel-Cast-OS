@@ -47,7 +47,20 @@ export type EventType =
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "archived";
 
-export type QrSettings = { foreground?: string; background?: string; size?: number; url?: string | null };
+export type QrSettings = {
+  foreground?: string;
+  background?: string;
+  /** Pixel size of the downloaded PNG — not how big the code shows on the card. */
+  size?: number;
+  /** How big the code shows on the card, in CSS px. */
+  display_size?: number;
+  url?: string | null;
+};
+
+/** Logo height when a card hasn't chosen one. 24px read as a speck. */
+export const DEFAULT_LOGO_HEIGHT = 48;
+/** On-card QR size when a card hasn't chosen one. */
+export const DEFAULT_QR_DISPLAY = 128;
 
 export type LeadFormField = {
   key: "name" | "email" | "phone" | "company" | "message";

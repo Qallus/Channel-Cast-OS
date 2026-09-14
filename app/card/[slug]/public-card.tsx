@@ -98,28 +98,73 @@ function vimeoId(url: string): string | null {
   return m ? m[1] : null;
 }
 
-function SplashVideo({ content, muted }: { content: Record<string, unknown>; muted: boolean }) {
+function SplashVideo({ content, muted: startMuted, onEnd }: { content: Record<string, unknown>; muted: boolean; onEnd: () => void }) {
   const url = (content.video_url as string) || "";
   const start = Number(content.video_start || 0);
   const end = Number(content.video_end || 0);
   const ref = React.useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = React.useState(startMuted);
+  const [needsTap, setNeedsTap] = React.useState(false);
+  const finished = React.useRef(false);
   const yt = youtubeId(url);
   const vm = vimeoId(url);
 
+  // timeupdate keeps firing past the end mark, so guard against moving on twice.
+  const finish = React.useCallback(() => {
+    if (finished.current) return;
+    finished.current = true;
+    onEnd();
+  }, [onEnd]);
+
+  // With no player controls on a splash, a blocked autoplay would leave a
+  // frozen frame. Sound-on videos retry muted; if even that is refused, one
+  // tap starts playback.
+  React.useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.play().catch(() => {
+      if (!v.muted) {
+        v.muted = true;
+        setMuted(true);
+        v.play().catch(() => setNeedsTap(true));
+      } else {
+        setNeedsTap(true);
+      }
+    });
+  }, [url]);
+
   if (yt) {
-    const params = new URLSearchParams({ autoplay: "1", controls: "1", playsinline: "1", rel: "0", mute: muted ? "1" : "0" });
+    const params = new URLSearchParams({ autoplay: "1", controls: "0", playsinline: "1", rel: "0", modestbranding: "1", disablekb: "1", mute: startMuted ? "1" : "0" });
     if (start) params.set("start", String(start));
     if (end) params.set("end", String(end));
     return <iframe className="aspect-video w-full max-w-2xl rounded-xl border-0" src={`https://www.youtube.com/embed/${yt}?${params.toString()}`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />;
   }
   if (vm) {
-    return <iframe className="aspect-video w-full max-w-2xl rounded-xl border-0" src={`https://player.vimeo.com/video/${vm}?autoplay=1&muted=${muted ? 1 : 0}${start ? `#t=${start}s` : ""}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />;
+    return <iframe className="aspect-video w-full max-w-2xl rounded-xl border-0" src={`https://player.vimeo.com/video/${vm}?autoplay=1&controls=0&muted=${startMuted ? 1 : 0}${start ? `#t=${start}s` : ""}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />;
   }
   if (!url) return null;
   return (
-    <video ref={ref} src={url} className="w-full max-w-2xl rounded-xl" autoPlay playsInline muted={muted} controls
-      onLoadedMetadata={() => { if (ref.current && start) ref.current.currentTime = start; }}
-      onTimeUpdate={() => { if (ref.current && end && ref.current.currentTime >= end) ref.current.currentTime = start; }} />
+    <div className="relative w-full max-w-2xl">
+      {/* No controls: the video plays through, then the card takes over. */}
+      <video ref={ref} src={url} className="w-full rounded-xl" autoPlay playsInline muted={muted}
+        onLoadedMetadata={() => { if (ref.current && start) ref.current.currentTime = start; }}
+        onTimeUpdate={() => { if (ref.current && end && ref.current.currentTime >= end) { ref.current.pause(); finish(); } }}
+        onEnded={finish}
+        // A video that can't load shouldn't strand the visitor on the splash.
+        onError={finish} />
+      {needsTap && (
+        <button onClick={(e) => { e.stopPropagation(); setNeedsTap(false); ref.current?.play().catch(() => setNeedsTap(true)); }}
+          className="absolute inset-0 grid place-items-center rounded-xl bg-black/40 text-sm font-semibold text-white">
+          Tap to play
+        </button>
+      )}
+      {!startMuted && muted && !needsTap && (
+        <button onClick={(e) => { e.stopPropagation(); if (ref.current) ref.current.muted = false; setMuted(false); }}
+          className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white">
+          Tap for sound
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -152,6 +197,12 @@ function Splash({ content, card, onView }: { content: Record<string, unknown>; c
   const duration = Number(content.duration_seconds || 0);
   const muted = (content.video_muted as boolean) ?? true;
   const slides = (Array.isArray(content.slides) ? content.slides : []) as { id: string; image_url: string; caption?: string }[];
+  const videoUrl = (content.video_url as string) || "";
+  // An uploaded or direct video ends the splash itself when it finishes, so
+  // the auto-dismiss timer would only cut it short. Embeds can't report their
+  // end, so they still rely on the timer.
+  const selfTimed = mode === "video" && Boolean(videoUrl) && !youtubeId(videoUrl) && !vimeoId(videoUrl);
+  const showButton = content.show_button !== false;
 
   const [shown, setShown] = React.useState(false);
   const [leaving, setLeaving] = React.useState(false);
@@ -161,9 +212,9 @@ function Splash({ content, card, onView }: { content: Record<string, unknown>; c
   React.useEffect(() => {
     const raf = requestAnimationFrame(() => setShown(true));
     let timer: ReturnType<typeof setTimeout> | undefined;
-    if (duration > 0) timer = setTimeout(close, duration * 1000);
+    if (duration > 0 && !selfTimed) timer = setTimeout(close, duration * 1000);
     return () => { cancelAnimationFrame(raf); if (timer) clearTimeout(timer); };
-  }, [duration, close]);
+  }, [duration, close, selfTimed]);
 
   const active = shown && !leaving;
   let transformStyle: React.CSSProperties = {};
@@ -180,16 +231,26 @@ function Splash({ content, card, onView }: { content: Record<string, unknown>; c
   const logo = (content.logo_url as string) || "";
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6 text-center transition-all duration-[450ms] ease-out" style={{ background: card.background_color, color: card.text_color, ...transformStyle }}>
+    <div
+      className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6 text-center transition-all duration-[450ms] ease-out"
+      style={{ background: card.background_color, color: card.text_color, ...transformStyle }}
+      // With the button hidden, a tap anywhere still skips — nobody gets stuck
+      // on an embed that never dismisses or a slideshow with no timer.
+      onClick={mode !== "standard" && !showButton ? close : undefined}
+    >
       {mode === "video" ? (
         <>
-          <SplashVideo content={content} muted={muted} />
-          <button onClick={close} className="mt-6 rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>{primary}</button>
+          <SplashVideo content={content} muted={muted} onEnd={close} />
+          {(showButton || !videoUrl) && (
+            <button onClick={close} className="mt-6 rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>{primary}</button>
+          )}
         </>
       ) : mode === "slideshow" ? (
         <>
           <SplashSlideshow slides={slides} />
-          <button onClick={close} className="mt-6 rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>{primary}</button>
+          {(showButton || slides.length === 0) && (
+            <button onClick={close} className="mt-6 rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>{primary}</button>
+          )}
         </>
       ) : (
         <>

@@ -4,6 +4,7 @@
 // No network calls; the parent supplies handlers for clicks/actions.
 
 import { ExternalLink, Mail, MessageSquare, Phone, QrCode } from "lucide-react";
+import { DEFAULT_LOGO_HEIGHT, DEFAULT_QR_DISPLAY } from "@/lib/business-cards/types";
 import { cn } from "@/lib/utils";
 import type { BusinessCard, BusinessCardLink, BusinessCardSection, MediaSettings, SlideshowSlide, StepItem } from "@/lib/business-cards/types";
 
@@ -12,7 +13,7 @@ export type PreviewCard = Pick<
   | "display_name" | "first_name" | "last_name" | "job_title" | "company_name" | "bio"
   | "profile_photo_url" | "logo_url" | "background_image_url" | "background_color" | "accent_color" | "text_color"
   | "primary_phone" | "sms_phone" | "primary_email" | "website_url" | "maps_url" | "intro_video_url"
-  | "lead_form_settings" | "media_settings" | "slug"
+  | "lead_form_settings" | "media_settings" | "qr_settings" | "slug"
 >;
 
 function hexAlpha(hex: string, alpha: number): string {
@@ -51,8 +52,9 @@ export function CardPreview({
     .filter((s) => s.is_visible && s.section_type !== "opener")
     .sort((a, b) => a.display_order - b.display_order);
 
-  const pill = (label: string, icon: React.ReactNode, onClick?: () => void) => (
-    <button type="button" onClick={onClick}
+  // Rendered as an array in quick_actions, so each needs a key — like linkRow.
+  const pill = (label: string, icon: React.ReactNode, onClick: (() => void) | undefined, key: string) => (
+    <button key={key} type="button" onClick={onClick}
       className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium transition active:scale-95"
       style={{ background: surface, border: `1px solid ${border}`, color: accent }}>
       {icon}<span>{label}</span>
@@ -75,7 +77,7 @@ export function CardPreview({
     switch (s.section_type) {
       case "profile_header": {
         const logoImg = card.logo_url
-          ? <img src={card.logo_url} alt="" className="object-contain" style={{ height: media.logo_height || 24, width: media.logo_width || "auto", maxWidth: "100%" }} />
+          ? <img src={card.logo_url} alt="" className="object-contain" style={{ height: media.logo_height || DEFAULT_LOGO_HEIGHT, width: media.logo_width || "auto", maxWidth: "100%" }} />
           : null;
         const photoNode = card.profile_photo_url
           ? <img src={card.profile_photo_url} alt={name} className={cn("h-24 w-24 object-cover", shapeClass)} style={{ border: `2px solid ${outlineColor}` }} />
@@ -96,9 +98,9 @@ export function CardPreview({
       }
       case "quick_actions": {
         const actions: React.ReactNode[] = [];
-        if (card.primary_phone) actions.push(pill("Call", <Phone className="h-4 w-4" />, () => onAction?.("call")));
-        if (card.sms_phone || card.primary_phone) actions.push(pill("SMS", <MessageSquare className="h-4 w-4" />, () => onAction?.("sms")));
-        if (card.primary_email) actions.push(pill("Email", <Mail className="h-4 w-4" />, () => onAction?.("email")));
+        if (card.primary_phone) actions.push(pill("Call", <Phone className="h-4 w-4" />, () => onAction?.("call"), "call"));
+        if (card.sms_phone || card.primary_phone) actions.push(pill("SMS", <MessageSquare className="h-4 w-4" />, () => onAction?.("sms"), "sms"));
+        if (card.primary_email) actions.push(pill("Email", <Mail className="h-4 w-4" />, () => onAction?.("email"), "email"));
         if (!actions.length) return null;
         return wrap(<div className="flex gap-2">{actions}</div>);
       }
@@ -132,7 +134,11 @@ export function CardPreview({
           <div className="flex justify-center">
             <div className="rounded-xl bg-white p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=320&fg=${encodeURIComponent(card.background_color || "#0b1408")}`} alt="QR code" className="h-36 w-36" />
+              {(() => {
+                const px = card.qr_settings?.display_size || DEFAULT_QR_DISPLAY;
+                // Fetch at 2x the shown size so the modules stay crisp on phones.
+                return <img src={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=${Math.max(320, px * 2)}&fg=${encodeURIComponent(card.background_color || "#0b1408")}`} alt="QR code" style={{ width: px, height: px }} />;
+              })()}
             </div>
           </div>,
         );

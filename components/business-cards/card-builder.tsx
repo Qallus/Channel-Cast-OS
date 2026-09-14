@@ -16,6 +16,7 @@ import type {
   Automation, AutomationAction, BusinessCard, BusinessCardLink, BusinessCardSection,
   LinkType, MediaSettings, OwnerOption, SaveCardPayload, SlideshowSlide, StepItem, ThemeMode,
 } from "@/lib/business-cards/types";
+import { DEFAULT_LOGO_HEIGHT, DEFAULT_QR_DISPLAY } from "@/lib/business-cards/types";
 
 const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").replace(/\/$/, "");
 
@@ -274,6 +275,14 @@ function PanelBody(props: {
         <Section title="Profile">
           <ImageField label="Profile photo" value={draft.profile_photo_url} onChange={(v) => set("profile_photo_url", v)} />
           <ImageField label="Logo (optional)" value={draft.logo_url} onChange={(v) => set("logo_url", v)} />
+          {/* Size right where the logo is chosen — it used to live only under Media. */}
+          {draft.logo_url && (
+            <F label={`Logo size — ${(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}px`} hint="Max width and a logo link are under Media.">
+              <input type="range" min={16} max={160} value={(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}
+                onChange={(e) => setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), logo_height: Number(e.target.value) } }))}
+                className="w-full accent-brand" />
+            </F>
+          )}
           <F label="Display name"><input className={iCls} value={draft.display_name ?? ""} onChange={(e) => set("display_name", e.target.value)} /></F>
           <div className="grid grid-cols-2 gap-2">
             <F label="First name"><input className={iCls} value={draft.first_name ?? ""} onChange={(e) => set("first_name", e.target.value)} /></F>
@@ -356,12 +365,25 @@ function PanelBody(props: {
   if (panel === "qr") {
     const qr = draft.qr_settings || {};
     const fg = qr.foreground || draft.background_color;
+    const px = qr.display_size || DEFAULT_QR_DISPLAY;
+    const presets: [string, number][] = [["Small", 96], ["Medium", 128], ["Large", 176]];
     return (
       <Section title="QR code">
         <div className="mb-3 flex justify-center rounded-lg border border-border bg-white p-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=320&fg=${encodeURIComponent(fg)}`} alt="QR" className="h-40 w-40" />
+          <img src={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=${Math.max(320, px * 2)}&fg=${encodeURIComponent(fg)}`} alt="QR" style={{ width: px, height: px }} />
         </div>
+        <F label={`Size on card — ${px}px`} hint="Only changes how big it shows. Downloads stay full resolution.">
+          <div className="mb-2 flex gap-1">
+            {presets.map(([label, v]) => (
+              <button key={label} onClick={() => set("qr_settings", { ...qr, display_size: v })}
+                className={cn("flex-1 rounded-md border px-2 py-1 text-xs font-medium transition", px === v ? "border-brand-strong bg-accent text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <input type="range" min={80} max={240} step={4} value={px} onChange={(e) => set("qr_settings", { ...qr, display_size: Number(e.target.value) })} className="w-full accent-brand" />
+        </F>
         <ColorField label="QR foreground" value={fg} onChange={(v) => set("qr_settings", { ...qr, foreground: v })} />
         <a href={`/api/cards/qr?url=${encodeURIComponent(publicUrl)}&size=1024&fg=${encodeURIComponent(fg)}`} download={`${draft.slug || "card"}-qr.png`}>
           <Button size="sm" variant="outline" className="w-full"><QrCode className="h-3.5 w-3.5" /> Download PNG</Button>
@@ -631,7 +653,7 @@ function SplashPanel({ sections, setSections }: { sections: BusinessCardSection[
         </button>
       </F>
       <div className="grid grid-cols-2 gap-2">
-        <F label="Auto-dismiss after (sec)" hint="0 = stay until tapped">
+        <F label="Auto-dismiss after (sec)" hint="0 = stay until tapped. Uploaded videos move on when they end.">
           <input type="number" min={0} className={iCls} value={(content.duration_seconds as number) ?? 0} onChange={(e) => setContent({ duration_seconds: Number(e.target.value) })} />
         </F>
         <F label="Transition">
@@ -663,9 +685,25 @@ function SplashPanel({ sections, setSections }: { sections: BusinessCardSection[
         <>
           <p className="mb-2 text-xs text-muted-foreground">Full-screen image slideshow as the opener.</p>
           <SlideEditor slides={slides} onChange={(n) => setContent({ slides: n })} />
+          <SplashButtonToggle content={content} setContent={setContent} />
         </>
       )}
     </Section>
+  );
+}
+
+/** The button under a video or slideshow splash. Standard splashes keep theirs. */
+function SplashButtonToggle({ content, setContent }: { content: Record<string, unknown>; setContent: (patch: Record<string, unknown>) => void }) {
+  const on = content.show_button !== false;
+  const label = (content.primary_label as string) || "View card";
+  return (
+    <label className="mt-4 flex items-start gap-2 text-sm">
+      <input type="checkbox" className="mt-1" checked={on} onChange={(e) => setContent({ show_button: e.target.checked })} />
+      <span>
+        Show the &ldquo;{label}&rdquo; button
+        <span className="block text-[10px] text-muted-foreground">When hidden, the splash moves on by itself, and a tap anywhere skips it.</span>
+      </span>
+    </label>
   );
 }
 
@@ -778,6 +816,7 @@ function VideoSplashFields({ content, setContent }: { content: Record<string, un
         <input type="checkbox" checked={!muted} onChange={(e) => setContent({ video_muted: !e.target.checked })} /> Play with audio
       </label>
       <p className="mt-1 text-[10px] text-muted-foreground">Browsers require muted autoplay; with audio on, the visitor may need to tap to start sound.</p>
+      <SplashButtonToggle content={content} setContent={setContent} />
     </>
   );
 }
@@ -834,14 +873,14 @@ function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K ext
   function setMedia(patch: Partial<MediaSettings>) {
     setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), ...patch } }));
   }
-  const logoH = media.logo_height || 24;
+  const logoH = media.logo_height || DEFAULT_LOGO_HEIGHT;
   const logoW = media.logo_width || 0;
   return (
     <>
       <Section title="Logo size">
         <p className="mb-2 text-xs text-muted-foreground">Set the logo shown in the profile header. The aspect ratio is locked, so it never stretches.</p>
         <F label={`Height — ${logoH}px`}>
-          <input type="range" min={12} max={120} value={logoH} onChange={(e) => setMedia({ logo_height: Number(e.target.value) })} className="w-full accent-brand" />
+          <input type="range" min={16} max={160} value={logoH} onChange={(e) => setMedia({ logo_height: Number(e.target.value) })} className="w-full accent-brand" />
         </F>
         <F label={logoW ? `Max width — ${logoW}px` : "Max width — auto"} hint="0 = auto (scales with height).">
           <input type="range" min={0} max={320} value={logoW} onChange={(e) => setMedia({ logo_width: Number(e.target.value) })} className="w-full accent-brand" />
