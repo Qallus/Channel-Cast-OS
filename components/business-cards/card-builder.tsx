@@ -275,14 +275,8 @@ function PanelBody(props: {
         <Section title="Profile">
           <ImageField label="Profile photo" value={draft.profile_photo_url} onChange={(v) => set("profile_photo_url", v)} />
           <ImageField label="Logo (optional)" value={draft.logo_url} onChange={(v) => set("logo_url", v)} />
-          {/* Size right where the logo is chosen — it used to live only under Media. */}
-          {draft.logo_url && (
-            <F label={`Logo size — ${(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}px`} hint="Position, spacing, max width and a logo link are under Media.">
-              <input type="range" min={16} max={160} value={(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}
-                onChange={(e) => setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), logo_height: Number(e.target.value) } }))}
-                className="w-full accent-brand" />
-            </F>
-          )}
+          {/* Every logo setting sits right under the logo, where people look for it. */}
+          {draft.logo_url && <LogoControls draft={draft} setDraft={setDraft} />}
           <F label="Display name"><input className={iCls} value={draft.display_name ?? ""} onChange={(e) => set("display_name", e.target.value)} /></F>
           <div className="grid grid-cols-2 gap-2">
             <F label="First name"><input className={iCls} value={draft.first_name ?? ""} onChange={(e) => set("first_name", e.target.value)} /></F>
@@ -868,7 +862,8 @@ function AutomationsPanel({ draft, set }: { draft: BusinessCard; set: <K extends
 
 // ── Media panel ─────────────────────────────────────────────────────────────────
 
-function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K extends keyof BusinessCard>(k: K, v: BusinessCard[K]) => void; setDraft: React.Dispatch<React.SetStateAction<BusinessCard>> }) {
+/** All logo settings, shown under the logo upload in Content. */
+function LogoControls({ draft, setDraft }: { draft: BusinessCard; setDraft: React.Dispatch<React.SetStateAction<BusinessCard>> }) {
   const media = (draft.media_settings || {}) as MediaSettings;
   function setMedia(patch: Partial<MediaSettings>) {
     setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), ...patch } }));
@@ -881,41 +876,50 @@ function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K ext
   const logoPad = media.logo_padding || 0;
   const logoMt = media.logo_margin_top || 0;
   const logoMb = media.logo_margin_bottom ?? DEFAULT_LOGO_MARGIN_BOTTOM;
+
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-muted/30 p-3">
+      <F label={`Logo size — ${logoH}px`} hint="The aspect ratio is locked, so it never stretches.">
+        <input type="range" min={16} max={160} value={logoH} onChange={(e) => setMedia({ logo_height: Number(e.target.value) })} className="w-full accent-brand" />
+      </F>
+      <F label={logoW ? `Max width — ${logoW}px` : "Max width — auto"} hint="0 = auto (scales with height).">
+        <input type="range" min={0} max={320} value={logoW} onChange={(e) => setMedia({ logo_width: Number(e.target.value) })} className="w-full accent-brand" />
+      </F>
+      <F label="Position" hint={media.logo_align ? undefined : "Follows Content alignment until you pick one."}>
+        <div className="flex gap-1">
+          {(["left", "center", "right"] as const).map((a) => (
+            <button key={a} onClick={() => setMedia({ logo_align: a })}
+              className={cn("flex-1 rounded-md border px-2 py-1 text-xs font-medium capitalize transition", logoAlign === a ? "border-brand-strong bg-accent text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
+              {a}
+            </button>
+          ))}
+        </div>
+      </F>
+      <F label={`Padding — ${logoPad}px`} hint="Space inside, around the logo.">
+        <input type="range" min={0} max={48} value={logoPad} onChange={(e) => setMedia({ logo_padding: Number(e.target.value) })} className="w-full accent-brand" />
+      </F>
+      <div className="grid grid-cols-2 gap-2">
+        <F label={`Margin top — ${logoMt}px`}>
+          <input type="range" min={0} max={48} value={logoMt} onChange={(e) => setMedia({ logo_margin_top: Number(e.target.value) })} className="w-full accent-brand" />
+        </F>
+        <F label={`Margin bottom — ${logoMb}px`}>
+          <input type="range" min={0} max={48} value={logoMb} onChange={(e) => setMedia({ logo_margin_bottom: Number(e.target.value) })} className="w-full accent-brand" />
+        </F>
+      </div>
+      <F label="Logo links to (optional)" hint="Make the logo tappable — e.g. your company site.">
+        <input className={iCls} value={media.logo_link_url ?? ""} onChange={(e) => setMedia({ logo_link_url: e.target.value })} placeholder="https://…" />
+      </F>
+    </div>
+  );
+}
+
+function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K extends keyof BusinessCard>(k: K, v: BusinessCard[K]) => void; setDraft: React.Dispatch<React.SetStateAction<BusinessCard>> }) {
+  const media = (draft.media_settings || {}) as MediaSettings;
+  function setMedia(patch: Partial<MediaSettings>) {
+    setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), ...patch } }));
+  }
   return (
     <>
-      <Section title="Logo">
-        <p className="mb-2 text-xs text-muted-foreground">Set the logo shown in the profile header. The aspect ratio is locked, so it never stretches.</p>
-        <F label="Position" hint={media.logo_align ? undefined : "Follows Content alignment until you pick one."}>
-          <div className="flex gap-1">
-            {(["left", "center", "right"] as const).map((a) => (
-              <button key={a} onClick={() => setMedia({ logo_align: a })}
-                className={cn("flex-1 rounded-md border px-2 py-1 text-xs font-medium capitalize transition", logoAlign === a ? "border-brand-strong bg-accent text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
-                {a}
-              </button>
-            ))}
-          </div>
-        </F>
-        <F label={`Padding — ${logoPad}px`} hint="Space inside, around the logo.">
-          <input type="range" min={0} max={48} value={logoPad} onChange={(e) => setMedia({ logo_padding: Number(e.target.value) })} className="w-full accent-brand" />
-        </F>
-        <div className="grid grid-cols-2 gap-2">
-          <F label={`Margin top — ${logoMt}px`}>
-            <input type="range" min={0} max={48} value={logoMt} onChange={(e) => setMedia({ logo_margin_top: Number(e.target.value) })} className="w-full accent-brand" />
-          </F>
-          <F label={`Margin bottom — ${logoMb}px`}>
-            <input type="range" min={0} max={48} value={logoMb} onChange={(e) => setMedia({ logo_margin_bottom: Number(e.target.value) })} className="w-full accent-brand" />
-          </F>
-        </div>
-        <F label={`Height — ${logoH}px`}>
-          <input type="range" min={16} max={160} value={logoH} onChange={(e) => setMedia({ logo_height: Number(e.target.value) })} className="w-full accent-brand" />
-        </F>
-        <F label={logoW ? `Max width — ${logoW}px` : "Max width — auto"} hint="0 = auto (scales with height).">
-          <input type="range" min={0} max={320} value={logoW} onChange={(e) => setMedia({ logo_width: Number(e.target.value) })} className="w-full accent-brand" />
-        </F>
-        <F label="Logo links to (optional)" hint="Make the logo tappable — e.g. your company site.">
-          <input className={iCls} value={media.logo_link_url ?? ""} onChange={(e) => setMedia({ logo_link_url: e.target.value })} placeholder="https://…" />
-        </F>
-      </Section>
       <Section title="Background">
         <ImageField label="Background image" value={draft.background_image_url} onChange={(v) => set("background_image_url", v)} />
         <label className="flex items-center gap-2 text-sm">
