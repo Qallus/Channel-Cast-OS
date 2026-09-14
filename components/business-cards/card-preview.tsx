@@ -4,7 +4,7 @@
 // No network calls; the parent supplies handlers for clicks/actions.
 
 import { ExternalLink, Mail, MessageSquare, Phone, QrCode } from "lucide-react";
-import { DEFAULT_LOGO_HEIGHT, DEFAULT_QR_DISPLAY } from "@/lib/business-cards/types";
+import { DEFAULT_LOGO_HEIGHT, DEFAULT_LOGO_MARGIN_BOTTOM, DEFAULT_QR_DISPLAY } from "@/lib/business-cards/types";
 import { cn } from "@/lib/utils";
 import type { BusinessCard, BusinessCardLink, BusinessCardSection, MediaSettings, SlideshowSlide, StepItem } from "@/lib/business-cards/types";
 
@@ -85,7 +85,19 @@ export function CardPreview({
         return wrap(
           <div className={cn("flex flex-col", alignClass)}>
             {logoImg
-              ? <div className="mb-3">{media.logo_link_url ? <a href={media.logo_link_url} target="_blank" rel="noreferrer" className="inline-block">{logoImg}</a> : logoImg}</div>
+              ? (
+                // alignSelf overrides the header column's alignment for the logo
+                // alone; left unset, the logo keeps following it.
+                <div style={{
+                  alignSelf: media.logo_align === "left" ? "flex-start" : media.logo_align === "right" ? "flex-end" : media.logo_align === "center" ? "center" : undefined,
+                  padding: media.logo_padding || 0,
+                  marginTop: media.logo_margin_top || 0,
+                  marginBottom: media.logo_margin_bottom ?? DEFAULT_LOGO_MARGIN_BOTTOM,
+                  maxWidth: "100%",
+                }}>
+                  {media.logo_link_url ? <a href={media.logo_link_url} target="_blank" rel="noreferrer" className="inline-block">{logoImg}</a> : logoImg}
+                </div>
+              )
               : <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: hexAlpha(text, 0.5) }}>{card.company_name || "Digital Card"}</div>}
             {media.profile_link_url
               ? <a href={media.profile_link_url} target="_blank" rel="noreferrer" className="inline-block">{photoNode}</a>

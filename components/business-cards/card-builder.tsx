@@ -16,7 +16,7 @@ import type {
   Automation, AutomationAction, BusinessCard, BusinessCardLink, BusinessCardSection,
   LinkType, MediaSettings, OwnerOption, SaveCardPayload, SlideshowSlide, StepItem, ThemeMode,
 } from "@/lib/business-cards/types";
-import { DEFAULT_LOGO_HEIGHT, DEFAULT_QR_DISPLAY } from "@/lib/business-cards/types";
+import { DEFAULT_LOGO_HEIGHT, DEFAULT_LOGO_MARGIN_BOTTOM, DEFAULT_QR_DISPLAY } from "@/lib/business-cards/types";
 
 const PUBLIC_BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://channelcast.io").replace(/\/$/, "");
 
@@ -277,7 +277,7 @@ function PanelBody(props: {
           <ImageField label="Logo (optional)" value={draft.logo_url} onChange={(v) => set("logo_url", v)} />
           {/* Size right where the logo is chosen — it used to live only under Media. */}
           {draft.logo_url && (
-            <F label={`Logo size — ${(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}px`} hint="Max width and a logo link are under Media.">
+            <F label={`Logo size — ${(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}px`} hint="Position, spacing, max width and a logo link are under Media.">
               <input type="range" min={16} max={160} value={(draft.media_settings as MediaSettings)?.logo_height || DEFAULT_LOGO_HEIGHT}
                 onChange={(e) => setDraft((d) => ({ ...d, media_settings: { ...(d.media_settings as MediaSettings), logo_height: Number(e.target.value) } }))}
                 className="w-full accent-brand" />
@@ -875,10 +875,37 @@ function MediaPanel({ draft, set, setDraft }: { draft: BusinessCard; set: <K ext
   }
   const logoH = media.logo_height || DEFAULT_LOGO_HEIGHT;
   const logoW = media.logo_width || 0;
+  // Until a position is picked the logo follows Content alignment, so the
+  // highlighted button shows where it actually sits right now.
+  const logoAlign = media.logo_align ?? (media.content_align === "left" ? "left" : "center");
+  const logoPad = media.logo_padding || 0;
+  const logoMt = media.logo_margin_top || 0;
+  const logoMb = media.logo_margin_bottom ?? DEFAULT_LOGO_MARGIN_BOTTOM;
   return (
     <>
-      <Section title="Logo size">
+      <Section title="Logo">
         <p className="mb-2 text-xs text-muted-foreground">Set the logo shown in the profile header. The aspect ratio is locked, so it never stretches.</p>
+        <F label="Position" hint={media.logo_align ? undefined : "Follows Content alignment until you pick one."}>
+          <div className="flex gap-1">
+            {(["left", "center", "right"] as const).map((a) => (
+              <button key={a} onClick={() => setMedia({ logo_align: a })}
+                className={cn("flex-1 rounded-md border px-2 py-1 text-xs font-medium capitalize transition", logoAlign === a ? "border-brand-strong bg-accent text-brand-strong" : "border-border text-muted-foreground hover:text-foreground")}>
+                {a}
+              </button>
+            ))}
+          </div>
+        </F>
+        <F label={`Padding — ${logoPad}px`} hint="Space inside, around the logo.">
+          <input type="range" min={0} max={48} value={logoPad} onChange={(e) => setMedia({ logo_padding: Number(e.target.value) })} className="w-full accent-brand" />
+        </F>
+        <div className="grid grid-cols-2 gap-2">
+          <F label={`Margin top — ${logoMt}px`}>
+            <input type="range" min={0} max={48} value={logoMt} onChange={(e) => setMedia({ logo_margin_top: Number(e.target.value) })} className="w-full accent-brand" />
+          </F>
+          <F label={`Margin bottom — ${logoMb}px`}>
+            <input type="range" min={0} max={48} value={logoMb} onChange={(e) => setMedia({ logo_margin_bottom: Number(e.target.value) })} className="w-full accent-brand" />
+          </F>
+        </div>
         <F label={`Height — ${logoH}px`}>
           <input type="range" min={16} max={160} value={logoH} onChange={(e) => setMedia({ logo_height: Number(e.target.value) })} className="w-full accent-brand" />
         </F>

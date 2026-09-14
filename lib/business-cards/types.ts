@@ -27,6 +27,10 @@ export type MediaSettings = {
   logo_height?: number; // px; aspect ratio is preserved (object-contain)
   logo_width?: number;  // px max; 0/undefined = auto
   logo_link_url?: string;          // logo links here when set
+  logo_align?: "left" | "center" | "right"; // unset = follow content_align
+  logo_padding?: number;       // px, all sides; default 0
+  logo_margin_top?: number;    // px; default 0
+  logo_margin_bottom?: number; // px; default DEFAULT_LOGO_MARGIN_BOTTOM
 };
 
 export type AutomationAction = "notify_owner_email" | "notify_owner_sms" | "autoreply_email";
@@ -59,6 +63,8 @@ export type QrSettings = {
 
 /** Logo height when a card hasn't chosen one. 24px read as a speck. */
 export const DEFAULT_LOGO_HEIGHT = 48;
+/** Gap under the logo when a card hasn't set one — the old fixed mb-3. */
+export const DEFAULT_LOGO_MARGIN_BOTTOM = 12;
 /** On-card QR size when a card hasn't chosen one. */
 export const DEFAULT_QR_DISPLAY = 128;
 
