@@ -676,20 +676,99 @@ function VideoSplashFields({ content, setContent }: { content: Record<string, un
   const muted = (content.video_muted as boolean) ?? true;
   const isFile = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
   const ref = React.useRef<HTMLVideoElement>(null);
+  // The link field is the fallback, so it starts hidden — unless this card
+  // already plays from a link (YouTube, Vimeo), which would otherwise vanish.
+  const [showLink, setShowLink] = React.useState(Boolean(url) && !isFile);
+  const [progress, setProgress] = React.useState<number | null>(null);
+  const [error, setError] = React.useState("");
+
+  async function upload(file: File) {
+    setError("");
+    setProgress(0);
+    try {
+      const res = await fetch("/api/admin/uploads/video", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: file.type, size: file.size }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Could not start the upload.");
+
+      // XHR rather than fetch: fetch can't report upload progress, and a large
+      // animated video can take a while.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", json.uploadUrl);
+        xhr.setRequestHeader("content-type", file.type);
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) return resolve();
+          let msg = "Upload failed.";
+          try { msg = JSON.parse(xhr.responseText).message || msg; } catch { /* keep default */ }
+          reject(new Error(msg));
+        };
+        xhr.onerror = () => reject(new Error("Upload failed — check your connection and try again."));
+        xhr.send(file);
+      });
+
+      // A new video's timings don't carry over from the old one.
+      setContent({ video_url: json.publicUrl, video_start: 0, video_end: 0 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setProgress(null);
+    }
+  }
+
+  const uploading = progress !== null;
+  const picker = (label: React.ReactNode, className: string) => (
+    <label className={cn(className, uploading && "pointer-events-none opacity-60")}>
+      {label}
+      <input type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" disabled={uploading}
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) upload(f); }} />
+    </label>
+  );
 
   return (
     <>
-      <F label="Video URL" hint="YouTube, Vimeo, or a direct .mp4/.webm link">
-        <input className={iCls} value={url} onChange={(e) => setContent({ video_url: e.target.value })} placeholder="https://…" />
-      </F>
-      {isFile && url && (
+      {isFile && url ? (
         <div className="mb-3">
           <video ref={ref} src={url} controls className="w-full rounded-lg border border-border" />
-          <div className="mt-1.5 flex gap-2">
+          <div className="mt-1.5 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => setContent({ video_start: Math.floor(ref.current?.currentTime || 0) })}>Set start to ⏱</Button>
             <Button size="sm" variant="outline" onClick={() => setContent({ video_end: Math.floor(ref.current?.currentTime || 0) })}>Set end to ⏱</Button>
+            {picker(<><Upload className="h-3.5 w-3.5" /> {uploading ? `Uploading… ${progress}%` : "Replace"}</>,
+              "flex cursor-pointer items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted")}
+            <button onClick={() => setContent({ video_url: "", video_start: 0, video_end: 0 })} className="text-xs text-destructive">Remove</button>
           </div>
         </div>
+      ) : (
+        <F label="Video">
+          {picker(
+            <>
+              <Upload className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-medium">{uploading ? `Uploading… ${progress}%` : "Upload a video"}</span>
+              <span className="text-[11px] text-muted-foreground">MP4, WEBM or MOV · up to 200MB</span>
+              {uploading && (
+                <span className="mt-1 h-1.5 w-full max-w-[200px] overflow-hidden rounded-full bg-muted">
+                  <span className="block h-full bg-brand transition-all" style={{ width: `${progress}%` }} />
+                </span>
+              )}
+            </>,
+            "flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-border px-4 py-6 text-center hover:bg-muted/50",
+          )}
+        </F>
+      )}
+      {error && <p className="-mt-1 mb-3 text-xs text-destructive">{error}</p>}
+
+      <button onClick={() => setShowLink((v) => !v)} className="mb-3 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+        <LinkIcon className="h-3.5 w-3.5" />
+        {showLink ? "Hide video link" : "Use a video link instead"}
+        {showLink ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+      {showLink && (
+        <F label="Video URL" hint="YouTube, Vimeo, or a direct .mp4/.webm link">
+          <input className={iCls} value={url} onChange={(e) => setContent({ video_url: e.target.value })} placeholder="https://…" />
+        </F>
       )}
       <div className="grid grid-cols-2 gap-2">
         <F label="Start (seconds)"><input type="number" min={0} className={iCls} value={start} onChange={(e) => setContent({ video_start: Number(e.target.value) })} /></F>
