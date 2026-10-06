@@ -1,4 +1,4 @@
-import { Activity, AudioLines, BarChart3, Building2, CalendarClock, CircleUserRound, ClipboardList, Cpu, CreditCard, FileBarChart, FileText, FolderKanban, Headphones, IdCard, ImageIcon, LayoutDashboard, ListTodo, LogOut, Megaphone, MessageSquare, Mic, Monitor, NotebookPen, Radio, RadioTower, Send, Settings, ShieldCheck, Shuffle, UserPlus, Users, Workflow } from "lucide-react";
+import { Activity, AudioLines, BarChart3, Bot, Building2, CalendarClock, CircleUserRound, ClipboardList, Cpu, CreditCard, FileBarChart, FileText, FolderKanban, Headphones, IdCard, ImageIcon, LayoutDashboard, ListTodo, LogOut, Megaphone, MessageSquare, Mic, Monitor, NotebookPen, Radio, RadioTower, Send, Settings, ShieldCheck, Shuffle, UserPlus, Users, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type NavItem = {
@@ -61,6 +61,7 @@ export const adminNavGroups: readonly NavGroup[] = [
       { label: "Billing", icon: CreditCard, href: "/app/admin/billing" },
       { label: "Documents", icon: FileText, href: "/app/admin/documents" },
       { label: "Automation", icon: Workflow, href: "/app/admin/automation" },
+      { label: "AI Agents", icon: Bot, href: "/app/admin/agents" },
       { label: "Settings", icon: Settings, href: "/app/admin/settings" },
     ],
   },

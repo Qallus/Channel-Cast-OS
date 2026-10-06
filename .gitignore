@@ -16,3 +16,6 @@ agent/cache
 
 # Real client billing records (PII + amounts) — this repo is public.
 docs/invoices/client-invoices/
+
+# Local Hermes agent env (docker/hermes)
+docker/hermes/.env
