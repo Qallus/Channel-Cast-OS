@@ -29,7 +29,7 @@ import { genId, useCollection } from "@/lib/crm/store";
 import { cn } from "@/lib/utils";
 
 type View = "list" | "table" | "card" | "kanban" | "calendar";
-type BillingTab = "invoices" | "financing" | "calculators";
+type BillingTab = "invoices" | "accounting" | "calculators";
 const VIEWS = [
   { id: "list" as const, label: "List", icon: List },
   { id: "table" as const, label: "Table", icon: TableIcon },
@@ -317,13 +317,13 @@ export function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={CreditCard} title="Billing" description="Invoices, financing and taxes, and payments."
+      <PageHeader icon={CreditCard} title="Billing" description="Invoices, accounting and taxes, and payments."
         action={tab === "invoices" ? <Button onClick={openNew} className="shrink-0"><Plus className="h-4 w-4" /> New invoice</Button> : undefined} />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as BillingTab)}>
         <TabsList>
           <TabsTrigger value="invoices"><Receipt className="mr-1.5 h-4 w-4" /> Invoices</TabsTrigger>
-          <TabsTrigger value="financing"><Landmark className="mr-1.5 h-4 w-4" /> Financing</TabsTrigger>
+          <TabsTrigger value="accounting"><Landmark className="mr-1.5 h-4 w-4" /> Accounting</TabsTrigger>
           <TabsTrigger value="calculators"><Calculator className="mr-1.5 h-4 w-4" /> Finance Calculators</TabsTrigger>
         </TabsList>
 
@@ -364,8 +364,8 @@ export function BillingPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="financing" className="mt-6">
-          {tab === "financing" && <FinancingTab />}
+        <TabsContent value="accounting" className="mt-6">
+          {tab === "accounting" && <FinancingTab />}
         </TabsContent>
 
         <TabsContent value="calculators" className="mt-6 space-y-6">

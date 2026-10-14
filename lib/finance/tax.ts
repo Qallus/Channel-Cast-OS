@@ -273,6 +273,7 @@ export function computeTaxes(input: TaxInput, scenario: Scenario = {}): TaxSumma
   const t = TAX_TABLES[year] ?? TAX_TABLES[2026];
   const status = profile.filingStatus;
   const notes: string[] = [];
+  if (t.estimated.some((x) => x.startsWith("ALL "))) notes.push(`${year} uses projected figures — the IRS hasn't published ${year} numbers yet.`);
   const entriesY = input.entries.filter((e) => inYear(e.date, year));
 
   const sumCat = (pred: (c: CategoryDef) => boolean, useDeductible = false) =>
@@ -379,6 +380,8 @@ export function computeTaxes(input: TaxInput, scenario: Scenario = {}): TaxSumma
   if (!usesItemized && t.nonItemizerCharity[status] > 0 && charityRaw > 0) {
     belowLine.push({ label: "Charitable deduction for non-itemizers", amount: Math.min(charityRaw, t.nonItemizerCharity[status]) });
   }
+
+  for (let i = belowLine.length - 1; i >= 0; i--) if (!(belowLine[i].amount > 0)) belowLine.splice(i, 1);
 
   // ── QBI (§199A) ─────────────────────────────────────────────────────────
   const taxableBeforeQbi = pos(agi - deduction - belowLine.reduce((s, b) => s + b.amount, 0));

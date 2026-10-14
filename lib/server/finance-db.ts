@@ -16,7 +16,7 @@ const rowId = (ownerId: string, id: string) => `${ownerId}:${id}`;
 export async function financeUser(): Promise<SessionUser | Response> {
   try {
     const user = await requireUser();
-    if (!user.isAdmin) return Response.json({ error: "Financing is limited to admins." }, { status: 403 });
+    if (!user.isAdmin) return Response.json({ error: "Accounting is limited to admins." }, { status: 403 });
     return user;
   } catch (err) {
     const e = err as AuthError;

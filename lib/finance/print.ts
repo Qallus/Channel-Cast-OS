@@ -43,7 +43,7 @@ export function taxGuideHtml(input: TaxInput, s: TaxSummary, opts: { autoPrint?:
       <h1>${esc(profile.taxpayer.name || "Tax organizer")}</h1>
       <p class="sub">${esc(FILING_STATUS_LABEL[s.filingStatus])} · Arizona resident · ${esc(profile.businesses.map((b) => b.name).join(", "))}</p>
     </div>
-    <div class="gen">Prepared ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}<br/>from the Channel Cast Financing workbook</div>
+    <div class="gen">Prepared ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}<br/>from Channel Cast Accounting</div>
   </header>
   <div class="bottom">
     <div><p>Federal</p><strong class="${owesFed ? "owe" : "refund"}">${owesFed ? "Owe" : "Refund"} ${money(Math.abs(s.federalBalance))}</strong></div>

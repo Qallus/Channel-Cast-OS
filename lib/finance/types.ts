@@ -5,8 +5,8 @@
 // seeded from the repo: the repo is public and these records carry family and tax
 // details.
 
-export type TaxYear = 2025 | 2026;
-export const TAX_YEARS: TaxYear[] = [2025, 2026];
+export type TaxYear = 2024 | 2025 | 2026 | 2027;
+export const TAX_YEARS: TaxYear[] = [2024, 2025, 2026, 2027];
 
 export type FilingStatus = "single" | "head_of_household" | "married_joint" | "married_separate";
 

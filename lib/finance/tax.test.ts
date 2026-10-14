@@ -138,3 +138,26 @@ describe("guide and insights", () => {
     assert.ok(taxGuideHtml(input, s, { autoPrint: true }).includes("window.print"));
   });
 });
+
+describe("2024 and projected 2027", () => {
+  it("2024 uses the $2,000 CTC, $21,900 HOH deduction and no overtime deduction", () => {
+    const p = household();
+    p.taxYear = 2024;
+    p.w2Jobs[0].qualifiedOvertime = 5000;
+    p.dependents[0].birthDate = "2016-03-01";
+    p.dependents[1].birthDate = "2019-07-01";
+    const s = computeTaxes({ profile: p, entries: [], trips: [], time: [] });
+    assert.equal(s.standardDeduction, 21900);
+    assert.equal(s.ctcNonrefundable, 4000);
+    assert.equal(s.belowLine.length, 0);
+    assert.equal(s.taxableIncome, 60000 - 21900);
+  });
+  it("2027 is indexed above 2026 and flagged as projected", () => {
+    const p = household();
+    p.taxYear = 2027;
+    const s = computeTaxes({ profile: p, entries: [], trips: [], time: [] });
+    assert.ok(s.standardDeduction > TAX_TABLES[2026].standardDeduction.head_of_household);
+    assert.equal(TAX_TABLES[2027].brackets.married_joint[0], 25600);
+    assert.ok(s.notes.some((n) => n.includes("projected")));
+  });
+});

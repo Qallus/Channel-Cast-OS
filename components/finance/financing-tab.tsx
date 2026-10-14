@@ -57,7 +57,7 @@ export function FinancingTab() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1" aria-label="Financing sections">
+        <nav className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1" aria-label="Accounting sections">
           {PANELS.map((p) => (
             <button key={p.id} type="button" onClick={() => setPanel(p.id)} aria-current={panel === p.id ? "page" : undefined}
               className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors", panel === p.id ? "bg-brand/15 text-brand-strong" : "text-muted-foreground hover:text-foreground")}>

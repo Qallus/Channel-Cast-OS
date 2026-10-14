@@ -503,7 +503,7 @@ export type ToolTrace = { name: string; summary: string };
 export async function runAssistant(history: ChatTurn[], ownerId: string): Promise<{ reply: string; changed: boolean; tools: ToolTrace[] }> {
   const profile = await getProfile(ownerId);
   const system =
-    "You are the bookkeeping and tax-prep assistant inside the owner's Channel Cast dashboard (Billing → Financing). " +
+    "You are the bookkeeping and tax-prep assistant inside the owner's Channel Cast dashboard (Billing → Accounting). " +
     "The owner runs a small business as a sole proprietor / single-member LLC alongside a W-2 job, lives in Arizona, " +
     `files as ${FILING_STATUS_LABEL[profile.filingStatus].toLowerCase()} with ${profile.dependents.length} dependent(s) (${profile.dependents.map((d) => d.relationship).join(", ")}), and wants two things: accurate books for filing, and to turn the business profitable.\n\n` +
     "How to work:\n" +
