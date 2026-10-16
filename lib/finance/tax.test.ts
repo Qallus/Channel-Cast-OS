@@ -161,3 +161,27 @@ describe("2024 and projected 2027", () => {
     assert.ok(s.notes.some((n) => n.includes("projected")));
   });
 });
+
+describe("TurboTax simulator", () => {
+  it("lays out the interview and formats values for pasting", async () => {
+    const { buildTurboTax } = await import("./turbotax.ts");
+    const input: TaxInput = {
+      profile: household(),
+      entries: [entry("2026-02-01", "inc_services", 36000), entry("2026-03-01", "exp_software", 1234.5), entry("2026-05-01", "exp_meals", 1000), entry("2026-04-01", "exp_equipment", 900), entry("2026-04-02", "exp_legal", 300)],
+      trips: [{ id: "t", date: "2026-06-01", from: "Home", to: "Client", purpose: "Install", miles: 100, createdAt: "" }],
+      time: [],
+    };
+    const steps = buildTurboTax(input, computeTaxes(input));
+    assert.deepEqual(steps.map((s) => s.title), ["My Info", "Wages & Income", "Deductions & Credits", "Federal Review", "State Taxes"]);
+    const screens = steps.flatMap((s) => s.screens);
+    const fields = (id: string) => { const sc = screens.find((x) => x.id === id)!; return [...sc.fields, ...(sc.groups ?? []).flatMap((g) => g.fields)]; };
+    const w2 = fields("w2");
+    assert.equal(w2.find((f) => f.label.startsWith("Box 1 "))!.copy, "60000");
+    const exp = fields("exp-biz_main");
+    assert.equal(exp.find((f) => f.label === "Software & subscriptions")!.copy, "1234.50");
+    assert.equal(exp.find((f) => f.label.startsWith("Business meals"))!.copy, "1000");
+    assert.equal(exp.find((f) => f.label === "Legal and professional services")!.copy, "300");
+    assert.ok(screens.some((x) => x.id === "veh-biz_main"));
+    assert.ok(screens.some((x) => x.id === "assets-biz_main"));
+  });
+});

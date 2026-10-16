@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, Bot, FileUp, LayoutDashboard, ListChecks, Printer, Route, UserRound } from "lucide-react";
+import { BookOpen, Bot, ClipboardList, FileUp, LayoutDashboard, ListChecks, Printer, Route, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,9 +17,10 @@ import { LedgerPanel } from "./ledger-panel";
 import { LogsPanel } from "./logs-panel";
 import { OverviewPanel } from "./overview-panel";
 import { ProfilePanel } from "./profile-panel";
+import { TurboTaxPanel } from "./turbotax-panel";
 import { useFinance } from "./use-finance";
 
-type Panel = "overview" | "ledger" | "import" | "logs" | "profile" | "guide" | "assistant";
+type Panel = "overview" | "ledger" | "import" | "logs" | "profile" | "guide" | "turbotax" | "assistant";
 const PANELS: { id: Panel; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "ledger", label: "Ledger", icon: ListChecks },
@@ -27,6 +28,7 @@ const PANELS: { id: Panel; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "logs", label: "Mileage & hours", icon: Route },
   { id: "profile", label: "Tax profile", icon: UserRound },
   { id: "guide", label: "Filing guide", icon: BookOpen },
+  { id: "turbotax", label: "TurboTax simulator", icon: ClipboardList },
   { id: "assistant", label: "AI assistant", icon: Bot },
 ];
 
@@ -91,6 +93,8 @@ export function FinancingTab() {
           <p className="text-sm text-muted-foreground">This is what prints: every number on the form and line it belongs to, in filing order, with the documents checklist and your full ledger behind it. Save it as a PDF for your preparer.</p>
           <iframe title="Filing guide preview" srcDoc={taxGuideHtml(input, summary)} className="h-[78vh] w-full rounded-xl border border-border bg-white" />
         </div>
+      ) : panel === "turbotax" ? (
+        <TurboTaxPanel input={input} summary={summary} />
       ) : (
         <AssistantPanel onChanged={store.reload} />
       )}
