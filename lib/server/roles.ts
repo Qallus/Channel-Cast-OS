@@ -24,8 +24,11 @@ export function isSuperAdmin(user: MinimalUser): boolean {
 export function isAllowed(user: MinimalUser): boolean {
   const email = user?.email?.toLowerCase();
   if (!email) return false;
-  if (SUPER_ADMIN_EMAILS.includes(email) || ALLOWED_EMAILS.includes(email)) return true;
-  return user?.user_metadata?.access === "approved";
+  if (SUPER_ADMIN_EMAILS.includes(email)) return true;
+  const access = user?.user_metadata?.access;
+  // A decline or block set in User Management outranks the env allow-list.
+  if (access === "declined" || access === "blocked") return false;
+  return ALLOWED_EMAILS.includes(email) || access === "approved";
 }
 
 export function roleOf(user: MinimalUser): Role {

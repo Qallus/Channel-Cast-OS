@@ -34,7 +34,8 @@ export function LoginForm() {
     setBusy(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (signInError) {
-      setError(signInError.message);
+      // Blocked and suspended accounts are Supabase bans.
+      setError(/banned/i.test(signInError.message) ? "This account has been disabled. Contact hello@channelcast.io if you think this is a mistake." : signInError.message);
       setBusy(false);
       return;
     }
