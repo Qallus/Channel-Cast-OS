@@ -1,7 +1,7 @@
 // Financing — the personal + small-business tax workbook behind Billing → Financing.
 //
 // Everything here is plain data. It is stored through /api/finance (admin-only,
-// scoped to the signed-in user) — never through the open /api/crm store, and never
+// scoped to the signed-in user) — never through the shared /api/crm store, and never
 // seeded from the repo: the repo is public and these records carry family and tax
 // details.
 

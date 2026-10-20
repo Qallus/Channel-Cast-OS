@@ -3,8 +3,7 @@ import { AuthError, requireUser, type SessionUser } from "@/lib/server/require-u
 import { supabaseAdmin } from "@/lib/server/supabase";
 
 // Financing records reuse the crm_records JSONB table (service-role only, RLS on)
-// but are never listed in CRM_COLLECTIONS, so the unauthenticated /api/crm route
-// can't reach them. Every row is stamped with its owner, and the primary key is
+// but are never listed in CRM_COLLECTIONS, so the /api/crm route can't reach them. Every row is stamped with its owner, and the primary key is
 // prefixed with the owner id so two admins' "profile" rows can't collide.
 
 type Rec = { id: string } & Record<string, unknown>;
@@ -13,10 +12,10 @@ const PAGE = 1000;
 const rowId = (ownerId: string, id: string) => `${ownerId}:${id}`;
 
 /** Admins only. Returns the user, or a ready-made error Response. */
-export async function financeUser(): Promise<SessionUser | Response> {
+export async function financeUser(denied = "Accounting is limited to admins."): Promise<SessionUser | Response> {
   try {
     const user = await requireUser();
-    if (!user.isAdmin) return Response.json({ error: "Accounting is limited to admins." }, { status: 403 });
+    if (!user.isAdmin) return Response.json({ error: denied }, { status: 403 });
     return user;
   } catch (err) {
     const e = err as AuthError;
