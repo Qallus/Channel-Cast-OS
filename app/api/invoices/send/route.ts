@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { sendNotificationEmail } from "@/lib/server/email";
 import { sendSms } from "@/lib/server/twilio";
 import { invoiceEmailHtml, invoiceEmailSubject, invoiceSmsText } from "@/lib/ops/invoice-html";
@@ -45,6 +46,8 @@ const origin = () =>
 // Each channel reports back independently: one failing never blocks the other,
 // and the UI shows exactly which landed.
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = (await req.json().catch(() => null)) as Body | null;
   const inv = body?.invoice;
   if (!inv?.number) return Response.json({ error: "No invoice supplied." }, { status: 400 });

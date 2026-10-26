@@ -1,9 +1,12 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { jsonError, twilioClient, twilioConfigured } from "@/lib/server/twilio";
 
 export const runtime = "nodejs";
 
 // GET /api/comm/recordings?callSid=… — recordings for a call
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   if (!twilioConfigured()) return jsonError("Twilio not configured.", 501);
   const callSid = new URL(request.url).searchParams.get("callSid");
   if (!callSid) return jsonError("callSid is required.");

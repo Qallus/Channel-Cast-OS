@@ -1,4 +1,4 @@
-import { requireUser, AuthError } from "@/lib/server/require-user";
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
 export const runtime = "nodejs";
@@ -13,8 +13,8 @@ const origin = () =>
 // The player URL embeds the device token, which *is* the screen's credential —
 // there's no session on a kiosk. Admin-only for that reason.
 export async function GET() {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const sb = supabaseAdmin();
   const { data: devices, error } = await sb
@@ -55,8 +55,8 @@ export async function GET() {
 
 // POST /api/admin/displays/deployments — create or update one schedule.
 export async function POST(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const b = await request.json().catch(() => null);
   if (!b?.device_id) return Response.json({ error: "Pick a screen." }, { status: 400 });
@@ -86,8 +86,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/admin/displays/deployments?id=…
 export async function DELETE(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id is required." }, { status: 400 });

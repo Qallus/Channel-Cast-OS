@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { sendNotificationEmail } from "@/lib/server/email";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -12,6 +13,8 @@ const escapeHtml = (s: string) =>
 // the communications log, so the message lands on the right timeline without
 // anyone logging it by hand.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const p = await request.json().catch(() => null);
   const to = String(p?.to || "").trim();
   const subject = String(p?.subject || "").trim();

@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { getDeviceById, getPlaylist, upsertDeployment } from "@/lib/server/db";
 
 export const runtime = "nodejs";
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 // POST /api/admin/deployments
 // { deviceId, playlistId, window?, cooldownSec?, maxPerHour?, rotation? }
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   if (!body?.deviceId || !body?.playlistId) {
     return Response.json({ error: "deviceId and playlistId are required" }, { status: 400 });

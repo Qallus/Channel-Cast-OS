@@ -1,6 +1,7 @@
 // Authenticated image upload → Supabase Storage (public bucket). Returns { url }.
 // Used by the business-card builder's image fields. Falls back gracefully: if
 // Storage isn't available the caller can still paste an image URL.
+import { signedInGuard } from "@/lib/server/api-guard";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
@@ -20,6 +21,8 @@ async function ensureBucket() {
 }
 
 export async function POST(request: Request) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   try { await requireUser(); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
 

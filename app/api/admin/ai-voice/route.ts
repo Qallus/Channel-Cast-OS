@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { createAudio } from "@/lib/server/db";
 import { TTS_PROVIDERS, listVoices, providerConfigured, synthesize, type TtsProvider } from "@/lib/server/tts";
 
@@ -7,6 +8,8 @@ const LABEL: Record<TtsProvider, string> = { openai: "OpenAI", xai: "xAI", gemin
 
 // GET /api/admin/ai-voice → providers with their real voice lists.
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const providers = await Promise.all(
     TTS_PROVIDERS.map(async (p) => ({
       id: p.id,
@@ -20,6 +23,8 @@ export async function GET() {
 
 // POST /api/admin/ai-voice  { script, voice (actual voice id), speed, provider }
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const script = String(body?.script || "").trim();
   if (!script) return Response.json({ error: "script is required" }, { status: 400 });

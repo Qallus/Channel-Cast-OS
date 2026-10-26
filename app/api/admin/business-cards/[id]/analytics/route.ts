@@ -1,9 +1,12 @@
+import { signedInGuard } from "@/lib/server/api-guard";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { loadCardAnalytics, loadCardById } from "@/lib/business-cards/store";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   const { id } = await params;
   let user;
   try { user = await requireUser(); }

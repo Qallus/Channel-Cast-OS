@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { ensureShareToken, shareUrl } from "@/lib/server/invoice-share";
 
 export const runtime = "nodejs";
@@ -6,6 +7,8 @@ export const runtime = "nodejs";
 // Mints the public link on first use and reuses it afterwards, so a link
 // already sent to a client never stops working.
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = (await req.json().catch(() => null)) as { id?: string } | null;
   const id = body?.id?.trim();
   if (!id) return Response.json({ error: "No invoice id supplied." }, { status: 400 });

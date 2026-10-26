@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { enqueueCommand, liveStatus, listDevices } from "@/lib/server/db";
 
 export const runtime = "nodejs";
@@ -88,6 +89,8 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<un
 
 // POST /api/agent/chat { messages } → { reply }. Claude with device-control tools.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as { messages?: Msg[] } | null;
   const incoming = (body?.messages || []).filter((m) => m && m.content);
   if (!incoming.length) return Response.json({ error: "No message." }, { status: 400 });

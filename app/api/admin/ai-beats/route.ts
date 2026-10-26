@@ -1,3 +1,5 @@
+import { adminGuard } from "@/lib/server/api-guard";
+
 export const runtime = "nodejs";
 
 const DRUM_IDS = ["kick", "snare", "hihat", "openhat", "clap", "tom", "rimshot", "cowbell", "ride", "crash"] as const;
@@ -26,6 +28,8 @@ const melRow = (v: unknown) =>
 
 // POST /api/admin/ai-beats  { description } → { bpm, drums, melodic }
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const description = String(body?.description || "").trim();
   if (!description) return Response.json({ error: "description is required" }, { status: 400 });

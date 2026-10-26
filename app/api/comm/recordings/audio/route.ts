@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { jsonError } from "@/lib/server/twilio";
 
 export const runtime = "nodejs";
@@ -5,12 +6,16 @@ export const runtime = "nodejs";
 // GET /api/comm/recordings/audio?sid=… — proxy the Twilio recording mp3
 // (keeps credentials server-side).
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!accountSid || !authToken) return jsonError("Twilio not configured.", 501);
 
   const sid = new URL(request.url).searchParams.get("sid");
   if (!sid) return jsonError("sid is required.");
+  // Only a Twilio recording SID — it is spliced into an authenticated Twilio URL.
+  if (!/^RE[0-9a-f]{32}$/i.test(sid)) return jsonError("Invalid recording sid.");
 
   const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Recordings/${sid}.mp3`;
   const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");

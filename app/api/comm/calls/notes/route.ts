@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 
 // GET /api/comm/calls/notes?callSid=… — notes for a call
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const callSid = new URL(request.url).searchParams.get("callSid") || "";
   if (!callSid) return jsonError("callSid is required.");
   const { data, error } = await supabaseAdmin()
@@ -18,6 +21,8 @@ export async function GET(request: Request) {
 
 // POST /api/comm/calls/notes  { callSid, note }
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const callSid = String(body?.callSid || "").trim();
   const note = String(body?.note || "").trim();
@@ -34,6 +39,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/comm/calls/notes?id=…
 export async function DELETE(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id") || "";
   if (!id) return jsonError("Note id is required.");
   const { error } = await supabaseAdmin().from("call_notes").delete().eq("id", id);

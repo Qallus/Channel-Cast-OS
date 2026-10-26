@@ -1,9 +1,25 @@
 // One-click transcription via OpenAI Whisper. Accepts either a multipart audio
 // file (field "file") or JSON { url } pointing at an uploaded recording.
 
+import { adminGuard } from "@/lib/server/api-guard";
+
+
 export const runtime = "nodejs";
 
 const MODEL = "whisper-1";
+
+// The JSON { url } form fetches server-side, so only allow the two places our
+// recordings actually live (no SSRF into the internal network or metadata IPs).
+function allowedAudioUrl(raw: string): boolean {
+  let u: URL;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.protocol !== "https:" || u.username || u.password || (u.port && u.port !== "443")) return false;
+  const hosts = new Set(["api.twilio.com"]);
+  for (const sb of [process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_URL]) {
+    try { if (sb) hosts.add(new URL(sb).hostname.toLowerCase()); } catch { /* ignore a malformed env value */ }
+  }
+  return hosts.has(u.hostname.toLowerCase());
+}
 
 async function transcribe(bytes: ArrayBuffer, filename: string, type: string): Promise<Response> {
   const key = process.env.OPENAI_API_KEY;
@@ -27,6 +43,8 @@ async function transcribe(bytes: ArrayBuffer, filename: string, type: string): P
 }
 
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const ct = req.headers.get("content-type") || "";
 
   if (ct.includes("multipart/form-data")) {
@@ -40,7 +58,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const url = String(body?.url || "");
   if (!url) return Response.json({ error: "url or file required" }, { status: 400 });
-  const audio = await fetch(url).catch(() => null);
+  if (!allowedAudioUrl(url)) return Response.json({ error: "url must point at Twilio or this app's Supabase storage" }, { status: 400 });
+  const audio = await fetch(url, { redirect: "error" }).catch(() => null);
   if (!audio || !audio.ok) return Response.json({ error: "could not fetch audio" }, { status: 400 });
   const type = audio.headers.get("content-type") || "audio/webm";
   return transcribe(await audio.arrayBuffer(), "audio.webm", type);

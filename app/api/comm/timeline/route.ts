@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -12,6 +13,8 @@ export const runtime = "nodejs";
 // An opportunity query also returns communications attached only to its contact,
 // since a call placed before the deal existed is still part of its history.
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const url = new URL(request.url);
   const opportunityId = url.searchParams.get("opportunityId");
   const contactId = url.searchParams.get("contactId");

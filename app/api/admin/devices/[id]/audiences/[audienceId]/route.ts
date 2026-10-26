@@ -1,9 +1,12 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { deleteAudience, updateAudience } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
 // PATCH /api/admin/devices/:id/audiences/:audienceId
 export async function PATCH(req: Request, { params }: { params: Promise<{ audienceId: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { audienceId } = await params;
   const body = await req.json().catch(() => ({}));
   const patch: Parameters<typeof updateAudience>[1] = {};
@@ -20,6 +23,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ audien
 
 // DELETE /api/admin/devices/:id/audiences/:audienceId
 export async function DELETE(_req: Request, { params }: { params: Promise<{ audienceId: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { audienceId } = await params;
   await deleteAudience(audienceId);
   return Response.json({ ok: true });

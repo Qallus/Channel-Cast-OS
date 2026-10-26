@@ -1,9 +1,12 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { deleteDevice, getDeviceById, updateDevice } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
 // PATCH /api/admin/devices/:id  { groupId?, name?, locationName? }
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const device = await getDeviceById(id);
   if (!device) return Response.json({ error: "not found" }, { status: 404 });
@@ -24,6 +27,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 // DELETE /api/admin/devices/:id — remove a device and its activity.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const device = await getDeviceById(id);
   if (!device) return Response.json({ error: "not found" }, { status: 404 });

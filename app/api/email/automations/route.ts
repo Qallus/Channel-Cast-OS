@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -7,6 +8,8 @@ const COLUMNS = "id, name, trigger_key, template_id, enabled, conditions, delay_
 
 // GET /api/email/automations — rules plus their recent firings.
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const db = supabaseAdmin();
   const [rules, runs] = await Promise.all([
     db.from("email_automations").select(COLUMNS).order("updated_at", { ascending: false }),
@@ -19,6 +22,8 @@ export async function GET() {
 
 // POST /api/email/automations — create or update (send an id to update).
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const b = await request.json().catch(() => null);
   const name = String(b?.name || "").trim();
   const triggerKey = String(b?.trigger_key || "").trim();
@@ -51,6 +56,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/email/automations?id=…
 export async function DELETE(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return jsonError("id is required.");
   const { error } = await supabaseAdmin().from("email_automations").delete().eq("id", id);

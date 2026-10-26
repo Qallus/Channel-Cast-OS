@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import twilio from "twilio";
 
 import { defaultNumber, jsonError, ownedNumbers, smsNumbers } from "@/lib/server/twilio";
@@ -7,6 +8,8 @@ export const runtime = "nodejs";
 // GET /api/comm/token — Twilio Voice access token for the in-browser dialpad,
 // plus the number lists the UI needs.
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!accountSid || !authToken) {

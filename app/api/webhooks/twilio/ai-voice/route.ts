@@ -1,5 +1,7 @@
 import twilio from "twilio";
 
+import { verifyTwilioRequest } from "@/lib/server/twilio-signature";
+
 export const runtime = "nodejs";
 
 // TwiML that bridges an answered Twilio call to the xAI "Nicole" voice agent
@@ -21,7 +23,12 @@ function build() {
   return t;
 }
 
-export async function POST() {
+// Signed by Twilio — otherwise anyone could fetch the TwiML, which carries the
+// SIP URI and (when set) the xAI SIP trunk credentials.
+async function handle(request: Request) {
+  const verified = await verifyTwilioRequest(request);
+  if (verified instanceof Response) return verified;
   return new Response(build().toString(), { headers: { "Content-Type": "text/xml" } });
 }
-export const GET = POST;
+export const POST = handle;
+export const GET = handle;

@@ -1,9 +1,12 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { deleteAudio, updateAudio } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
 // PATCH /api/admin/audio/:id  { name?, archived? } — rename / archive.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const patch: { name?: string; archived?: boolean } = {};
@@ -17,6 +20,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 // DELETE /api/admin/audio/:id — remove the record and its file.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const ok = await deleteAudio(id);
   if (!ok) return Response.json({ error: "not found" }, { status: 404 });

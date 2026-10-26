@@ -1,3 +1,4 @@
+import { signedInGuard } from "@/lib/server/api-guard";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { deleteLead, loadLeadById, updateLeadStatus } from "@/lib/business-cards/store";
 import type { LeadStatus } from "@/lib/business-cards/types";
@@ -13,6 +14,8 @@ async function guard(id: string) {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   const { id } = await params;
   try { await guard(id); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
@@ -24,6 +27,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   const { id } = await params;
   try { await guard(id); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }

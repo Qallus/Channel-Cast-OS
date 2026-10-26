@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import path from "node:path";
 
 import { attachAudioToDevice, createAudio, createPlaylist, getDeployment, getDeviceById, getPlaylist, listAudio, upsertDeployment } from "@/lib/server/db";
@@ -17,6 +18,8 @@ const attachToDevice = attachAudioToDevice;
 //  - multipart { file }        → upload a new spot and assign it
 // Either way it's added to the device's playlist so it plays on schedule/motion.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const device = await getDeviceById(id);
   if (!device) return Response.json({ error: "device not found" }, { status: 404 });
@@ -47,6 +50,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 // DELETE /api/admin/devices/:id/audio  { audioId }
 // Removes a spot from THIS device's playlist (keeps it in the library).
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const device = await getDeviceById(id);
   if (!device) return Response.json({ error: "device not found" }, { status: 404 });

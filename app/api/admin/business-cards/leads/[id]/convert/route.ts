@@ -1,3 +1,4 @@
+import { signedInGuard } from "@/lib/server/api-guard";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { loadLeadById, updateLeadStatus } from "@/lib/business-cards/store";
 import { upsertRecords, type CrmCollection } from "@/lib/server/crm-db";
@@ -19,6 +20,8 @@ function genId(prefix: string): string {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   const { id } = await params;
   let user;
   try { user = await requireUser(); }

@@ -1,15 +1,20 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { createAudience, getDeviceById, listAudiences } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
 // GET /api/admin/devices/:id/audiences → list
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   return Response.json(await listAudiences(id));
 }
 
 // POST /api/admin/devices/:id/audiences  { name, countMin, countMax, priority, trackIds }
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const device = await getDeviceById(id);
   if (!device) return Response.json({ error: "device not found" }, { status: 404 });

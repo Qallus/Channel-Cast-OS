@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { listRecords } from "@/lib/server/crm-db";
 import { recordCommunicationSafe } from "@/lib/server/communications";
 import { defaultNumber, jsonError, twilioClient, twilioConfigured } from "@/lib/server/twilio";
@@ -17,6 +18,8 @@ async function aiVoiceConfig(): Promise<{ outboundEnabled?: boolean; fromNumber?
 // POST /api/comm/ai-voice/call { to } — place an outbound call from Nicole's
 // number and bridge the answered call to the xAI agent (via the ai-voice TwiML).
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   if (!twilioConfigured()) return jsonError("Twilio not configured.", 501);
   const body = await req.json().catch(() => ({}));
   const to = digits(String(body?.to || ""));

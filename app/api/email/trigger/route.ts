@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { listRecords } from "@/lib/server/crm-db";
 import { fireEmailTrigger } from "@/lib/server/email-automations";
 import { jsonError } from "@/lib/server/twilio";
@@ -12,6 +13,8 @@ const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD",
 // are resolved here from the records themselves, so a caller only has to say
 // what happened and to which record.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const b = await request.json().catch(() => null);
   const trigger = String(b?.trigger || "").trim();
   if (!trigger) return jsonError("A trigger key is required.");

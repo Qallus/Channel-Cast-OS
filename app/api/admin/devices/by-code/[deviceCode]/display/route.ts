@@ -1,4 +1,4 @@
-import { requireUser, AuthError } from "@/lib/server/require-user";
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
 export const runtime = "nodejs";
@@ -27,8 +27,8 @@ function covers(row: { days: unknown; start_time: string; end_time: string }, no
 // Admin-only — the player URL embeds the device token, which is the screen's
 // only credential.
 export async function GET(_req: Request, { params }: { params: Promise<{ deviceCode: string }> }) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const { deviceCode } = await params;
   const sb = supabaseAdmin();

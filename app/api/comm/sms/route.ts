@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { defaultNumber, jsonError, smsNumbers, twilioClient, twilioConfigured } from "@/lib/server/twilio";
 import { recordCommunicationSafe } from "@/lib/server/communications";
@@ -8,6 +9,8 @@ const digits = (v: string) => v.replace(/[^\d+]/g, "");
 
 // GET /api/comm/sms — recent SMS log
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { data, error } = await supabaseAdmin()
     .from("sms_messages")
     .select("id, sid, direction, from_number, to_number, body, status, created_at")
@@ -19,6 +22,8 @@ export async function GET() {
 
 // POST /api/comm/sms  { to, body, from? } — send an SMS and log it
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   if (!twilioConfigured()) return jsonError("Twilio not configured.", 501);
   const body = await request.json().catch(() => null);
   const to = digits(String(body?.to || ""));

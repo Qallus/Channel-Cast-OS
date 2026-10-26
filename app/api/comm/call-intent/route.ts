@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { recordCommunication } from "@/lib/server/communications";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -15,6 +16,8 @@ export const runtime = "nodejs";
 // keyed by CallSid and will sit alongside it until they are reconciled by
 // matching endpoint and time window.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const p = await request.json().catch(() => null);
   const to = String(p?.to || "").trim();
   if (!to) return jsonError("A destination number is required.");

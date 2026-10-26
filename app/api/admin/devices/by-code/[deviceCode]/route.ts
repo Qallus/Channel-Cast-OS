@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { getDeviceByCode, getPlaylist, listAudio, liveStatus, recentActivity } from "@/lib/server/db";
 
 export const runtime = "nodejs";
@@ -6,6 +7,8 @@ export const runtime = "nodejs";
 // → { device, playback (with trigger), heartbeats, tracks (deployed spots) }
 // 404 if the code isn't a real device (the Devices page then shows the demo view).
 export async function GET(_req: Request, { params }: { params: Promise<{ deviceCode: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { deviceCode } = await params;
   const device = await getDeviceByCode(decodeURIComponent(deviceCode));
   if (!device) return Response.json({ error: "not found" }, { status: 404 });

@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { getMediaConfig, setMediaConfig, type MediaConfig } from "@/lib/server/media-config";
 
 export const runtime = "nodejs";
@@ -5,10 +6,14 @@ export const runtime = "nodejs";
 // GET   /api/admin/media                          → { listings, slots }
 // PATCH /api/admin/media { listings?, slots? }     → merged config
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   return Response.json(await getMediaConfig());
 }
 
 export async function PATCH(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = (await req.json().catch(() => ({}))) as Partial<MediaConfig>;
   const patch: Partial<MediaConfig> = {};
   if (body.listings && typeof body.listings === "object") patch.listings = body.listings;

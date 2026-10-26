@@ -1,4 +1,4 @@
-import { requireUser, AuthError } from "@/lib/server/require-user";
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
 export const runtime = "nodejs";
@@ -24,8 +24,8 @@ const DEFAULT_CONTROLS = {
 // state and what it is playing. This is what the remote drives from, so it has
 // to be answerable from a phone on cellular: one round trip, no fan-out.
 export async function GET() {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const sb = supabaseAdmin();
   const { data: devices, error } = await sb
@@ -100,8 +100,8 @@ const NUM = (v: unknown, lo: number, hi: number) =>
 // player compares revisions and only disturbs playback when something actually
 // changed. Partial bodies are fine — send just the field you're changing.
 export async function PATCH(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const body = await request.json().catch(() => null);
   const deviceId = String(body?.deviceId || "");

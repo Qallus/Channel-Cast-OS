@@ -1,9 +1,12 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { jsonError, ownedNumbers, twilioClient, twilioConfigured } from "@/lib/server/twilio";
 
 export const runtime = "nodejs";
 
 // GET /api/comm/calls[?voicemail=true&limit=50] — call history from Twilio.
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   if (!twilioConfigured()) return jsonError("Twilio not configured.", 501);
 
   const url = new URL(request.url);

@@ -1,4 +1,4 @@
-import { requireUser, AuthError } from "@/lib/server/require-user";
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { ACCEPTED_MIME, MAX_UPLOAD_BYTES, driveDownloadUrls, driveFileId, driveLink, kindForMime, parseVideoLink } from "@/lib/displays/types";
 
@@ -82,6 +82,8 @@ async function importFromDrive(id: string, preferredName: string): Promise<Drive
 
 // GET /api/admin/displays/media — the creative library.
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { data, error } = await supabaseAdmin()
     .from("display_media")
     .select("*")
@@ -93,8 +95,8 @@ export async function GET() {
 
 // POST /api/admin/displays/media — multipart upload of one creative.
 export async function POST(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   // A JSON body means a hosted link rather than a file upload.
   if (request.headers.get("content-type")?.includes("application/json")) {
@@ -207,8 +209,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/admin/displays/media?id=… — archive and remove the object.
 export async function DELETE(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id is required." }, { status: 400 });

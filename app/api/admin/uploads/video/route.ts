@@ -4,6 +4,7 @@
 // a one-time signed upload URL and the browser PUTs the video straight to
 // Supabase Storage. Videos are too large to buffer in a route handler (that
 // route caps images at 8MB), and a direct upload can report progress.
+import { signedInGuard } from "@/lib/server/api-guard";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
@@ -23,6 +24,8 @@ async function ensureBucket() {
 }
 
 export async function POST(request: Request) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   try { await requireUser(); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
 

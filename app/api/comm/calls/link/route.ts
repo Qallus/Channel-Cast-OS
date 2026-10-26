@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 
 // GET /api/comm/calls/link?callSid=… — existing links for a call
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const callSid = new URL(request.url).searchParams.get("callSid") || "";
   if (!callSid) return jsonError("callSid is required.");
   const { data, error } = await supabaseAdmin()
@@ -19,6 +22,8 @@ export async function GET(request: Request) {
 // POST /api/comm/calls/link  { callSid, contactId?, contactName?, role?, details }
 // Connects a call's details/recording/transcript to a contact and/or a role.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const callSid = String(body?.callSid || "").trim();
   const contactId = body?.contactId ? String(body.contactId) : null;
@@ -38,6 +43,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/comm/calls/link?id=…
 export async function DELETE(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id") || "";
   if (!id) return jsonError("id is required.");
   const { error } = await supabaseAdmin().from("call_links").delete().eq("id", id);

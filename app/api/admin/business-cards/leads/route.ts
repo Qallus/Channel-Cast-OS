@@ -1,9 +1,12 @@
+import { signedInGuard } from "@/lib/server/api-guard";
 import { requireUser, AuthError } from "@/lib/server/require-user";
 import { loadLeads } from "@/lib/business-cards/store";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   let user;
   try { user = await requireUser(); }
   catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }

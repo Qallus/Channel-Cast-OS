@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -7,6 +8,8 @@ const COLUMNS = "id, name, subject, preheader, category, status, html_body, text
 
 // GET /api/email/templates[?status=active&category=Billing&q=welcome]
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
   const category = url.searchParams.get("category");
@@ -24,6 +27,8 @@ export async function GET(request: Request) {
 
 // POST /api/email/templates — create or update (send an id to update).
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const b = await request.json().catch(() => null);
   const name = String(b?.name || "").trim();
   if (!name) return jsonError("A template name is required.");
@@ -52,6 +57,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/email/templates?id=…
 export async function DELETE(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return jsonError("id is required.");
   const { error } = await supabaseAdmin().from("email_templates").delete().eq("id", id);

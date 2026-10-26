@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 
 // GET /api/email/history[?status=sent&limit=200] — the send log.
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
   const limit = Math.min(Number(url.searchParams.get("limit") || "200"), 500);

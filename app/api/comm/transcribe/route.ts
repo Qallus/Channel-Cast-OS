@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -5,6 +6,8 @@ export const runtime = "nodejs";
 
 // GET /api/comm/transcribe?callSid=… — the saved transcript for a call (if any)
 export async function GET(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const callSid = new URL(request.url).searchParams.get("callSid") || "";
   if (!callSid) return jsonError("callSid is required.");
   const { data } = await supabaseAdmin().from("call_transcripts").select("transcript, created_at").eq("call_sid", callSid).maybeSingle();
@@ -13,8 +16,12 @@ export async function GET(request: Request) {
 
 // POST /api/comm/transcribe { recordingSid, callSid } — Twilio recording → Whisper → save
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as { recordingSid?: string; callSid?: string } | null;
   if (!body?.recordingSid) return jsonError("recordingSid is required.");
+  // Only a Twilio recording SID — it is spliced into an authenticated Twilio URL.
+  if (!/^RE[0-9a-f]{32}$/i.test(body.recordingSid)) return jsonError("Invalid recording sid.");
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;

@@ -1,4 +1,4 @@
-import { requireUser, AuthError } from "@/lib/server/require-user";
+import { adminGuard } from "@/lib/server/api-guard";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
 export const runtime = "nodejs";
@@ -7,6 +7,8 @@ const ITEM_SELECT = "id, loop_id, media_id, position, duration_sec, transition, 
 
 // GET /api/admin/displays/loops — loops with their items and joined creative.
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const sb = supabaseAdmin();
   const { data: loops, error } = await sb
     .from("display_loops").select("*").eq("archived", false).order("updated_at", { ascending: false });
@@ -31,8 +33,8 @@ export async function GET() {
 // Items are replaced wholesale rather than diffed: a loop is a short ordered
 // list, and a full replace can't leave the order half-applied.
 export async function POST(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const b = await request.json().catch(() => null);
   const name = String(b?.name || "").trim();
@@ -83,8 +85,8 @@ export async function POST(request: Request) {
 
 // DELETE /api/admin/displays/loops?id=…
 export async function DELETE(request: Request) {
-  try { await requireUser(); }
-  catch (err) { const e = err as AuthError; return Response.json({ error: e.message }, { status: e.status ?? 401 }); }
+  const denied = await adminGuard();
+  if (denied) return denied;
 
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id is required." }, { status: 400 });

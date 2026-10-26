@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { sendNotificationEmail } from "@/lib/server/email";
 import { supabaseAdmin } from "@/lib/server/supabase";
 import { jsonError } from "@/lib/server/twilio";
@@ -15,6 +16,8 @@ const addresses = (v: unknown) =>
 // with the template id, which is what the History view and per-template send
 // counts read.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const b = await request.json().catch(() => null);
   const to = addresses(b?.to);
   const cc = addresses(b?.cc);

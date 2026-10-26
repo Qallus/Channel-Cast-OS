@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { getPlacementConfig, setPlacementConfig } from "@/lib/server/placement-config";
 
 export const runtime = "nodejs";
@@ -9,6 +10,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const n = Number((body as { minDailyVisitors?: unknown }).minDailyVisitors);
   if (!Number.isFinite(n) || n < 0) return Response.json({ error: "minDailyVisitors must be a non-negative number" }, { status: 400 });

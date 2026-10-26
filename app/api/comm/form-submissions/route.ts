@@ -1,9 +1,12 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { deleteRecord, listRecords, upsertRecords } from "@/lib/server/crm-db";
 
 export const runtime = "nodejs";
 
 // GET /api/comm/form-submissions → website form submissions (leads), newest first.
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const rows = await listRecords("leads");
     const submissions = rows
@@ -17,6 +20,8 @@ export async function GET() {
 
 // PATCH /api/comm/form-submissions { id, status } → update a submission's status (new|read|archived).
 export async function PATCH(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const id = String((body as { id?: string }).id || "");
   const status = String((body as { status?: string }).status || "");
@@ -34,6 +39,8 @@ export async function PATCH(req: Request) {
 
 // DELETE /api/comm/form-submissions?id=... → remove a submission.
 export async function DELETE(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const id = new URL(req.url).searchParams.get("id") || "";
   if (!id) return Response.json({ error: "id required" }, { status: 400 });
   try {

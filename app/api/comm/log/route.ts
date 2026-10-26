@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { recordCommunication, type CommKind } from "@/lib/server/communications";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -21,6 +22,8 @@ const LOGGABLE = new Set<CommKind>([
 // { kind, body, subject?, occurredAt?, direction?, from?, to?, durationSeconds?,
 //   amount?, opportunityId?, contactId?, leadId?, owner?, actor? }
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const p = await request.json().catch(() => null);
   const kind = String(p?.kind || "").trim() as CommKind;
   if (!LOGGABLE.has(kind)) return jsonError(`"${kind || "(none)"}" is not a kind that can be logged by hand.`);

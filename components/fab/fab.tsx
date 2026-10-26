@@ -74,9 +74,15 @@ const fmtPhone = (v: string | null) => {
   return l.length === 10 ? `(${l.slice(0, 3)}) ${l.slice(3, 6)}-${l.slice(6)}` : v;
 };
 
-export function Fab() {
+// Operator-only tools: their APIs (/api/agent/chat, /api/comm/*, /api/admin/uploads
+// via the recorder, device setup) are admins only, so the advertiser and owner
+// portals get the Fab without them.
+const PORTAL_TOOLS = new Set<ToolId>(["dm", "notes"]);
+
+export function Fab({ portal = false }: { portal?: boolean } = {}) {
+  const tools = portal ? TOOLS.filter((t) => PORTAL_TOOLS.has(t.id)) : TOOLS;
   const [open, setOpen] = useState(false);
-  const [tool, setTool] = useState<ToolId>("agent");
+  const [tool, setTool] = useState<ToolId>(portal ? "dm" : "agent");
   const [expanded, setExpanded] = useState(false);
   const [dialSeed, setDialSeed] = useState("");
 
@@ -107,7 +113,7 @@ export function Fab() {
 
   const tabRow = (
     <div className="flex items-center gap-0.5">
-      {TOOLS.map((t) => {
+      {tools.map((t) => {
         const Icon = t.icon;
         const active = tool === t.id;
         return (
@@ -175,7 +181,7 @@ export function Fab() {
             {/* Tool rail */}
             <div className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border py-3 sm:w-52 sm:items-stretch sm:px-2">
               <p className="hidden px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:block">Quick actions</p>
-              {TOOLS.map((t) => {
+              {tools.map((t) => {
                 const Icon = t.icon;
                 const active = tool === t.id;
                 const btn = (
@@ -202,7 +208,7 @@ export function Fab() {
             {/* Content */}
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <p className="text-sm font-semibold text-foreground">{TOOLS.find((t) => t.id === tool)?.label}</p>
+                <p className="text-sm font-semibold text-foreground">{tools.find((t) => t.id === tool)?.label}</p>
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => setExpanded(false)} aria-label="Collapse" className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><Minimize2 className="h-4 w-4" /></button>
                   <button onClick={() => setOpen(false)} aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button>

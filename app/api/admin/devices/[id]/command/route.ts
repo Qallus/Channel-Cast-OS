@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { enqueueCommand, getDeviceById } from "@/lib/server/db";
 
 export const runtime = "nodejs";
@@ -7,6 +8,8 @@ const ALLOWED = new Set(["set_volume", "test_play", "stop", "next", "set_motion"
 // POST /api/admin/devices/:id/command
 //   { type: "set_volume" | "test_play" | "stop" | "next" | "set_motion", payload }
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const type = body?.type;

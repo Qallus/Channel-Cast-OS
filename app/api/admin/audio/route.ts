@@ -1,3 +1,4 @@
+import { adminGuard, signedInGuard } from "@/lib/server/api-guard";
 import path from "node:path";
 
 import { createAudio, listAudio } from "@/lib/server/db";
@@ -17,11 +18,15 @@ const EXT: Record<string, string> = {
 
 // GET /api/admin/audio → list
 export async function GET() {
+  const denied = await signedInGuard();
+  if (denied) return denied;
   return Response.json(await listAudio());
 }
 
 // POST /api/admin/audio  (multipart: file) → uploaded audio record
 export async function POST(req: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
   if (!file || !(file instanceof File)) {

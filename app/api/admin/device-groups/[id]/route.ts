@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { deleteGroup, updateGroup } from "@/lib/server/db";
 
 export const runtime = "nodejs";
@@ -8,6 +9,8 @@ const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-"
 //   { name?, description?, imageUrl?, listed?, slug?, spaceType?, city?, state?,
 //     pricePerWeek?, audiencePerWeek?, tags? }
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const patch: Parameters<typeof updateGroup>[1] = {};
@@ -38,6 +41,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 // DELETE /api/admin/device-groups/:id — members become ungrouped.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const { id } = await params;
   await deleteGroup(id);
   return Response.json({ ok: true });

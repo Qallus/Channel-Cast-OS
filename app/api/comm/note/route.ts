@@ -1,3 +1,4 @@
+import { adminGuard } from "@/lib/server/api-guard";
 import { recordCommunication } from "@/lib/server/communications";
 import { jsonError } from "@/lib/server/twilio";
 
@@ -8,6 +9,8 @@ export const runtime = "nodejs";
 // Notes live in the same communications log as calls and texts so the activity
 // timeline stays a single ordered stream rather than merging two sources.
 export async function POST(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const payload = await request.json().catch(() => null);
   const body = String(payload?.body || "").trim();
   if (!body) return jsonError("A note body is required.");

@@ -77,7 +77,7 @@ export function OwnerShell({ children, userEmail }: { children: React.ReactNode;
         </header>
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">{children}</main>
       </div>
-      <Fab />
+      <Fab portal />
     </div>
   );
 }
