@@ -55,6 +55,17 @@ export async function listRecords(collection: CrmCollection): Promise<Rec[]> {
   return (data ?? []).map((r) => r.data as Rec);
 }
 
+export async function getRecord(collection: CrmCollection, id: string): Promise<Rec | null> {
+  const { data, error } = await supabaseAdmin()
+    .from("crm_records")
+    .select("data")
+    .eq("collection", collection)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.data as Rec) ?? null;
+}
+
 export async function upsertRecords(collection: CrmCollection, records: Rec[]): Promise<void> {
   if (!records.length) return;
   const rows = records

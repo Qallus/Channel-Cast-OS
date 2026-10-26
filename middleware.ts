@@ -58,8 +58,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Run on pages only — skip static assets, images, the device installers,
-  // and API routes (those authenticate with their own tokens, not the session).
+  // API routes (those authenticate with their own tokens, not the session), and
+  // the OAuth discovery documents.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/|agent.py|install.ps1|install.sh|install-display.sh|install-display.ps1|install-display.bat|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/|\.well-known/|agent.py|install.ps1|install.sh|install-display.sh|install-display.ps1|install-display.bat|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)",
   ],
 };
